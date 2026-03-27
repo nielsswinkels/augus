@@ -32,6 +32,7 @@ const i18n = {
     closeGallery: "Close gallery",
     zoomIn: "Zoom in",
     zoomOut: "Zoom out",
+    mapHome: "Reset map view",
     loading: "Loading...",
   },
   sv: {
@@ -60,6 +61,7 @@ const i18n = {
     closeGallery: "Stäng galleri",
     zoomIn: "Zooma in",
     zoomOut: "Zooma ut",
+    mapHome: "Återställ kartvyn",
     loading: "Laddar...",
   },
 };
@@ -120,6 +122,7 @@ const dom = {
   mapViewContainer: $("#mapViewContainer"),
   mapContainer: $("#mapContainer"),
   mapImage: $("#mapImage"),
+  btnMapHome: $("#btnMapHome"),
   btnZoomIn: $("#btnZoomIn"),
   btnZoomOut: $("#btnZoomOut"),
   // Scanner
@@ -210,6 +213,7 @@ function updateUILanguage() {
   dom.btnCloseGallery.setAttribute("aria-label", t.closeGallery);
   dom.btnGalleryPrev.setAttribute("aria-label", t.prevImage);
   dom.btnGalleryNext.setAttribute("aria-label", t.nextImage);
+  dom.btnMapHome.setAttribute("aria-label", t.mapHome);
   dom.btnZoomIn.setAttribute("aria-label", t.zoomIn);
   dom.btnZoomOut.setAttribute("aria-label", t.zoomOut);
 }
@@ -740,6 +744,8 @@ function renderMapView() {
     const renderedH = dom.mapImage.naturalHeight * (containerW / dom.mapImage.naturalWidth);
     state.mapZoom = 1;
     state.mapPan = { x: 0, y: Math.max(0, (containerH - renderedH) / 2) };
+    state.mapHomeZoom = state.mapZoom;
+    state.mapHomePan = { ...state.mapPan };
     applyMapTransform();
   };
   if (dom.mapImage.complete) dom.mapImage.onload();
@@ -747,18 +753,36 @@ function renderMapView() {
 
 function applyMapTransform() {
   dom.mapContainer.style.transform = `translate(${state.mapPan.x}px, ${state.mapPan.y}px) scale(${state.mapZoom})`;
+  // Counter-scale pins so they stay the same visual size regardless of zoom level
+  const invScale = 1 / state.mapZoom;
+  dom.mapContainer.querySelectorAll(".map-pin").forEach(pin => {
+    pin.style.transform = `translate(-50%, -50%) scale(${invScale})`;
+  });
 }
 
 function setupMapEvents() {
-  dom.btnZoomIn.addEventListener("click", () => {
-    state.mapZoom = Math.min(4, state.mapZoom * 1.3);
+  dom.btnMapHome.addEventListener("click", () => {
+    state.mapZoom = state.mapHomeZoom ?? 1;
+    state.mapPan = state.mapHomePan ? { ...state.mapHomePan } : { x: 0, y: 0 };
     applyMapTransform();
   });
 
-  dom.btnZoomOut.addEventListener("click", () => {
-    state.mapZoom = Math.max(0.5, state.mapZoom / 1.3);
+  function zoomTowardCenter(factor) {
+    const rect = dom.mapViewContainer.getBoundingClientRect();
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    // Map-space coordinates currently under the screen center
+    const mx = (cx - state.mapPan.x) / state.mapZoom;
+    const my = (cy - state.mapPan.y) / state.mapZoom;
+    state.mapZoom = Math.max(0.5, Math.min(4, state.mapZoom * factor));
+    // Reposition so the same map point stays under the screen center
+    state.mapPan.x = cx - mx * state.mapZoom;
+    state.mapPan.y = cy - my * state.mapZoom;
     applyMapTransform();
-  });
+  }
+
+  dom.btnZoomIn.addEventListener("click", () => zoomTowardCenter(1.3));
+  dom.btnZoomOut.addEventListener("click", () => zoomTowardCenter(1 / 1.3));
 
   // Pan (1 finger / mouse) + pinch-to-zoom (2 fingers)
   const activePointers = new Map(); // pointerId -> {x, y}
@@ -954,6 +978,11 @@ function showView(name) {
     const setName = state.currentSet[`name_${lang}`] || state.currentSet.name_en;
     dom.headerTitle.textContent = setName;
     document.title = `${setName} — Augus`;
+    // Keep URL in sync with the set level (no object slug)
+    const setHash = `#/${state.currentSet.slug}/`;
+    if (window.location.hash !== setHash) {
+      history.replaceState(null, "", setHash);
+    }
   }
 
   // Show target

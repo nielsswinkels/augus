@@ -528,8 +528,10 @@ body {
 .map-pin {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 40px;
-  height: 40px;
+  /* Size scales with the user's font-size setting */
+  font-size: var(--font-size-base);
+  width: 2.5em;
+  height: 2.5em;
   border-radius: 50%;
   background: var(--color-primary);
   color: var(--color-primary-text);
@@ -539,7 +541,6 @@ body {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 0.9rem;
   cursor: pointer;
   z-index: 10;
   text-decoration: none;
@@ -564,6 +565,12 @@ body {
 .map-controls .btn {
   background: var(--color-bg);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.map-controls .btn svg {
+  width: 1.1em;
+  height: 1.1em;
+  display: block;
 }
 
 /* ===== QR SCANNER ===== */
