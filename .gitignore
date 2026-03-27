@@ -3,3 +3,4 @@ pocketbase.exe
 pocketbase
 *.zip
 .claude/
+docker-compose.override.yml
