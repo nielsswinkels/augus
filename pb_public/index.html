@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0057b8">
+  <title>Augus</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- ===== HEADER ===== -->
+  <header class="header" role="banner">
+    <h1 class="header__title" id="headerTitle">Augus</h1>
+    <div class="header__actions">
+      <button class="btn btn--icon" id="btnList" aria-label="Object list" title="Object list">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      </button>
+      <button class="btn btn--icon hidden" id="btnMapView" aria-label="Map view" title="Map view">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+      </button>
+      <button class="btn btn--icon" id="btnScan" aria-label="Scan QR code" title="Scan QR code">
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5.5" y="5.5" width="2" height="2"/><rect x="14" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="16.5" y="5.5" width="2" height="2"/><rect x="3" y="14" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5.5" y="16.5" width="2" height="2"/><rect x="14" y="14" width="2" height="2"/><rect x="17" y="14" width="2" height="2"/><rect x="19" y="16" width="2" height="2"/><rect x="14" y="17" width="2" height="2"/><rect x="16" y="19" width="2" height="2"/><rect x="19" y="19" width="2" height="2"/></svg>
+      </button>
+      <button class="btn btn--icon" id="btnSettings" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== OBJECT PAGE ===== -->
+  <main class="view object-page" id="viewObject" role="main">
+    <div class="thumbnail-container hidden" id="thumbnailContainer">
+      <img class="thumbnail" id="thumbnail" src="" alt="" role="button" tabindex="0" aria-label="View image gallery">
+    </div>
+
+    <div class="subtitles-area" id="subtitlesArea" aria-live="polite" aria-label="Audio transcript">
+      <!-- Subtitle cues rendered here -->
+    </div>
+
+    <div class="no-audio-message hidden" id="noAudioMessage">
+      <!-- Shown when no audio available -->
+    </div>
+  </main>
+
+  <!-- ===== AUDIO PLAYER ===== -->
+  <div class="audio-player hidden" id="audioPlayer" role="region" aria-label="Audio player">
+    <div class="player-progress">
+      <span class="player-progress__time" id="playerCurrentTime" aria-hidden="true">0:00</span>
+      <input type="range" class="player-progress__bar" id="playerSeekbar" min="0" max="100" value="0" step="0.1"
+        aria-label="Audio progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <span class="player-progress__time" id="playerDuration" aria-hidden="true">0:00</span>
+    </div>
+    <div class="player-controls">
+      <button class="btn btn--icon" id="btnSkipBack" aria-label="Skip back 15 seconds">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="bold" fill="currentColor">15</text></svg>
+      </button>
+      <button class="btn btn--icon btn--large" id="btnPlayPause" aria-label="Play">
+        <svg viewBox="0 0 24 24" fill="currentColor" id="iconPlay"><polygon points="5,3 19,12 5,21"/></svg>
+        <svg viewBox="0 0 24 24" fill="currentColor" id="iconPause" class="hidden"><rect x="5" y="3" width="4" height="18"/><rect x="15" y="3" width="4" height="18"/></svg>
+      </button>
+      <button class="btn btn--icon" id="btnSkipForward" aria-label="Skip forward 15 seconds">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.01 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="bold" fill="currentColor">15</text></svg>
+      </button>
+    </div>
+    <audio id="audioElement" preload="metadata"></audio>
+  </div>
+
+  <!-- ===== LIST VIEW ===== -->
+  <div class="view" id="viewList" role="region" aria-label="Object list">
+    <div class="list-view">
+      <ul class="object-list" id="objectList" role="list">
+        <!-- Items rendered by JS -->
+      </ul>
+    </div>
+  </div>
+
+  <!-- ===== MAP VIEW ===== -->
+  <div class="view" id="viewMap" role="region" aria-label="Object map">
+    <div class="map-view" id="mapViewContainer">
+      <div class="map-container" id="mapContainer">
+        <img class="map-container__image" id="mapImage" src="" alt="Exhibition map" draggable="false">
+        <!-- Map pins rendered by JS -->
+      </div>
+      <div class="map-controls">
+        <button class="btn" id="btnZoomIn" aria-label="Zoom in">+</button>
+        <button class="btn" id="btnZoomOut" aria-label="Zoom out">&minus;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== QR SCANNER ===== -->
+  <div class="view scanner-view" id="viewScanner" role="region" aria-label="QR code scanner">
+    <div class="scanner-video-container">
+      <video id="scannerVideo" autoplay playsinline muted></video>
+      <div class="scanner-overlay">
+        <div class="scanner-frame" aria-hidden="true"></div>
+        <p class="scanner-text" id="scannerText">Scan the QR code on the next object</p>
+      </div>
+      <div class="scanner-toast" id="scannerToast" role="alert"></div>
+    </div>
+  </div>
+
+  <!-- ===== SETTINGS OVERLAY ===== -->
+  <div class="settings-overlay" id="settingsOverlay" role="dialog" aria-label="Settings" aria-modal="true">
+    <div class="settings-panel">
+      <div class="settings-panel__header">
+        <h2 class="settings-panel__title" id="settingsTitle">Settings</h2>
+        <button class="btn btn--icon gallery-close" id="btnCloseSettings" aria-label="Close settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-row__label" id="labelAutoplay">Autoplay audio</span>
+        <label class="toggle">
+          <input type="checkbox" id="settingAutoplay" checked aria-labelledby="labelAutoplay">
+          <span class="toggle__slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-row__label" id="labelLanguage">Language</span>
+        <div class="setting-row__control segmented" role="radiogroup" aria-labelledby="labelLanguage">
+          <button class="segmented__option active" data-lang="en" role="radio" aria-checked="true">English</button>
+          <button class="segmented__option" data-lang="sv" role="radio" aria-checked="false">Svenska</button>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-row__label" id="labelFontSize">Font size</span>
+        <div class="setting-row__control segmented" role="radiogroup" aria-labelledby="labelFontSize">
+          <button class="segmented__option active" data-fontsize="normal" role="radio" aria-checked="true">A</button>
+          <button class="segmented__option" data-fontsize="xl" role="radio" aria-checked="false" style="font-size:1.25em">A</button>
+          <button class="segmented__option" data-fontsize="xxl" role="radio" aria-checked="false" style="font-size:1.5em">A</button>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <span class="setting-row__label" id="labelCaptionsAloud">Read captions aloud</span>
+        <label class="toggle">
+          <input type="checkbox" id="settingCaptionsAloud" aria-labelledby="labelCaptionsAloud">
+          <span class="toggle__slider"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== GALLERY OVERLAY ===== -->
+  <div class="gallery-overlay" id="galleryOverlay" role="dialog" aria-label="Image gallery" aria-modal="true">
+    <div class="gallery-header">
+      <span class="gallery-header__counter" id="galleryCounter">1 / 1</span>
+      <button class="gallery-close" id="btnCloseGallery" aria-label="Close gallery">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="gallery-body">
+      <button class="gallery-nav gallery-nav--prev" id="btnGalleryPrev" aria-label="Previous image">&lsaquo;</button>
+      <img class="gallery-body__image" id="galleryImage" src="" alt="">
+      <button class="gallery-nav gallery-nav--next" id="btnGalleryNext" aria-label="Next image">&rsaquo;</button>
+    </div>
+    <p class="gallery-caption" id="galleryCaption"></p>
+  </div>
+
+  <!-- ===== TOAST ===== -->
+  <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+
+  <script src="/js/lib/jsQR.js"></script>
+  <script src="/js/app.js" type="module"></script>
+</body>
+</html>

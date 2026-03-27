@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Augus — Admin</title>
+  <link rel="stylesheet" href="/admin/css/admin.css">
+</head>
+<body>
+  <!-- ===== LOGIN ===== -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <h1 class="login-card__title">Augus Admin</h1>
+      <form id="loginForm" class="login-form">
+        <label for="loginEmail" class="form-label">Email</label>
+        <input type="email" id="loginEmail" class="form-input" required autocomplete="email">
+        <label for="loginPassword" class="form-label">Password</label>
+        <input type="password" id="loginPassword" class="form-input" required autocomplete="current-password">
+        <button type="submit" class="btn btn--primary btn--full">Log in</button>
+        <p class="login-error hidden" id="loginError" role="alert">Invalid credentials</p>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== ADMIN APP ===== -->
+  <div class="admin-app hidden" id="adminApp">
+    <header class="admin-header">
+      <h1 class="admin-header__title">Augus Admin</h1>
+      <button class="btn btn--small" id="btnLogout">Log out</button>
+    </header>
+
+    <nav class="admin-nav" aria-label="Admin navigation">
+      <button class="admin-nav__tab active" data-tab="sets">Sets</button>
+      <button class="admin-nav__tab" data-tab="objects">Objects</button>
+    </nav>
+
+    <!-- ===== SETS TAB ===== -->
+    <div class="admin-panel" id="panelSets">
+      <div class="panel-header">
+        <h2>Sets</h2>
+        <button class="btn btn--primary" id="btnNewSet">+ New Set</button>
+      </div>
+      <div class="sets-list" id="setsList">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <!-- ===== SET FORM ===== -->
+    <div class="admin-panel hidden" id="panelSetForm">
+      <div class="panel-header">
+        <button class="btn" id="btnBackToSets">&larr; Back</button>
+        <h2 id="setFormTitle">New Set</h2>
+        <button class="btn btn--primary" id="btnGoToObjects" style="display:none">Objects &rarr;</button>
+      </div>
+      <form id="setForm" class="admin-form">
+        <input type="hidden" id="setFormId">
+
+        <div class="form-row">
+          <label for="setSlug" class="form-label">Slug (URL-safe, lowercase)</label>
+          <input type="text" id="setSlug" class="form-input" required pattern="^[a-z0-9\-]+$"
+            placeholder="e.g. viking-gallery">
+        </div>
+
+        <fieldset class="form-fieldset">
+          <legend>English</legend>
+          <label for="setNameEn" class="form-label">Name</label>
+          <input type="text" id="setNameEn" class="form-input" required>
+          <label for="setDescEn" class="form-label">Description</label>
+          <textarea id="setDescEn" class="form-input form-textarea"></textarea>
+        </fieldset>
+
+        <fieldset class="form-fieldset">
+          <legend>Svenska</legend>
+          <label for="setNameSv" class="form-label">Namn</label>
+          <input type="text" id="setNameSv" class="form-input">
+          <label for="setDescSv" class="form-label">Beskrivning</label>
+          <textarea id="setDescSv" class="form-input form-textarea"></textarea>
+        </fieldset>
+
+        <div class="form-row">
+          <label for="setMapImage" class="form-label">Map image (optional)</label>
+          <input type="file" id="setMapImage" class="form-input" accept="image/png,image/jpeg,image/webp">
+          <div class="current-file hidden" id="setMapImageCurrent"></div>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label">Colour scheme (optional)</label>
+          <div class="color-scheme-row">
+            <div class="color-scheme-field">
+              <label for="setColorPrimaryText" class="form-label form-label--small">Primary</label>
+              <div class="color-input-wrap">
+                <input type="color" id="setColorPrimary" value="#0057b8" tabindex="-1" aria-hidden="true">
+                <input type="text" id="setColorPrimaryText" class="form-input color-hex-input" value="#0057b8" maxlength="7" placeholder="#0057b8" spellcheck="false">
+              </div>
+              <p class="form-hint">Buttons, pins, active states</p>
+            </div>
+            <div class="color-scheme-field">
+              <label for="setColorAccentText" class="form-label form-label--small">Background</label>
+              <div class="color-input-wrap">
+                <input type="color" id="setColorAccent" value="#ffffff" tabindex="-1" aria-hidden="true">
+                <input type="text" id="setColorAccentText" class="form-input color-hex-input" value="#ffffff" maxlength="7" placeholder="#ffffff" spellcheck="false">
+              </div>
+              <p class="form-hint">Page background colour</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary">Save</button>
+          <button type="button" class="btn btn--danger" id="btnDeleteSet">Delete Set</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ===== OBJECTS TAB ===== -->
+    <div class="admin-panel hidden" id="panelObjects">
+      <div class="panel-header">
+        <h2>Objects</h2>
+        <div class="panel-header__actions">
+          <select id="objectSetFilter" class="form-input form-select" aria-label="Filter by set">
+            <option value="">Select a set...</option>
+          </select>
+          <button class="btn btn--primary hidden" id="btnNewObject">+ New Object</button>
+        </div>
+      </div>
+      <div class="objects-list" id="objectsList">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <!-- ===== OBJECT FORM ===== -->
+    <div class="admin-panel hidden" id="panelObjectForm">
+      <div class="panel-header">
+        <button class="btn" id="btnBackToObjects">&larr; Back</button>
+        <h2 id="objectFormTitle">New Object</h2>
+        <div class="panel-header__actions">
+          <button class="btn" id="btnPreviewObject" title="Preview">Preview</button>
+          <button class="btn" id="btnQRCode" title="QR Code">QR Code</button>
+        </div>
+      </div>
+      <form id="objectForm" class="admin-form">
+        <input type="hidden" id="objectFormId">
+        <input type="hidden" id="objectFormSetId">
+
+        <div class="form-row form-row--inline">
+          <div>
+            <label for="objectSlug" class="form-label">Slug</label>
+            <input type="text" id="objectSlug" class="form-input" required pattern="^[a-z0-9\-]+$"
+              placeholder="e.g. runestone-1">
+          </div>
+          <div>
+            <label for="objectSortOrder" class="form-label">Number / Order</label>
+            <input type="number" id="objectSortOrder" class="form-input" required min="0" value="1">
+          </div>
+          <div>
+            <label for="objectDefaultLang" class="form-label">Default language</label>
+            <select id="objectDefaultLang" class="form-input form-select">
+              <option value="en">English</option>
+              <option value="sv">Svenska</option>
+            </select>
+          </div>
+        </div>
+
+        <fieldset class="form-fieldset">
+          <legend>English</legend>
+          <label for="objectNameEn" class="form-label">Name</label>
+          <input type="text" id="objectNameEn" class="form-input" required>
+          <label for="objectDescEn" class="form-label">Description</label>
+          <textarea id="objectDescEn" class="form-input form-textarea"></textarea>
+          <label for="objectAudioEn" class="form-label">Audio (MP3)</label>
+          <input type="file" id="objectAudioEn" class="form-input" accept="audio/mpeg,audio/mp3,audio/ogg">
+          <div class="current-file hidden" id="objectAudioEnCurrent"></div>
+          <label for="objectSubtitlesEn" class="form-label">Subtitles (VTT)</label>
+          <input type="file" id="objectSubtitlesEn" class="form-input" accept=".vtt,text/vtt,text/plain">
+          <div class="current-file hidden" id="objectSubtitlesEnCurrent"></div>
+        </fieldset>
+
+        <fieldset class="form-fieldset">
+          <legend>Svenska</legend>
+          <label for="objectNameSv" class="form-label">Namn</label>
+          <input type="text" id="objectNameSv" class="form-input">
+          <label for="objectDescSv" class="form-label">Beskrivning</label>
+          <textarea id="objectDescSv" class="form-input form-textarea"></textarea>
+          <label for="objectAudioSv" class="form-label">Ljud (MP3)</label>
+          <input type="file" id="objectAudioSv" class="form-input" accept="audio/mpeg,audio/mp3,audio/ogg">
+          <div class="current-file hidden" id="objectAudioSvCurrent"></div>
+          <label for="objectSubtitlesSv" class="form-label">Undertexter (VTT)</label>
+          <input type="file" id="objectSubtitlesSv" class="form-input" accept=".vtt,text/vtt,text/plain">
+          <div class="current-file hidden" id="objectSubtitlesSvCurrent"></div>
+        </fieldset>
+
+        <fieldset class="form-fieldset">
+          <legend>Map position</legend>
+          <div class="form-row form-row--inline">
+            <div>
+              <label for="objectMapX" class="form-label">X (%)</label>
+              <input type="number" id="objectMapX" class="form-input" min="0" max="100" step="0.1">
+            </div>
+            <div>
+              <label for="objectMapY" class="form-label">Y (%)</label>
+              <input type="number" id="objectMapY" class="form-input" min="0" max="100" step="0.1">
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn--primary">Save Object</button>
+          <button type="button" class="btn btn--danger" id="btnDeleteObject">Delete Object</button>
+        </div>
+      </form>
+
+      <!-- Images section -->
+      <div class="admin-section">
+        <h3>Images</h3>
+        <div class="images-grid" id="imagesGrid">
+          <!-- Rendered by JS -->
+        </div>
+        <form id="imageUploadForm" class="image-upload-form">
+          <input type="file" id="imageFile" class="form-input" accept="image/png,image/jpeg,image/webp,image/gif" required>
+          <div class="form-row form-row--inline">
+            <div>
+              <label for="imageCaptionEn" class="form-label">Caption (EN)</label>
+              <input type="text" id="imageCaptionEn" class="form-input">
+            </div>
+            <div>
+              <label for="imageCaptionSv" class="form-label">Caption (SV)</label>
+              <input type="text" id="imageCaptionSv" class="form-input">
+            </div>
+          </div>
+          <button type="submit" class="btn btn--primary">Upload Image</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===== QR CODE MODAL ===== -->
+    <div class="modal-overlay hidden" id="qrModal">
+      <div class="modal">
+        <div class="modal__header">
+          <h3>QR Code</h3>
+          <button class="btn btn--icon" id="btnCloseQR" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal__body" id="qrCodeContainer">
+          <canvas id="qrCanvas"></canvas>
+        </div>
+        <div class="modal__footer">
+          <button class="btn btn--primary" id="btnDownloadQR">Download QR Code</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/admin/js/admin.js" type="module"></script>
+</body>
+</html>
