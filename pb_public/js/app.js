@@ -68,7 +68,7 @@ const i18n = {
 const state = {
   settings: {
     autoplay: true,
-    language: "en",
+    language: "sv",
     fontSize: "normal",
     captionsAloud: false,
   },
