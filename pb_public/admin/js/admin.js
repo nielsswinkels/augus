@@ -408,6 +408,7 @@ async function editObject(obj) {
     $("#btnPreviewObject").classList.add("hidden");
     $("#btnQRCode").classList.add("hidden");
     $("#imagesGrid").innerHTML = "";
+    setupMapPicker(null);
   }
 
   // Clear file inputs
