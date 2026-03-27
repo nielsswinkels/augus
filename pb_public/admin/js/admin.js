@@ -182,8 +182,14 @@ function editSet(set) {
 async function saveSet(e) {
   e.preventDefault();
   const id = $("#setFormId").value;
+  const slug = $("#setSlug").value.trim();
+  const reserved = ["admin", "api", "_", "js", "css"];
+  if (reserved.includes(slug)) {
+    showToast(`"${slug}" is a reserved name and cannot be used as a slug.`);
+    return;
+  }
   const formData = new FormData();
-  formData.append("slug", $("#setSlug").value.trim());
+  formData.append("slug", slug);
   formData.append("name_en", $("#setNameEn").value.trim());
   formData.append("name_sv", $("#setNameSv").value.trim());
   formData.append("description_en", $("#setDescEn").value.trim());
@@ -381,6 +387,9 @@ async function editObject(obj) {
 
     // Load images
     loadObjectImages(obj.id);
+
+    // Set up map picker
+    setupMapPicker(obj);
   } else {
     $("#objectFormId").value = "";
     $("#objectFormSetId").value = selectedSetId;
@@ -480,6 +489,57 @@ function backToObjects() {
   $("#panelObjectForm").classList.add("hidden");
   $("#panelObjects").classList.remove("hidden");
   loadObjects(selectedSetId);
+}
+
+// ===== MAP PICKER =====
+function setupMapPicker(obj) {
+  const set = currentSets.find((s) => s.id === (obj ? obj.set : selectedSetId));
+  const container = $("#mapPickerContainer");
+  const noMap = $("#mapPickerNoMap");
+  const picker = $("#mapPicker");
+  const img = $("#mapPickerImage");
+  const pin = $("#mapPickerPin");
+  const pinLabel = $("#mapPickerPinLabel");
+
+  if (!set || !set.map_image) {
+    container.classList.add("hidden");
+    noMap.classList.remove("hidden");
+    return;
+  }
+
+  noMap.classList.add("hidden");
+  container.classList.remove("hidden");
+  img.src = fileUrl("sets", set.id, set.map_image);
+  pinLabel.textContent = obj ? obj.sort_order : "";
+
+  // Place pin if coordinates exist
+  function updatePinPosition() {
+    const x = parseFloat($("#objectMapX").value);
+    const y = parseFloat($("#objectMapY").value);
+    if (!isNaN(x) && !isNaN(y)) {
+      pin.style.left = x + "%";
+      pin.style.top = y + "%";
+      pin.classList.remove("hidden");
+    } else {
+      pin.classList.add("hidden");
+    }
+  }
+
+  updatePinPosition();
+
+  // Click on map to place pin
+  picker.onclick = (e) => {
+    const rect = img.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
+    const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1);
+    $("#objectMapX").value = x;
+    $("#objectMapY").value = y;
+    updatePinPosition();
+  };
+
+  // Also update pin when inputs change manually
+  $("#objectMapX").oninput = updatePinPosition;
+  $("#objectMapY").oninput = updatePinPosition;
 }
 
 // ===== IMAGES =====

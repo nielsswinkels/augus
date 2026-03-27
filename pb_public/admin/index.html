@@ -189,9 +189,19 @@
           <div class="current-file hidden" id="objectSubtitlesSvCurrent"></div>
         </fieldset>
 
-        <fieldset class="form-fieldset">
+        <fieldset class="form-fieldset" id="mapPositionFieldset">
           <legend>Map position</legend>
-          <div class="form-row form-row--inline">
+          <div id="mapPickerContainer" class="map-picker-container hidden">
+            <p class="form-hint" style="margin-bottom:var(--spacing-sm)">Click on the map to place the pin</p>
+            <div class="map-picker" id="mapPicker">
+              <img id="mapPickerImage" src="" alt="Map" draggable="false">
+              <div class="map-picker__pin hidden" id="mapPickerPin">
+                <span id="mapPickerPinLabel">1</span>
+              </div>
+            </div>
+          </div>
+          <p class="form-hint hidden" id="mapPickerNoMap">This set has no map image. Upload one in the set settings first.</p>
+          <div class="form-row form-row--inline" style="margin-top:var(--spacing-sm)">
             <div>
               <label for="objectMapX" class="form-label">X (%)</label>
               <input type="number" id="objectMapX" class="form-input" min="0" max="100" step="0.1">
