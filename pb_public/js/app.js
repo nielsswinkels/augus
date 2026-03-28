@@ -196,9 +196,10 @@ function saveSettings() {
 
 function applySettings() {
   // Font size
-  document.body.classList.remove("font-xl", "font-xxl");
+  document.body.classList.remove("font-xl", "font-xxl", "font-xxxl");
   if (state.settings.fontSize === "xl") document.body.classList.add("font-xl");
   if (state.settings.fontSize === "xxl") document.body.classList.add("font-xxl");
+  if (state.settings.fontSize === "xxxl") document.body.classList.add("font-xxxl");
 
   // Language UI
   document.documentElement.lang = state.settings.language;
@@ -231,6 +232,10 @@ function updateUILanguage() {
   $("#labelLanguage").textContent = t.language;
   $("#labelFontSize").textContent = t.fontSize;
   $("#labelCaptionsAloud").textContent = t.captionsAloud;
+  const hintAutoplay = $("#hintAutoplay");
+  const hintCaptions = $("#hintCaptionsAloud");
+  if (hintAutoplay) hintAutoplay.textContent = t.hintAutoplay;
+  if (hintCaptions) hintCaptions.textContent = t.hintCaptionsAloud;
   dom.btnList.setAttribute("aria-label", t.objectListLabel);
   dom.btnList.setAttribute("title", t.objectListLabel);
   dom.btnScan.setAttribute("aria-label", t.scanQR);
@@ -475,7 +480,8 @@ function renderSubtitles() {
     const cue = state.subtitleCues[i];
     const div = document.createElement("div");
     div.className = "subtitle-cue";
-    div.textContent = cue.text;
+    const timeStr = formatTime(cue.start);
+    div.innerHTML = `<span class="subtitle-cue__time">${timeStr}</span><span>${escapeHtml(cue.text)}</span>`;
     div.dataset.index = i;
     div.addEventListener("click", () => {
       dom.audioElement.currentTime = cue.start;
@@ -555,6 +561,24 @@ function setupAudioEvents() {
     if (audio.duration) {
       audio.currentTime = (dom.playerSeekbar.value / 100) * audio.duration;
     }
+  });
+
+  // Playback speed control
+  const speeds = [1, 1.25, 1.5, 0.75];
+  let speedIndex = 0;
+
+  dom.btnPlaybackSpeed.addEventListener("click", () => {
+    speedIndex = (speedIndex + 1) % speeds.length;
+    const speed = speeds[speedIndex];
+    audio.playbackRate = speed;
+    dom.btnPlaybackSpeed.textContent = speed + "x";
+  });
+
+  // Reset speed when loading new audio
+  audio.addEventListener("loadedmetadata", () => {
+    speedIndex = 0;
+    audio.playbackRate = 1;
+    dom.btnPlaybackSpeed.textContent = "1x";
   });
 }
 
@@ -1040,18 +1064,40 @@ function handleQRCode(data) {
   // Parse hash-based route: /#/set-slug/object-slug
   const hash = (url.hash || "").replace(/^#\/?/, "");
   const parts = hash.split("/").filter(Boolean);
+  let setSlug = null;
+  let objectSlug = null;
+
   if (parts.length >= 2) {
-    stopScanner();
-    navigateTo(parts[0], parts[1]);
+    setSlug = parts[0];
+    objectSlug = parts[1];
   } else {
     // Also support path-based URLs for backwards compat
     const pathParts = url.pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
     if (pathParts.length >= 2) {
-      stopScanner();
-      navigateTo(pathParts[0], pathParts[1]);
-    } else {
-      showScannerToast(t("unrecognizedQR"));
+      setSlug = pathParts[0];
+      objectSlug = pathParts[1];
     }
+  }
+
+  if (setSlug && objectSlug) {
+    // Add subtle vibration feedback
+    if (navigator.vibrate) navigator.vibrate(100);
+
+    // Brief visual feedback - flash the scanner frame green
+    const frame = document.querySelector('.scanner-frame');
+    if (frame) {
+      frame.style.borderColor = '#4caf50';
+      frame.style.boxShadow = '0 0 0 9999px rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(76, 175, 80, 0.5)';
+    }
+
+    // Short delay before navigating for feedback to register
+    state.scannerActive = false; // Stop scanning immediately
+    setTimeout(() => {
+      stopScanner();
+      navigateTo(setSlug, objectSlug);
+    }, 300);
+  } else {
+    showScannerToast(t("unrecognizedQR"));
   }
 }
 

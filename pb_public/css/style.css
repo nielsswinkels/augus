@@ -52,6 +52,13 @@ body.font-xxl {
   --font-size-xxl: 2.25rem;
 }
 
+body.font-xxxl {
+  --font-size-base: 2rem;
+  --font-size-xl: 2.5rem;
+  --font-size-xxl: 3rem;
+  --line-height: 1.4;
+}
+
 /* Reset */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -700,9 +707,23 @@ body {
   border-bottom: none;
 }
 
+.setting-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
 .setting-row__label {
   font-weight: 600;
   font-size: var(--font-size-base);
+}
+
+.setting-row__hint {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  line-height: 1.3;
 }
 
 .setting-row__control {
