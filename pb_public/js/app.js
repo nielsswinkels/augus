@@ -259,6 +259,10 @@ function updateUILanguage() {
   dom.labelNavMap.textContent = t.navMap;
   dom.labelNavScan.textContent = t.navScan;
   dom.labelNavSettings.textContent = t.navSettings;
+
+  // Scanner prompt
+  dom.scannerPromptText.textContent = t.cameraPrompt;
+  dom.btnAllowCamera.textContent = t.allowCamera;
 }
 
 function t(key) {
@@ -312,7 +316,7 @@ async function loadRoute() {
 
   try {
     // Load set
-    const setsResp = await api(`sets/records?filter=(slug='${encodeURIComponent(route.setSlug)}')`);
+    const setsResp = await api(`sets/records?filter=(slug='${encodeURIComponent(route.setSlug)}'&&published=true)`);
     if (!setsResp.items || setsResp.items.length === 0) {
       showToast("Set not found");
       return;
@@ -740,6 +744,33 @@ function setupGalleryEvents() {
       renderGalleryImage();
     }
   });
+
+  // Gallery swipe gestures
+  let galleryTouchStartX = 0;
+  let galleryTouchStartY = 0;
+
+  dom.galleryOverlay.addEventListener("touchstart", (e) => {
+    galleryTouchStartX = e.touches[0].clientX;
+    galleryTouchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  dom.galleryOverlay.addEventListener("touchend", (e) => {
+    const dx = e.changedTouches[0].clientX - galleryTouchStartX;
+    const dy = e.changedTouches[0].clientY - galleryTouchStartY;
+
+    // Only trigger if horizontal swipe is dominant and > 50px
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0 && state.galleryIndex < state.images.length - 1) {
+        // Swipe left = next
+        state.galleryIndex++;
+        renderGalleryImage();
+      } else if (dx > 0 && state.galleryIndex > 0) {
+        // Swipe right = previous
+        state.galleryIndex--;
+        renderGalleryImage();
+      }
+    }
+  });
 }
 
 // ===== List View =====
@@ -991,10 +1022,21 @@ let scannerCanvas = null;
 let scannerCtx = null;
 
 async function startScanner() {
+  // Show prompt screen first, hide video container
+  dom.scannerPrompt.classList.remove("hidden");
+  dom.scannerVideoContainer.classList.add("hidden");
+  dom.scannerPromptText.textContent = t("cameraPrompt");
+  dom.btnAllowCamera.textContent = t("allowCamera");
+}
+
+async function activateCamera() {
   try {
     scannerStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "environment" },
     });
+    // Hide prompt, show video
+    dom.scannerPrompt.classList.add("hidden");
+    dom.scannerVideoContainer.classList.remove("hidden");
     dom.scannerVideo.srcObject = scannerStream;
     scannerCanvas = document.createElement("canvas");
     scannerCtx = scannerCanvas.getContext("2d");
@@ -1017,6 +1059,13 @@ function stopScanner() {
   scannerCanvas = null;
   scannerCtx = null;
   dom.scannerVideo.srcObject = null;
+
+  // Reset scanner frame styles (in case QR feedback changed them)
+  const frame = document.querySelector('.scanner-frame');
+  if (frame) {
+    frame.style.borderColor = '';
+    frame.style.boxShadow = '';
+  }
 }
 
 function scanFrame() {
@@ -1348,6 +1397,9 @@ function init() {
   setupSettingsEvents();
   setupNavigationEvents();
   setupMapEvents();
+
+  // Camera pre-prompt: allow button triggers actual camera access
+  dom.btnAllowCamera.addEventListener("click", () => activateCamera());
 
   // Document-level Escape key handler for modals
   document.addEventListener("keydown", (e) => {

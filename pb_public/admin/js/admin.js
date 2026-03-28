@@ -122,7 +122,7 @@ function renderSetsList() {
     card.setAttribute("role", "button");
     card.innerHTML = `
       <div class="set-card__info">
-        <div class="set-card__name">${esc(set.name_en)}</div>
+        <div class="set-card__name">${esc(set.name_en)}${set.published ? "" : ' <span class="set-card__draft">Draft</span>'}</div>
         <div class="set-card__slug">/${esc(set.slug)}</div>
       </div>
     `;
@@ -157,6 +157,8 @@ function editSet(set) {
       $("#setMapImageCurrent").classList.add("hidden");
     }
 
+    $("#setPublished").checked = !!set.published;
+
     const primary = set.color_primary || "#0057b8";
     const accent = set.color_accent || "#ffffff";
     $("#setColorPrimary").value = primary;
@@ -176,6 +178,7 @@ function editSet(set) {
     $("#setColorPrimaryText").value = "#0057b8";
     $("#setColorAccent").value = "#ffffff";
     $("#setColorAccentText").value = "#ffffff";
+    $("#setPublished").checked = false;
     $("#btnDeleteSet").classList.add("hidden");
     $("#btnGoToObjects").style.display = "none";
   }
@@ -204,6 +207,7 @@ async function saveSet(e) {
   const accentVal = $("#setColorAccentText").value;
   formData.append("color_primary", /^#[0-9a-fA-F]{6}$/.test(primaryVal) ? primaryVal : $("#setColorPrimary").value);
   formData.append("color_accent", /^#[0-9a-fA-F]{6}$/.test(accentVal) ? accentVal : $("#setColorAccent").value);
+  formData.append("published", $("#setPublished").checked);
 
   try {
     if (id) {

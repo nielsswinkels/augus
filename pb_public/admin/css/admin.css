@@ -456,6 +456,19 @@ body {
   color: var(--color-text-secondary);
 }
 
+.set-card__draft {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+  border-radius: 4px;
+  padding: 1px 6px;
+  vertical-align: middle;
+  margin-left: var(--spacing-xs);
+}
+
 .object-card[draggable="true"] {
   cursor: grab;
 }
