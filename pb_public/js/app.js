@@ -80,7 +80,7 @@ const state = {
   images: [],
   subtitleCues: [],
   galleryIndex: 0,
-  previousView: "object",
+  previousView: "list",
   scannerActive: false,
   mapZoom: 1,
   mapPan: { x: 0, y: 0 },
@@ -550,6 +550,30 @@ function setupMediaSession(title) {
   });
 }
 
+// ===== Focus Trap Utility =====
+let galleryFocusTrapCleanup = null;
+let galleryPreviousFocus = null;
+let settingsFocusTrapCleanup = null;
+let settingsPreviousFocus = null;
+
+function trapFocus(container) {
+  const focusable = container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+
+  function handler(e) {
+    if (e.key !== 'Tab') return;
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }
+  container.addEventListener('keydown', handler);
+  if (first) first.focus();
+  return () => container.removeEventListener('keydown', handler);
+}
+
 // ===== Gallery =====
 function openGallery(index = 0) {
   if (state.images.length === 0) return;
@@ -563,12 +587,15 @@ function openGallery(index = 0) {
 
   renderGalleryImage();
   dom.galleryOverlay.classList.add("active");
-  dom.btnCloseGallery.focus();
+  galleryPreviousFocus = document.activeElement;
+  galleryFocusTrapCleanup = trapFocus(dom.galleryOverlay);
 }
 
 function closeGallery() {
   dom.galleryOverlay.classList.remove("active");
-  speechSynthesis.cancel();
+  if (galleryFocusTrapCleanup) { galleryFocusTrapCleanup(); galleryFocusTrapCleanup = null; }
+  if (galleryPreviousFocus) { galleryPreviousFocus.focus(); galleryPreviousFocus = null; }
+  if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
 
   // Resume audio if we paused it
   if (state.audioPausedByGallery) {
@@ -683,7 +710,7 @@ function renderObjectList() {
 }
 
 async function loadListThumbnails() {
-  for (const obj of state.objects) {
+  await Promise.all(state.objects.map(async (obj) => {
     try {
       const imgResp = await api(
         `object_images/records?filter=(object='${obj.id}')&sort=sort_order&perPage=1`
@@ -702,7 +729,7 @@ async function loadListThumbnails() {
         }
       }
     } catch (e) { /* ignore */ }
-  }
+  }));
 }
 
 // ===== Map View =====
@@ -719,7 +746,7 @@ function renderMapView() {
 
   // Add pins for each object
   for (const obj of state.objects) {
-    if (obj.map_x == null || obj.map_y == null) continue;
+    if (obj.map_x == null || obj.map_y == null || obj.map_x < 0 || obj.map_y < 0) continue;
     const pin = document.createElement("a");
     pin.className = "map-pin";
     pin.href = `#/${state.currentSet.slug}/${obj.slug}`;

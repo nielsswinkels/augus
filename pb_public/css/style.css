@@ -464,6 +464,7 @@ body {
 .object-list__item.current {
   border-color: var(--color-primary);
   background: #e8f0fe;
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-bg));
 }
 
 .object-list__number {

@@ -379,10 +379,10 @@ async function editObject(obj) {
     $("#btnQRCode").classList.remove("hidden");
 
     // Show current files
-    showCurrentFile("objectAudioEnCurrent", obj.audio_en, "objects", obj.id);
-    showCurrentFile("objectAudioSvCurrent", obj.audio_sv, "objects", obj.id);
-    showCurrentFile("objectSubtitlesEnCurrent", obj.subtitles_en, "objects", obj.id);
-    showCurrentFile("objectSubtitlesSvCurrent", obj.subtitles_sv, "objects", obj.id);
+    showCurrentFile("objectAudioEnCurrent", obj.audio_en, "objects", obj.id, "audio_en");
+    showCurrentFile("objectAudioSvCurrent", obj.audio_sv, "objects", obj.id, "audio_sv");
+    showCurrentFile("objectSubtitlesEnCurrent", obj.subtitles_en, "objects", obj.id, "subtitles_en");
+    showCurrentFile("objectSubtitlesSvCurrent", obj.subtitles_sv, "objects", obj.id, "subtitles_sv");
 
     // Load images
     loadObjectImages(obj.id);
@@ -414,10 +414,10 @@ async function editObject(obj) {
   });
 }
 
-function showCurrentFile(elId, filename, collection, recordId) {
+function showCurrentFile(elId, filename, collection, recordId, field) {
   const el = $(`#${elId}`);
   if (filename) {
-    el.innerHTML = `Current: ${esc(filename)} <button class="current-file__remove" data-record="${recordId}" data-collection="${collection}" data-filename="${filename}" title="Remove">&times;</button>`;
+    el.innerHTML = `Current: ${esc(filename)} <button class="current-file__remove" data-record="${recordId}" data-collection="${collection}" data-filename="${filename}" data-field="${field || ""}" title="Remove">&times;</button>`;
     el.classList.remove("hidden");
   } else {
     el.classList.add("hidden");
@@ -437,8 +437,8 @@ async function saveObject(e) {
 
   const mapX = $("#objectMapX").value;
   const mapY = $("#objectMapY").value;
-  formData.append("map_x", mapX !== "" ? parseFloat(mapX) : 0);
-  formData.append("map_y", mapY !== "" ? parseFloat(mapY) : 0);
+  formData.append("map_x", mapX !== "" ? parseFloat(mapX) : -1);
+  formData.append("map_y", mapY !== "" ? parseFloat(mapY) : -1);
 
   // File uploads
   const audioEn = $("#objectAudioEn").files[0];
@@ -541,7 +541,7 @@ function setupMapPicker(obj) {
 // ===== IMAGES =====
 async function loadObjectImages(objectId) {
   try {
-    const resp = await api(`collections/object_images/records?filter=(object='${objectId}')&sort=sort_order&perPage=100`);
+    const resp = await api(`collections/object_images/records?filter=(object='${encodeURIComponent(objectId)}')&sort=sort_order&perPage=100`);
     renderImagesGrid(resp.items || []);
   } catch (e) {
     showToast("Failed to load images");
@@ -716,36 +716,9 @@ function downloadQR() {
 }
 
 // Minimal QR code generation using canvas
-// Uses a simple encoding approach — for production, consider a proper library
+// Uses the vendored qrcode-generator library loaded via script tag in index.html
 function generateQRToCanvas(canvas, text) {
-  // We'll draw a placeholder with the URL text and load qrcode lib dynamically
-  const ctx = canvas.getContext("2d");
-  canvas.width = 300;
-  canvas.height = 300;
-
-  // Try to use the QR code generation API or fall back to text
-  // Load QR library dynamically
-  if (!window._qrScriptLoaded) {
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
-    script.onload = () => {
-      window._qrScriptLoaded = true;
-      drawQR(canvas, text);
-    };
-    script.onerror = () => {
-      // Fallback: just show the URL
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, 300, 300);
-      ctx.fillStyle = "#000000";
-      ctx.font = "12px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("QR generation failed", 150, 140);
-      ctx.fillText(text, 150, 160);
-    };
-    document.head.appendChild(script);
-  } else {
-    drawQR(canvas, text);
-  }
+  drawQR(canvas, text);
 }
 
 function drawQR(canvas, text) {
@@ -879,6 +852,50 @@ function setupEvents() {
 
   // Preview
   $("#btnPreviewObject").addEventListener("click", previewObject);
+
+  // File remove buttons (event delegation)
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".current-file__remove");
+    if (!btn) return;
+    if (!confirm("Remove this file?")) return;
+
+    const field = btn.dataset.field;
+    const record = btn.dataset.record;
+    const collection = btn.dataset.collection;
+
+    try {
+      if (field === "map_image" && editingSet) {
+        // Set map image removal
+        const formData = new FormData();
+        formData.append("map_image", "");
+        await api(`collections/sets/records/${editingSet.id}`, { method: "PATCH", body: formData });
+        editingSet.map_image = "";
+      } else if (record && collection && field) {
+        // Object file removal
+        const formData = new FormData();
+        formData.append(field, "");
+        await api(`collections/${collection}/records/${record}`, { method: "PATCH", body: formData });
+        if (editingObject && editingObject.id === record) {
+          editingObject[field] = "";
+        }
+      }
+      // Hide the current-file display
+      const wrapper = btn.closest(".current-file");
+      if (wrapper) wrapper.classList.add("hidden");
+    } catch (err) {
+      alert("Failed to remove file: " + err.message);
+    }
+  });
+}
+
+// ===== JWT Expiration Check =====
+function isTokenExpired(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp < Date.now() / 1000;
+  } catch (e) {
+    return true;
+  }
 }
 
 // ===== Init =====
@@ -887,6 +904,11 @@ function init() {
 
   // Check if already authenticated
   if (authToken) {
+    // If the token is expired, log out immediately
+    if (isTokenExpired(authToken)) {
+      logout();
+      return;
+    }
     // Verify token by making a request
     api("collections/sets/records?perPage=1")
       .then(() => showApp())
