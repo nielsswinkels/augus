@@ -44,6 +44,13 @@ const i18n = {
     allowCamera: "Allow Camera",
     prevObject: "Previous",
     nextObject: "Next",
+    welcomeSubtitle: "Choose an exhibition",
+    noExhibitions: "No exhibitions available",
+    errorSetNotFound: "This exhibition could not be found. It may have been removed or the link may be incorrect.",
+    errorObjectNotFound: "This object could not be found. Please try scanning the QR code again.",
+    errorLoadFailed: "Something went wrong while loading. Please check your internet connection and try again.",
+    errorUnrecognizedQR: "This QR code isn't recognized. Make sure you're scanning a code from this guide.",
+    errorCameraDenied: "Camera access was denied. To scan QR codes, please allow camera access in your browser settings.",
   },
   sv: {
     objectList: "Objekt",
@@ -83,6 +90,13 @@ const i18n = {
     allowCamera: "Tillåt kamera",
     prevObject: "Föregående",
     nextObject: "Nästa",
+    welcomeSubtitle: "Välj en utställning",
+    noExhibitions: "Inga utställningar tillgängliga",
+    errorSetNotFound: "Den här utställningen kunde inte hittas. Den kan ha tagits bort eller så är länken felaktig.",
+    errorObjectNotFound: "Det här objektet kunde inte hittas. Försök skanna QR-koden igen.",
+    errorLoadFailed: "Något gick fel vid laddningen. Kontrollera din internetanslutning och försök igen.",
+    errorUnrecognizedQR: "Den här QR-koden känns inte igen. Se till att du skannar en kod från den här guiden.",
+    errorCameraDenied: "Kameraåtkomst nekades. För att skanna QR-koder, tillåt kameraåtkomst i webbläsarens inställningar.",
   },
 };
 
@@ -178,6 +192,10 @@ const dom = {
   btnGalleryPrev: $("#btnGalleryPrev"),
   btnGalleryNext: $("#btnGalleryNext"),
   btnCloseGallery: $("#btnCloseGallery"),
+  // Welcome page
+  viewWelcome: $("#viewWelcome"),
+  welcomeSubtitle: $("#welcomeSubtitle"),
+  welcomeSetsList: $("#welcomeSetsList"),
   // Toast
   toast: $("#toast"),
 };
@@ -271,6 +289,9 @@ function updateUILanguage() {
   // Scanner prompt
   dom.scannerPromptText.textContent = t.cameraPrompt;
   dom.btnAllowCamera.textContent = t.allowCamera;
+
+  // Welcome page
+  if (dom.welcomeSubtitle) dom.welcomeSubtitle.textContent = t.welcomeSubtitle;
 }
 
 function t(key) {
@@ -279,8 +300,13 @@ function t(key) {
 
 // ===== API helpers =====
 async function api(path) {
-  const resp = await fetch(`${PB_URL}/api/collections/${path}`);
-  if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+  let resp;
+  try {
+    resp = await fetch(`${PB_URL}/api/collections/${path}`);
+  } catch (e) {
+    throw new Error(t("errorLoadFailed"));
+  }
+  if (!resp.ok) throw new Error(t("errorLoadFailed"));
   return resp.json();
 }
 

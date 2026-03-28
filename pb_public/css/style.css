@@ -1020,3 +1020,48 @@ body {
 .hidden {
   display: none !important;
 }
+
+/* ===== WELCOME PAGE ===== */
+.welcome-page {
+  padding: var(--spacing-xl) var(--spacing-md);
+  text-align: center;
+  max-width: var(--max-width);
+  margin: 0 auto;
+}
+
+.welcome-page__title {
+  font-size: var(--font-size-xxl);
+  font-weight: 700;
+  margin-bottom: var(--spacing-sm);
+}
+
+.welcome-page__subtitle {
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xl);
+  font-size: var(--font-size-base);
+}
+
+.welcome-page__sets {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.welcome-page__set-link {
+  display: block;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--color-surface);
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--color-text);
+  font-weight: 600;
+  font-size: var(--font-size-xl);
+  border: 2px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.welcome-page__set-link:hover,
+.welcome-page__set-link:focus-visible {
+  border-color: var(--color-primary);
+}
