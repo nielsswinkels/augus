@@ -436,9 +436,11 @@ async function loadObject(obj) {
     dom.subtitlesArea.classList.add("hidden");
     // Show images if available, otherwise just the message
     if (state.images && state.images.length > 0) {
+      const isSingle = state.images.length === 1;
       const imgHtml = state.images.map(img => {
         const url = fileUrl("object_images", img.id, img.image);
-        return `<img src="${url}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:var(--spacing-sm)">`;
+        const maxH = isSingle ? "max-height:60vh;" : "";
+        return `<img src="${url}" alt="" style="max-width:100%;${maxH}border-radius:8px;margin-bottom:var(--spacing-sm);object-fit:contain">`;
       }).join("");
       dom.noAudioMessage.innerHTML = `<div style="padding:var(--spacing-md);text-align:center">
         <p style="margin-bottom:var(--spacing-md);color:var(--color-text-secondary);font-style:italic">${escapeHtml(t("noAudio"))}</p>
@@ -614,7 +616,7 @@ function setupAudioEvents() {
   });
 
   // Playback speed control
-  const speeds = [1, 1.25, 1.5, 0.75];
+  const speeds = [1, 1.25, 1.5, 2, 0.75];
   let speedIndex = 0;
 
   dom.btnPlaybackSpeed.addEventListener("click", () => {
