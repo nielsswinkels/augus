@@ -152,6 +152,10 @@ const dom = {
   scannerVideo: $("#scannerVideo"),
   scannerText: $("#scannerText"),
   scannerToast: $("#scannerToast"),
+  scannerPrompt: $("#scannerPrompt"),
+  scannerPromptText: $("#scannerPromptText"),
+  btnAllowCamera: $("#btnAllowCamera"),
+  scannerVideoContainer: $("#scannerVideoContainer"),
   // Settings
   settingsOverlay: $("#settingsOverlay"),
   settingsTitle: $("#settingsTitle"),
