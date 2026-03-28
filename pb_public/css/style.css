@@ -247,6 +247,25 @@ body {
   padding-top: 0.1em;
 }
 
+.subtitles-header {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--spacing-md);
+}
+
+.subtitles-area.karaoke .subtitle-cue {
+  display: none;
+}
+
+.subtitles-area.karaoke .subtitle-cue.active,
+.subtitles-area.karaoke .subtitle-cue.next {
+  display: flex;
+}
+
+.subtitles-area.karaoke .subtitle-cue.active {
+  font-size: var(--font-size-xl);
+}
+
 .subtitle-cue.active {
   background: var(--color-highlight);
   font-weight: 600;
@@ -914,6 +933,11 @@ body {
 
 .toast.visible {
   opacity: 1;
+}
+
+.toast--error {
+  background: var(--color-danger);
+  cursor: pointer;
 }
 
 /* ===== PLAYBACK SPEED BUTTON ===== */

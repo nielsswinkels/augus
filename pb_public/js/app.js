@@ -122,6 +122,8 @@ const dom = {
   thumbnailContainer: $("#thumbnailContainer"),
   thumbnail: $("#thumbnail"),
   subtitlesArea: $("#subtitlesArea"),
+  subtitlesHeader: $("#subtitlesHeader"),
+  btnKaraokeToggle: $("#btnKaraokeToggle"),
   noAudioMessage: $("#noAudioMessage"),
   // Audio player
   audioPlayer: $("#audioPlayer"),
@@ -318,7 +320,7 @@ async function loadRoute() {
     // Load set
     const setsResp = await api(`sets/records?filter=(slug='${encodeURIComponent(route.setSlug)}'&&published=true)`);
     if (!setsResp.items || setsResp.items.length === 0) {
-      showToast("Set not found");
+      showToast("Set not found", true);
       return;
     }
     state.currentSet = setsResp.items[0];
@@ -334,7 +336,7 @@ async function loadRoute() {
         await loadObject(obj);
         showView("object");
       } else {
-        showToast("Object not found");
+        showToast("Object not found", true);
         showView("list");
       }
     } else {
@@ -342,7 +344,7 @@ async function loadRoute() {
     }
   } catch (err) {
     console.error("Failed to load route:", err);
-    showToast("Failed to load content");
+    showToast("Failed to load content", true);
   } finally {
     document.getElementById('loadingIndicator').style.display = 'none';
   }
@@ -425,7 +427,19 @@ async function loadObject(obj) {
     dom.audioElement.src = "";
     dom.audioPlayer.classList.add("hidden");
     dom.subtitlesArea.classList.add("hidden");
-    dom.noAudioMessage.textContent = t("noAudio");
+    // Show images if available, otherwise just the message
+    if (state.images && state.images.length > 0) {
+      const imgHtml = state.images.map(img => {
+        const url = fileUrl("object_images", img.id, img.image);
+        return `<img src="${url}" alt="" style="max-width:100%;border-radius:8px;margin-bottom:var(--spacing-sm)">`;
+      }).join("");
+      dom.noAudioMessage.innerHTML = `<div style="padding:var(--spacing-md);text-align:center">
+        <p style="margin-bottom:var(--spacing-md);color:var(--color-text-secondary);font-style:italic">${escapeHtml(t("noAudio"))}</p>
+        ${imgHtml}
+      </div>`;
+    } else {
+      dom.noAudioMessage.textContent = t("noAudio");
+    }
     dom.noAudioMessage.classList.remove("hidden");
     state.subtitleCues = [];
     dom.subtitlesArea.innerHTML = "";
@@ -480,6 +494,7 @@ function parseVTT(text) {
 
 function renderSubtitles() {
   dom.subtitlesArea.innerHTML = "";
+  dom.subtitlesHeader.classList.toggle("hidden", state.subtitleCues.length === 0);
   for (let i = 0; i < state.subtitleCues.length; i++) {
     const cue = state.subtitleCues[i];
     const div = document.createElement("div");
@@ -498,22 +513,33 @@ function renderSubtitles() {
 function updateSubtitleHighlight() {
   const time = dom.audioElement.currentTime;
   const cueElements = dom.subtitlesArea.querySelectorAll(".subtitle-cue");
-  let activeEl = null;
+  let activeIdx = -1;
 
   cueElements.forEach((el, i) => {
     const cue = state.subtitleCues[i];
-    if (cue && time >= cue.start && time < cue.end) {
-      el.classList.add("active");
-      activeEl = el;
-    } else {
-      el.classList.remove("active");
-    }
+    const isActive = cue && time >= cue.start && time < cue.end;
+    el.classList.toggle("active", isActive);
+    el.classList.remove("next");
+    if (isActive) activeIdx = i;
   });
 
-  // Auto-scroll to active cue
-  if (activeEl) {
-    activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+  // Mark the next cue for karaoke mode
+  if (activeIdx >= 0 && activeIdx + 1 < cueElements.length) {
+    cueElements[activeIdx + 1].classList.add("next");
   }
+
+  // Auto-scroll to active cue
+  if (activeIdx >= 0) {
+    cueElements[activeIdx].scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+// ===== Karaoke Mode =====
+function setupKaraokeToggle() {
+  dom.btnKaraokeToggle.addEventListener("click", () => {
+    dom.subtitlesArea.classList.toggle("karaoke");
+    dom.btnKaraokeToggle.classList.toggle("btn--active");
+  });
 }
 
 // ===== Audio Player =====
@@ -1044,7 +1070,7 @@ async function activateCamera() {
     scanFrame();
   } catch (e) {
     console.error("Camera access denied:", e);
-    showToast("Camera access denied");
+    showToast("Camera access denied", true);
     showView(state.previousView);
   }
 }
@@ -1313,11 +1339,24 @@ function setupNavigationEvents() {
 
 // ===== Toast =====
 let toastTimeout = null;
-function showToast(msg) {
+function showToast(msg, isError = false) {
   if (toastTimeout) clearTimeout(toastTimeout);
   dom.toast.textContent = msg;
+  dom.toast.classList.toggle("toast--error", isError);
   dom.toast.classList.add("visible");
-  toastTimeout = setTimeout(() => dom.toast.classList.remove("visible"), 3000);
+  if (isError) {
+    // Error toasts persist — user must tap to dismiss
+    dom.toast.style.pointerEvents = "auto";
+    dom.toast.onclick = () => {
+      dom.toast.classList.remove("visible");
+      dom.toast.style.pointerEvents = "";
+      dom.toast.onclick = null;
+    };
+  } else {
+    dom.toast.style.pointerEvents = "";
+    dom.toast.onclick = null;
+    toastTimeout = setTimeout(() => dom.toast.classList.remove("visible"), 3000);
+  }
 }
 
 // ===== Colour Scheme =====
@@ -1393,6 +1432,7 @@ function escapeHtml(str) {
 function init() {
   loadSettings();
   setupAudioEvents();
+  setupKaraokeToggle();
   setupGalleryEvents();
   setupSettingsEvents();
   setupNavigationEvents();
