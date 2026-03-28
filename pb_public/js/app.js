@@ -342,7 +342,29 @@ function navigateTo(setSlug, objectSlug) {
 async function loadRoute() {
   const route = parseRoute();
   if (!route.setSlug) {
-    showView("list");
+    // Show welcome page with list of published sets
+    try {
+      const resp = await api('sets/records?filter=(published=true)&sort=name_en');
+      const lang = state.settings.language;
+      dom.welcomeSetsList.innerHTML = '';
+      if (resp.items && resp.items.length > 0) {
+        for (const set of resp.items) {
+          const name = set[`name_${lang}`] || set.name_en || set.slug;
+          const li = document.createElement('li');
+          const a = document.createElement('a');
+          a.href = `#/${set.slug}`;
+          a.className = 'welcome-page__set-link';
+          a.textContent = name;
+          li.appendChild(a);
+          dom.welcomeSetsList.appendChild(li);
+        }
+      } else {
+        dom.welcomeSetsList.innerHTML = `<li style="color:var(--color-text-secondary)">${escapeHtml(t("noExhibitions"))}</li>`;
+      }
+      showView('welcome');
+    } catch (e) {
+      showView('welcome');
+    }
     return;
   }
 
@@ -352,7 +374,7 @@ async function loadRoute() {
     // Load set
     const setsResp = await api(`sets/records?filter=(slug='${encodeURIComponent(route.setSlug)}'&&published=true)`);
     if (!setsResp.items || setsResp.items.length === 0) {
-      showToast("Set not found", true);
+      showToast(t("errorSetNotFound"), true);
       return;
     }
     state.currentSet = setsResp.items[0];
@@ -369,7 +391,7 @@ async function loadRoute() {
         updateSequentialNav();
         showView("object");
       } else {
-        showToast("Object not found", true);
+        showToast(t("errorObjectNotFound"), true);
         showView("list");
       }
     } else {
@@ -377,7 +399,7 @@ async function loadRoute() {
     }
   } catch (err) {
     console.error("Failed to load route:", err);
-    showToast("Failed to load content", true);
+    showToast(t("errorLoadFailed"), true);
   } finally {
     document.getElementById('loadingIndicator').style.display = 'none';
   }
@@ -1118,7 +1140,7 @@ async function activateCamera() {
     scanFrame();
   } catch (e) {
     console.error("Camera access denied:", e);
-    showToast("Camera access denied", true);
+    showToast(t("errorCameraDenied"), true);
     showView(state.previousView);
   }
 }
@@ -1175,12 +1197,12 @@ function handleQRCode(data) {
   try {
     url = new URL(data);
   } catch {
-    showScannerToast(t("unrecognizedQR"));
+    showScannerToast(t("errorUnrecognizedQR"));
     return;
   }
 
   if (url.host !== currentHost) {
-    showScannerToast(t("unrecognizedQR"));
+    showScannerToast(t("errorUnrecognizedQR"));
     return;
   }
 
@@ -1220,7 +1242,7 @@ function handleQRCode(data) {
       navigateTo(setSlug, objectSlug);
     }, 300);
   } else {
-    showScannerToast(t("unrecognizedQR"));
+    showScannerToast(t("errorUnrecognizedQR"));
   }
 }
 
@@ -1260,12 +1282,15 @@ function showView(name) {
   dom.btnMapView.classList.toggle("hidden", !hasMap);
 
   // Mark active view button
-  dom.btnList.classList.toggle("btn--active", name === "list");
+  dom.btnList.classList.toggle("btn--active", name === "list" || name === "welcome");
   dom.btnMapView.classList.toggle("btn--active", name === "map");
   dom.btnScan.classList.toggle("btn--active", name === "scanner");
 
-  // Header title: set name on list/map views, object name stays on object view
-  if ((name === "list" || name === "map") && state.currentSet) {
+  // Header title: "Augus" on welcome, set name on list/map views, object name stays on object view
+  if (name === "welcome") {
+    dom.headerTitle.textContent = "Augus";
+    document.title = "Augus";
+  } else if ((name === "list" || name === "map") && state.currentSet) {
     const lang = state.settings.language;
     const setName = state.currentSet[`name_${lang}`] || state.currentSet.name_en;
     dom.headerTitle.textContent = setName;
@@ -1279,6 +1304,9 @@ function showView(name) {
 
   // Show target
   switch (name) {
+    case "welcome":
+      dom.viewWelcome.classList.add("active");
+      break;
     case "object":
       dom.viewObject.classList.add("active");
       break;
@@ -1298,6 +1326,7 @@ function showView(name) {
 }
 
 function getCurrentView() {
+  if (dom.viewWelcome.classList.contains("active")) return "welcome";
   if (dom.viewObject.classList.contains("active")) return "object";
   if (dom.viewList.classList.contains("active")) return "list";
   if (dom.viewMap.classList.contains("active")) return "map";
