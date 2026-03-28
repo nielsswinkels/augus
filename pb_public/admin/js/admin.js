@@ -914,8 +914,10 @@ function setupEvents() {
 
   $("#btnGoToObjects").addEventListener("click", () => {
     if (!editingSet) return;
-    selectedSetId = editingSet.id;
-    showTab("objects");
+    checkDirtyAndProceed(() => {
+      selectedSetId = editingSet.id;
+      showTab("objects");
+    });
   });
   $("#setForm").addEventListener("submit", saveSet);
   $("#btnDeleteSet").addEventListener("click", deleteSet);

@@ -40,6 +40,8 @@ const i18n = {
     navMap: "Map",
     navScan: "Scan",
     navSettings: "Settings",
+    cameraPrompt: "To scan QR codes on exhibit labels, we need access to your camera.",
+    allowCamera: "Allow Camera",
   },
   sv: {
     objectList: "Objekt",
@@ -75,6 +77,8 @@ const i18n = {
     navMap: "Karta",
     navScan: "Skanna",
     navSettings: "Inställningar",
+    cameraPrompt: "Vi behöver tillgång till din kamera för att skanna QR-koder på utställningsskyltarna.",
+    allowCamera: "Tillåt kamera",
   },
 };
 
@@ -130,6 +134,7 @@ const dom = {
   iconPause: $("#iconPause"),
   btnSkipBack: $("#btnSkipBack"),
   btnSkipForward: $("#btnSkipForward"),
+  btnPlaybackSpeed: $("#btnPlaybackSpeed"),
   // List view
   viewList: $("#viewList"),
   objectList: $("#objectList"),
