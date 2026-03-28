@@ -940,6 +940,16 @@ body {
   cursor: pointer;
 }
 
+/* ===== SEQUENTIAL NAV BUTTONS ===== */
+.btn--seq-nav {
+  padding: var(--spacing-xs);
+}
+
+.btn--seq-nav svg {
+  width: 20px;
+  height: 20px;
+}
+
 /* ===== PLAYBACK SPEED BUTTON ===== */
 .btn--speed {
   font-size: 0.8rem;

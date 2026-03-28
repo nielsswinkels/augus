@@ -158,6 +158,7 @@ function editSet(set) {
     }
 
     $("#setPublished").checked = !!set.published;
+    $("#setSequentialNav").checked = !!set.sequential_navigation;
 
     const primary = set.color_primary || "#0057b8";
     const accent = set.color_accent || "#ffffff";
@@ -179,6 +180,7 @@ function editSet(set) {
     $("#setColorAccent").value = "#ffffff";
     $("#setColorAccentText").value = "#ffffff";
     $("#setPublished").checked = false;
+    $("#setSequentialNav").checked = false;
     $("#btnDeleteSet").classList.add("hidden");
     $("#btnGoToObjects").style.display = "none";
   }
@@ -208,6 +210,7 @@ async function saveSet(e) {
   formData.append("color_primary", /^#[0-9a-fA-F]{6}$/.test(primaryVal) ? primaryVal : $("#setColorPrimary").value);
   formData.append("color_accent", /^#[0-9a-fA-F]{6}$/.test(accentVal) ? accentVal : $("#setColorAccent").value);
   formData.append("published", $("#setPublished").checked);
+  formData.append("sequential_navigation", $("#setSequentialNav").checked);
 
   try {
     if (id) {

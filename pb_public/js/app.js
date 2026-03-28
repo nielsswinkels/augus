@@ -42,6 +42,8 @@ const i18n = {
     navSettings: "Settings",
     cameraPrompt: "To scan QR codes on exhibit labels, we need access to your camera.",
     allowCamera: "Allow Camera",
+    prevObject: "Previous",
+    nextObject: "Next",
   },
   sv: {
     objectList: "Objekt",
@@ -79,6 +81,8 @@ const i18n = {
     navSettings: "Inställningar",
     cameraPrompt: "Vi behöver tillgång till din kamera för att skanna QR-koder på utställningsskyltarna.",
     allowCamera: "Tillåt kamera",
+    prevObject: "Föregående",
+    nextObject: "Nästa",
   },
 };
 
@@ -125,6 +129,8 @@ const dom = {
   subtitlesHeader: $("#subtitlesHeader"),
   btnKaraokeToggle: $("#btnKaraokeToggle"),
   noAudioMessage: $("#noAudioMessage"),
+  btnPrevObject: $("#btnPrevObject"),
+  btnNextObject: $("#btnNextObject"),
   // Audio player
   audioPlayer: $("#audioPlayer"),
   audioElement: $("#audioElement"),
@@ -334,6 +340,7 @@ async function loadRoute() {
       const obj = state.objects.find((o) => o.slug === route.objectSlug);
       if (obj) {
         await loadObject(obj);
+        updateSequentialNav();
         showView("object");
       } else {
         showToast("Object not found", true);
@@ -569,6 +576,19 @@ function setupAudioEvents() {
     dom.iconPlay.classList.remove("hidden");
     dom.iconPause.classList.add("hidden");
     dom.btnPlayPause.setAttribute("aria-label", t("play"));
+  });
+
+  audio.addEventListener("ended", () => {
+    // Show "next object" prompt if sequential navigation is enabled
+    if (state.currentSet && state.currentSet.sequential_navigation && state.currentObject) {
+      const idx = state.objects.findIndex(o => o.id === state.currentObject.id);
+      if (idx >= 0 && idx + 1 < state.objects.length) {
+        const nextObj = state.objects[idx + 1];
+        const lang = state.settings.language;
+        const name = nextObj[`name_${lang}`] || nextObj.name_en || "Object";
+        showToast(`${t("nextObject")}: ${name}`);
+      }
+    }
   });
 
   dom.btnPlayPause.addEventListener("click", () => {
@@ -1333,8 +1353,33 @@ function setupNavigationEvents() {
 
   dom.btnMapView.addEventListener("click", () => showView("map"));
 
+  // Prev/Next object navigation
+  dom.btnPrevObject.addEventListener("click", () => navigateSequential(-1));
+  dom.btnNextObject.addEventListener("click", () => navigateSequential(1));
+
   // Browser back/forward (hash-based routing)
   window.addEventListener("hashchange", () => loadRoute());
+}
+
+function navigateSequential(direction) {
+  if (!state.currentObject || !state.currentSet) return;
+  const idx = state.objects.findIndex(o => o.id === state.currentObject.id);
+  const nextIdx = idx + direction;
+  if (nextIdx >= 0 && nextIdx < state.objects.length) {
+    navigateTo(state.currentSet.slug, state.objects[nextIdx].slug);
+  }
+}
+
+function updateSequentialNav() {
+  const enabled = state.currentSet && state.currentSet.sequential_navigation;
+  if (!enabled || !state.currentObject) {
+    dom.btnPrevObject.classList.add("hidden");
+    dom.btnNextObject.classList.add("hidden");
+    return;
+  }
+  const idx = state.objects.findIndex(o => o.id === state.currentObject.id);
+  dom.btnPrevObject.classList.toggle("hidden", idx <= 0);
+  dom.btnNextObject.classList.toggle("hidden", idx >= state.objects.length - 1);
 }
 
 // ===== Toast =====
