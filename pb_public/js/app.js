@@ -655,7 +655,6 @@ function renderObjectList() {
   dom.objectList.innerHTML = "";
   for (const obj of state.objects) {
     const name = obj[`name_${lang}`] || obj.name_en || "Object";
-    const desc = obj[`description_${lang}`] || obj.description_en || "";
     const isCurrent = state.currentObject && state.currentObject.id === obj.id;
 
     const li = document.createElement("li");
@@ -672,7 +671,6 @@ function renderObjectList() {
       <span class="object-list__number">${obj.sort_order}</span>
       <div class="object-list__info">
         <div class="object-list__name">${escapeHtml(name)}</div>
-        ${desc ? `<div class="object-list__desc">${escapeHtml(stripHtml(desc))}</div>` : ""}
       </div>
     `;
 
@@ -784,6 +782,52 @@ function setupMapEvents() {
   dom.btnZoomIn.addEventListener("click", () => zoomTowardCenter(1.3));
   dom.btnZoomOut.addEventListener("click", () => zoomTowardCenter(1 / 1.3));
 
+  // Double-tap-drag to zoom (one-handed zoom gesture)
+  let lastTapTime = 0;
+  let doubleTapDragging = false;
+  let doubleTapStartY = 0;
+  let doubleTapStartZoom = 1;
+  let doubleTapAnchor = { mx: 0, my: 0, sx: 0, sy: 0 }; // map-space and screen-space anchor
+
+  dom.mapViewContainer.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".map-controls") || e.target.closest(".map-pin")) return;
+    const now = Date.now();
+    if (now - lastTapTime < 300 && activePointers.size === 0) {
+      // Second tap — start double-tap-drag zoom
+      doubleTapDragging = true;
+      doubleTapStartY = e.clientY;
+      doubleTapStartZoom = state.mapZoom;
+      // Anchor: the point under the tap stays fixed during zoom
+      doubleTapAnchor.sx = e.clientX;
+      doubleTapAnchor.sy = e.clientY;
+      doubleTapAnchor.mx = (e.clientX - state.mapPan.x) / state.mapZoom;
+      doubleTapAnchor.my = (e.clientY - state.mapPan.y) / state.mapZoom;
+      dom.mapViewContainer.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      lastTapTime = 0; // reset so a third tap doesn't re-trigger
+      return;
+    }
+    lastTapTime = now;
+  }, true); // use capture so it fires before the pan handler
+
+  dom.mapViewContainer.addEventListener("pointermove", (e) => {
+    if (!doubleTapDragging) return;
+    const dy = doubleTapStartY - e.clientY; // drag up = positive = zoom in
+    const factor = Math.pow(2, dy / 150); // 150px of drag = 2× zoom
+    state.mapZoom = Math.max(0.5, Math.min(5, doubleTapStartZoom * factor));
+    // Reposition so anchor point stays under the original tap position
+    state.mapPan.x = doubleTapAnchor.sx - doubleTapAnchor.mx * state.mapZoom;
+    state.mapPan.y = doubleTapAnchor.sy - doubleTapAnchor.my * state.mapZoom;
+    applyMapTransform();
+  });
+
+  dom.mapViewContainer.addEventListener("pointerup", (e) => {
+    if (doubleTapDragging) {
+      doubleTapDragging = false;
+      return;
+    }
+  });
+
   // Pan (1 finger / mouse) + pinch-to-zoom (2 fingers)
   const activePointers = new Map(); // pointerId -> {x, y}
   let lastPinchDist = 0;
@@ -799,6 +843,7 @@ function setupMapEvents() {
   }
 
   dom.mapViewContainer.addEventListener("pointerdown", (e) => {
+    if (doubleTapDragging) return;
     if (e.target.closest(".map-controls")) return;
     // Don't start a single-finger drag from a pin (preserves tap-to-navigate)
     if (e.target.closest(".map-pin") && activePointers.size === 0) return;
@@ -1160,11 +1205,6 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function stripHtml(html) {
-  const div = document.createElement("div");
-  div.innerHTML = html;
-  return div.textContent || "";
-}
 
 // ===== Init =====
 function init() {

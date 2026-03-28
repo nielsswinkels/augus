@@ -371,8 +371,6 @@ async function editObject(obj) {
     $("#objectDefaultLang").value = obj.default_language || "en";
     $("#objectNameEn").value = obj.name_en || "";
     $("#objectNameSv").value = obj.name_sv || "";
-    $("#objectDescEn").value = obj.description_en || "";
-    $("#objectDescSv").value = obj.description_sv || "";
     $("#objectMapX").value = obj.map_x ?? "";
     $("#objectMapY").value = obj.map_y ?? "";
     $("#btnDeleteObject").classList.remove("hidden");
@@ -398,8 +396,6 @@ async function editObject(obj) {
     $("#objectDefaultLang").value = "en";
     $("#objectNameEn").value = "";
     $("#objectNameSv").value = "";
-    $("#objectDescEn").value = "";
-    $("#objectDescSv").value = "";
     $("#objectMapX").value = "";
     $("#objectMapY").value = "";
     ["objectAudioEnCurrent", "objectAudioSvCurrent", "objectSubtitlesEnCurrent", "objectSubtitlesSvCurrent"]
@@ -437,8 +433,6 @@ async function saveObject(e) {
   formData.append("default_language", $("#objectDefaultLang").value);
   formData.append("name_en", $("#objectNameEn").value.trim());
   formData.append("name_sv", $("#objectNameSv").value.trim());
-  formData.append("description_en", $("#objectDescEn").value.trim());
-  formData.append("description_sv", $("#objectDescSv").value.trim());
 
   const mapX = $("#objectMapX").value;
   const mapY = $("#objectMapY").value;
