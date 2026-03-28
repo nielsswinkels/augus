@@ -14,7 +14,9 @@ const i18n = {
     autoplay: "Autoplay audio",
     language: "Language",
     fontSize: "Font size",
-    captionsAloud: "Read captions aloud",
+    captionsAloud: "Read image captions aloud",
+    hintAutoplay: "Play audio automatically when opening an object",
+    hintCaptionsAloud: "Use text-to-speech to read image captions in the gallery",
     scanText: "Scan the QR code on the next object",
     noAudio: "No audio available for this object.",
     unrecognizedQR: "Unrecognized QR code",
@@ -34,6 +36,10 @@ const i18n = {
     zoomOut: "Zoom out",
     mapHome: "Reset map view",
     loading: "Loading...",
+    navList: "List",
+    navMap: "Map",
+    navScan: "Scan",
+    navSettings: "Settings",
   },
   sv: {
     objectList: "Objekt",
@@ -44,6 +50,8 @@ const i18n = {
     language: "Språk",
     fontSize: "Textstorlek",
     captionsAloud: "Läs bildtexter högt",
+    hintAutoplay: "Spela ljud automatiskt när du öppnar ett objekt",
+    hintCaptionsAloud: "Använd text-till-tal för att läsa bildtexter i galleriet",
     scanText: "Skanna QR-koden på nästa objekt",
     noAudio: "Inget ljud tillgängligt för detta objekt.",
     unrecognizedQR: "Okänd QR-kod",
@@ -63,6 +71,10 @@ const i18n = {
     zoomOut: "Zooma ut",
     mapHome: "Återställ kartvyn",
     loading: "Laddar...",
+    navList: "Lista",
+    navMap: "Karta",
+    navScan: "Skanna",
+    navSettings: "Inställningar",
   },
 };
 
@@ -96,6 +108,11 @@ const dom = {
   btnList: $("#btnList"),
   btnScan: $("#btnScan"),
   btnSettings: $("#btnSettings"),
+  bottomNav: $("#bottomNav"),
+  labelNavList: $("#labelNavList"),
+  labelNavMap: $("#labelNavMap"),
+  labelNavScan: $("#labelNavScan"),
+  labelNavSettings: $("#labelNavSettings"),
   // Object page
   viewObject: $("#viewObject"),
   thumbnailContainer: $("#thumbnailContainer"),
@@ -152,7 +169,13 @@ const dom = {
 function loadSettings() {
   try {
     const saved = localStorage.getItem("augus_settings");
-    if (saved) Object.assign(state.settings, JSON.parse(saved));
+    if (saved) {
+      Object.assign(state.settings, JSON.parse(saved));
+    } else {
+      // First visit: detect browser language
+      const browserLang = (navigator.language || navigator.userLanguage || "sv").slice(0, 2).toLowerCase();
+      state.settings.language = browserLang === "sv" ? "sv" : "en";
+    }
   } catch (e) { /* ignore */ }
   applySettings();
 }
@@ -216,6 +239,12 @@ function updateUILanguage() {
   dom.btnMapHome.setAttribute("aria-label", t.mapHome);
   dom.btnZoomIn.setAttribute("aria-label", t.zoomIn);
   dom.btnZoomOut.setAttribute("aria-label", t.zoomOut);
+
+  // Bottom nav labels
+  dom.labelNavList.textContent = t.navList;
+  dom.labelNavMap.textContent = t.navMap;
+  dom.labelNavScan.textContent = t.navScan;
+  dom.labelNavSettings.textContent = t.navSettings;
 }
 
 function t(key) {
@@ -265,6 +294,8 @@ async function loadRoute() {
     return;
   }
 
+  document.getElementById('loadingIndicator').style.display = 'flex';
+
   try {
     // Load set
     const setsResp = await api(`sets/records?filter=(slug='${encodeURIComponent(route.setSlug)}')`);
@@ -294,6 +325,8 @@ async function loadRoute() {
   } catch (err) {
     console.error("Failed to load route:", err);
     showToast("Failed to load content");
+  } finally {
+    document.getElementById('loadingIndicator').style.display = 'none';
   }
 }
 
@@ -1051,6 +1084,7 @@ function showView(name) {
   // Mark active view button
   dom.btnList.classList.toggle("btn--active", name === "list");
   dom.btnMapView.classList.toggle("btn--active", name === "map");
+  dom.btnScan.classList.toggle("btn--active", name === "scanner");
 
   // Header title: set name on list/map views, object name stays on object view
   if ((name === "list" || name === "map") && state.currentSet) {
@@ -1144,6 +1178,7 @@ function setupSettingsEvents() {
         loadObject(state.currentObject);
       }
       if (dom.viewList.classList.contains("active")) renderObjectList();
+      if (dom.viewMap.classList.contains("active")) renderMapView();
     });
   });
 

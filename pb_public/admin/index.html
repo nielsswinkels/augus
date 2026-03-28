@@ -62,7 +62,7 @@
         </div>
 
         <fieldset class="form-fieldset">
-          <legend>English</legend>
+          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">English</legend>
           <label for="setNameEn" class="form-label">Name</label>
           <input type="text" id="setNameEn" class="form-input" required>
           <label for="setDescEn" class="form-label">Description</label>
@@ -70,7 +70,7 @@
         </fieldset>
 
         <fieldset class="form-fieldset">
-          <legend>Svenska</legend>
+          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Svenska</legend>
           <label for="setNameSv" class="form-label">Namn</label>
           <input type="text" id="setNameSv" class="form-input">
           <label for="setDescSv" class="form-label">Beskrivning</label>
@@ -134,6 +134,7 @@
         <button class="btn" id="btnBackToObjects">&larr; Back</button>
         <h2 id="objectFormTitle">New Object</h2>
         <div class="panel-header__actions">
+          <button class="btn" id="btnDuplicateObject" title="Duplicate">Duplicate</button>
           <button class="btn" id="btnPreviewObject" title="Preview">Preview</button>
           <button class="btn" id="btnQRCode" title="QR Code">QR Code</button>
         </div>
@@ -162,7 +163,7 @@
         </div>
 
         <fieldset class="form-fieldset">
-          <legend>English</legend>
+          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">English</legend>
           <label for="objectNameEn" class="form-label">Name</label>
           <input type="text" id="objectNameEn" class="form-input" required>
           <label for="objectAudioEn" class="form-label">Audio (MP3)</label>
@@ -174,7 +175,7 @@
         </fieldset>
 
         <fieldset class="form-fieldset">
-          <legend>Svenska</legend>
+          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Svenska</legend>
           <label for="objectNameSv" class="form-label">Namn</label>
           <input type="text" id="objectNameSv" class="form-input">
           <label for="objectAudioSv" class="form-label">Ljud (MP3)</label>
@@ -186,7 +187,7 @@
         </fieldset>
 
         <fieldset class="form-fieldset" id="mapPositionFieldset">
-          <legend>Map position</legend>
+          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Map position</legend>
           <div id="mapPickerContainer" class="map-picker-container hidden">
             <p class="form-hint" style="margin-bottom:var(--spacing-sm)">Click on the map to place the pin</p>
             <div class="map-picker" id="mapPicker">

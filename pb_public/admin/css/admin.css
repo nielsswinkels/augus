@@ -244,6 +244,12 @@ body {
 
 .btn--full { width: 100%; }
 
+.btn--danger-confirm {
+  background: var(--color-danger) !important;
+  color: #ffffff !important;
+  border-color: var(--color-danger) !important;
+}
+
 .btn--icon {
   border: none;
   background: transparent;
@@ -300,6 +306,29 @@ body {
   font-weight: 700;
   font-size: 1rem;
   padding: 0 var(--spacing-sm);
+}
+
+.form-fieldset__toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  user-select: none;
+}
+
+.form-fieldset__toggle::after {
+  content: "▾";
+  font-size: 0.8em;
+  transition: transform 0.2s;
+}
+
+.form-fieldset.collapsed .form-fieldset__toggle::after {
+  transform: rotate(-90deg);
+}
+
+.form-fieldset.collapsed > *:not(legend) {
+  display: none;
 }
 
 .form-row { margin-bottom: var(--spacing-sm); }

@@ -11,6 +11,7 @@ let currentObjects = [];
 let editingSet = null;
 let editingObject = null;
 let selectedSetId = "";
+let formDirty = false;
 
 // ===== DOM =====
 const $ = (sel) => document.querySelector(sel);
@@ -133,6 +134,7 @@ function renderSetsList() {
 
 function editSet(set) {
   editingSet = set;
+  formDirty = false;
   $("#setFormTitle").textContent = set ? "Edit Set" : "New Set";
   $("#panelSets").classList.add("hidden");
   $("#panelSetForm").classList.remove("hidden");
@@ -210,22 +212,25 @@ async function saveSet(e) {
       await api("collections/sets/records", { method: "POST", body: formData });
     }
     showToast("Set saved!");
+    formDirty = false;
     showTab("sets");
   } catch (e) {
     showToast("Error: " + e.message);
   }
 }
 
-async function deleteSet() {
+function deleteSet() {
   if (!editingSet) return;
-  if (!confirm("Delete this set and all its objects? This cannot be undone.")) return;
-  try {
-    await api(`collections/sets/records/${editingSet.id}`, { method: "DELETE" });
-    showToast("Set deleted");
-    showTab("sets");
-  } catch (e) {
-    showToast("Error: " + e.message);
-  }
+  confirmAction($("#btnDeleteSet"), async () => {
+    try {
+      await api(`collections/sets/records/${editingSet.id}`, { method: "DELETE" });
+      showToast("Set deleted");
+      formDirty = false;
+      showTab("sets");
+    } catch (e) {
+      showToast("Error: " + e.message);
+    }
+  });
 }
 
 // ===== OBJECTS =====
@@ -360,6 +365,7 @@ function renderObjectsList() {
 
 async function editObject(obj) {
   editingObject = obj;
+  formDirty = false;
   $("#objectFormTitle").textContent = obj ? "Edit Object" : "New Object";
   $("#panelObjects").classList.add("hidden");
   $("#panelObjectForm").classList.remove("hidden");
@@ -377,6 +383,7 @@ async function editObject(obj) {
     $("#btnDeleteObject").classList.remove("hidden");
     $("#btnPreviewObject").classList.remove("hidden");
     $("#btnQRCode").classList.remove("hidden");
+    $("#btnDuplicateObject").classList.remove("hidden");
 
     // Show current files
     showCurrentFile("objectAudioEnCurrent", obj.audio_en, "objects", obj.id, "audio_en");
@@ -404,6 +411,7 @@ async function editObject(obj) {
     $("#btnDeleteObject").classList.add("hidden");
     $("#btnPreviewObject").classList.add("hidden");
     $("#btnQRCode").classList.add("hidden");
+    $("#btnDuplicateObject").classList.add("hidden");
     $("#imagesGrid").innerHTML = "";
     setupMapPicker(null);
   }
@@ -464,27 +472,62 @@ async function saveObject(e) {
       $("#btnQRCode").classList.remove("hidden");
     }
     showToast("Object saved!");
+    formDirty = false;
   } catch (e) {
     showToast("Error: " + e.message);
   }
 }
 
-async function deleteObject() {
+function deleteObject() {
   if (!editingObject) return;
-  if (!confirm("Delete this object? This cannot be undone.")) return;
-  try {
-    await api(`collections/objects/records/${editingObject.id}`, { method: "DELETE" });
-    showToast("Object deleted");
-    backToObjects();
-  } catch (e) {
-    showToast("Error: " + e.message);
-  }
+  confirmAction($("#btnDeleteObject"), async () => {
+    try {
+      await api(`collections/objects/records/${editingObject.id}`, { method: "DELETE" });
+      showToast("Object deleted");
+      formDirty = false;
+      backToObjects();
+    } catch (e) {
+      showToast("Error: " + e.message);
+    }
+  });
 }
 
 function backToObjects() {
   $("#panelObjectForm").classList.add("hidden");
   $("#panelObjects").classList.remove("hidden");
   loadObjects(selectedSetId);
+}
+
+function duplicateObject() {
+  if (!editingObject) return;
+  // Open form in "new" mode with duplicated data pre-filled
+  $("#objectFormTitle").textContent = "New Object (Duplicate)";
+  $("#objectFormId").value = "";
+  $("#objectFormSetId").value = editingObject.set;
+  $("#objectSlug").value = editingObject.slug + "-copy";
+  $("#objectSortOrder").value = currentObjects.length + 1;
+  $("#objectDefaultLang").value = editingObject.default_language || "en";
+  $("#objectNameEn").value = editingObject.name_en || "";
+  $("#objectNameSv").value = editingObject.name_sv || "";
+  $("#objectMapX").value = editingObject.map_x ?? "";
+  $("#objectMapY").value = editingObject.map_y ?? "";
+
+  // Clear file inputs (files can't be duplicated)
+  ["objectAudioEn", "objectAudioSv", "objectSubtitlesEn", "objectSubtitlesSv"].forEach((id) => {
+    $(`#${id}`).value = "";
+  });
+  ["objectAudioEnCurrent", "objectAudioSvCurrent", "objectSubtitlesEnCurrent", "objectSubtitlesSvCurrent"]
+    .forEach((id) => $(`#${id}`).classList.add("hidden"));
+
+  // Reset state to new object mode
+  editingObject = null;
+  $("#btnDeleteObject").classList.add("hidden");
+  $("#btnPreviewObject").classList.add("hidden");
+  $("#btnQRCode").classList.add("hidden");
+  $("#btnDuplicateObject").classList.add("hidden");
+  $("#imagesGrid").innerHTML = "";
+
+  formDirty = true;
 }
 
 // ===== MAP PICKER =====
@@ -643,15 +686,16 @@ function renderImagesGrid(images) {
 
   // Delete image handlers
   grid.querySelectorAll("[data-delete-image]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      if (!confirm("Delete this image?")) return;
-      try {
-        await api(`collections/object_images/records/${btn.dataset.deleteImage}`, { method: "DELETE" });
-        loadObjectImages(editingObject.id);
-        showToast("Image deleted");
-      } catch (e) {
-        showToast("Error: " + e.message);
-      }
+    btn.addEventListener("click", () => {
+      confirmAction(btn, async () => {
+        try {
+          await api(`collections/object_images/records/${btn.dataset.deleteImage}`, { method: "DELETE" });
+          loadObjectImages(editingObject.id);
+          showToast("Image deleted");
+        } catch (e) {
+          showToast("Error: " + e.message);
+        }
+      });
     });
   });
 }
@@ -777,6 +821,23 @@ function esc(str) {
   return div.innerHTML;
 }
 
+function confirmAction(btn, action, label = "Delete") {
+  if (btn.dataset.confirming === "true") {
+    action();
+    return;
+  }
+  const originalText = btn.textContent;
+  btn.textContent = "Confirm " + label + "?";
+  btn.dataset.confirming = "true";
+  btn.classList.add("btn--danger-confirm");
+  const timeout = setTimeout(() => {
+    btn.textContent = originalText;
+    btn.dataset.confirming = "false";
+    btn.classList.remove("btn--danger-confirm");
+  }, 5000);
+  btn.addEventListener("click", () => clearTimeout(timeout), { once: true });
+}
+
 // ===== Event Handlers =====
 function setupEvents() {
   // Login
@@ -794,9 +855,31 @@ function setupEvents() {
   // Logout
   $("#btnLogout").addEventListener("click", logout);
 
+  // Dirty state tracking
+  function markDirty() { formDirty = true; }
+  $("#setForm").addEventListener("input", markDirty);
+  $("#setForm").addEventListener("change", markDirty);
+  $("#objectForm").addEventListener("input", markDirty);
+  $("#objectForm").addEventListener("change", markDirty);
+
+  window.addEventListener("beforeunload", (e) => {
+    if (formDirty) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
+
+  function checkDirtyAndProceed(action) {
+    if (formDirty) {
+      if (!confirm("You have unsaved changes. Discard them?")) return;
+      formDirty = false;
+    }
+    action();
+  }
+
   // Tabs
   $$(".admin-nav__tab").forEach((tab) => {
-    tab.addEventListener("click", () => showTab(tab.dataset.tab));
+    tab.addEventListener("click", () => checkDirtyAndProceed(() => showTab(tab.dataset.tab)));
   });
 
   // Colour pickers — two-way sync between swatch and hex text input
@@ -823,8 +906,10 @@ function setupEvents() {
   // Sets
   $("#btnNewSet").addEventListener("click", () => editSet(null));
   $("#btnBackToSets").addEventListener("click", () => {
-    $("#panelSetForm").classList.add("hidden");
-    $("#panelSets").classList.remove("hidden");
+    checkDirtyAndProceed(() => {
+      $("#panelSetForm").classList.add("hidden");
+      $("#panelSets").classList.remove("hidden");
+    });
   });
 
   $("#btnGoToObjects").addEventListener("click", () => {
@@ -838,7 +923,7 @@ function setupEvents() {
   // Objects
   $("#objectSetFilter").addEventListener("change", (e) => loadObjects(e.target.value));
   $("#btnNewObject").addEventListener("click", () => editObject(null));
-  $("#btnBackToObjects").addEventListener("click", backToObjects);
+  $("#btnBackToObjects").addEventListener("click", () => checkDirtyAndProceed(backToObjects));
   $("#objectForm").addEventListener("submit", saveObject);
   $("#btnDeleteObject").addEventListener("click", deleteObject);
 
@@ -850,41 +935,45 @@ function setupEvents() {
   $("#btnCloseQR").addEventListener("click", () => $("#qrModal").classList.add("hidden"));
   $("#btnDownloadQR").addEventListener("click", downloadQR);
 
+  // Duplicate
+  $("#btnDuplicateObject").addEventListener("click", () => checkDirtyAndProceed(duplicateObject));
+
   // Preview
   $("#btnPreviewObject").addEventListener("click", previewObject);
 
   // File remove buttons (event delegation)
-  document.addEventListener("click", async (e) => {
+  document.addEventListener("click", (e) => {
     const btn = e.target.closest(".current-file__remove");
     if (!btn) return;
-    if (!confirm("Remove this file?")) return;
 
-    const field = btn.dataset.field;
-    const record = btn.dataset.record;
-    const collection = btn.dataset.collection;
+    confirmAction(btn, async () => {
+      const field = btn.dataset.field;
+      const record = btn.dataset.record;
+      const collection = btn.dataset.collection;
 
-    try {
-      if (field === "map_image" && editingSet) {
-        // Set map image removal
-        const formData = new FormData();
-        formData.append("map_image", "");
-        await api(`collections/sets/records/${editingSet.id}`, { method: "PATCH", body: formData });
-        editingSet.map_image = "";
-      } else if (record && collection && field) {
-        // Object file removal
-        const formData = new FormData();
-        formData.append(field, "");
-        await api(`collections/${collection}/records/${record}`, { method: "PATCH", body: formData });
-        if (editingObject && editingObject.id === record) {
-          editingObject[field] = "";
+      try {
+        if (field === "map_image" && editingSet) {
+          // Set map image removal
+          const formData = new FormData();
+          formData.append("map_image", "");
+          await api(`collections/sets/records/${editingSet.id}`, { method: "PATCH", body: formData });
+          editingSet.map_image = "";
+        } else if (record && collection && field) {
+          // Object file removal
+          const formData = new FormData();
+          formData.append(field, "");
+          await api(`collections/${collection}/records/${record}`, { method: "PATCH", body: formData });
+          if (editingObject && editingObject.id === record) {
+            editingObject[field] = "";
+          }
         }
+        // Hide the current-file display
+        const wrapper = btn.closest(".current-file");
+        if (wrapper) wrapper.classList.add("hidden");
+      } catch (err) {
+        showToast("Failed to remove file: " + err.message);
       }
-      // Hide the current-file display
-      const wrapper = btn.closest(".current-file");
-      if (wrapper) wrapper.classList.add("hidden");
-    } catch (err) {
-      alert("Failed to remove file: " + err.message);
-    }
+    }, "Remove");
   });
 }
 
