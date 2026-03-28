@@ -1013,10 +1013,12 @@ function handleQRCode(data) {
   }
 }
 
+let scannerToastTimeout = null;
 function showScannerToast(msg) {
+  if (scannerToastTimeout) clearTimeout(scannerToastTimeout);
   dom.scannerToast.textContent = msg;
   dom.scannerToast.classList.add("visible");
-  setTimeout(() => dom.scannerToast.classList.remove("visible"), 2000);
+  scannerToastTimeout = setTimeout(() => dom.scannerToast.classList.remove("visible"), 2000);
 }
 
 // ===== View Management =====
@@ -1094,24 +1096,29 @@ function getCurrentView() {
 // ===== Settings Events =====
 function setupSettingsEvents() {
   dom.btnSettings.addEventListener("click", () => {
+    settingsPreviousFocus = document.activeElement;
     dom.settingsOverlay.classList.add("active");
-    dom.btnCloseSettings.focus();
+    settingsFocusTrapCleanup = trapFocus(dom.settingsOverlay);
   });
 
-  dom.btnCloseSettings.addEventListener("click", () => {
+  function closeSettings() {
     dom.settingsOverlay.classList.remove("active");
-  });
+    if (settingsFocusTrapCleanup) { settingsFocusTrapCleanup(); settingsFocusTrapCleanup = null; }
+    if (settingsPreviousFocus) { settingsPreviousFocus.focus(); settingsPreviousFocus = null; }
+  }
+
+  dom.btnCloseSettings.addEventListener("click", closeSettings);
 
   // Close on overlay click
   dom.settingsOverlay.addEventListener("click", (e) => {
     if (e.target === dom.settingsOverlay) {
-      dom.settingsOverlay.classList.remove("active");
+      closeSettings();
     }
   });
 
   // Escape to close
   dom.settingsOverlay.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") dom.settingsOverlay.classList.remove("active");
+    if (e.key === "Escape") closeSettings();
   });
 
   // Autoplay toggle
@@ -1251,6 +1258,17 @@ function init() {
   setupSettingsEvents();
   setupNavigationEvents();
   setupMapEvents();
+
+  // Document-level Escape key handler for modals
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (dom.galleryOverlay.classList.contains("active")) {
+      closeGallery();
+    } else if (dom.settingsOverlay.classList.contains("active")) {
+      dom.btnCloseSettings.click();
+    }
+  });
+
   loadRoute();
 }
 
