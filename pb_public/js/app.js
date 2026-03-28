@@ -894,6 +894,8 @@ function setupMapEvents() {
 // ===== QR Scanner =====
 let scannerStream = null;
 let scannerRAF = null;
+let scannerCanvas = null;
+let scannerCtx = null;
 
 async function startScanner() {
   try {
@@ -901,6 +903,8 @@ async function startScanner() {
       video: { facingMode: "environment" },
     });
     dom.scannerVideo.srcObject = scannerStream;
+    scannerCanvas = document.createElement("canvas");
+    scannerCtx = scannerCanvas.getContext("2d");
     state.scannerActive = true;
     scanFrame();
   } catch (e) {
@@ -917,6 +921,8 @@ function stopScanner() {
     scannerStream.getTracks().forEach((track) => track.stop());
     scannerStream = null;
   }
+  scannerCanvas = null;
+  scannerCtx = null;
   dom.scannerVideo.srcObject = null;
 }
 
@@ -929,12 +935,12 @@ function scanFrame() {
     return;
   }
 
-  const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(video, 0, 0);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  if (scannerCanvas.width !== video.videoWidth || scannerCanvas.height !== video.videoHeight) {
+    scannerCanvas.width = video.videoWidth;
+    scannerCanvas.height = video.videoHeight;
+  }
+  scannerCtx.drawImage(video, 0, 0);
+  const imageData = scannerCtx.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
 
   if (typeof jsQR !== "undefined") {
     const code = jsQR(imageData.data, imageData.width, imageData.height);
@@ -1153,7 +1159,7 @@ function contrastTextColor(hex) {
   // Returns dark or light text colour giving best WCAG contrast on the given bg
   const lum = relativeLuminance(hex);
   const onWhite = (1.05) / (lum + 0.05);
-  const onBlack = (lum + 0.05) / (0.05);
+  const onBlack = (lum + 0.05) / (0.0289 + 0.05);
   return onWhite > onBlack ? "#ffffff" : "#1a1a1a";
 }
 

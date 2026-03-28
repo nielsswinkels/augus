@@ -5,7 +5,7 @@
 const PB_URL = window.location.origin;
 
 // ===== State =====
-let authToken = localStorage.getItem("augus_admin_token") || "";
+let authToken = sessionStorage.getItem("augus_admin_token") || "";
 let currentSets = [];
 let currentObjects = [];
 let editingSet = null;
@@ -19,7 +19,7 @@ const $$ = (sel) => document.querySelectorAll(sel);
 // ===== API =====
 async function api(path, options = {}) {
   const headers = { ...options.headers };
-  if (authToken) headers["Authorization"] = authToken;
+  if (authToken) headers["Authorization"] = "Bearer " + authToken;
 
   const resp = await fetch(`${PB_URL}/api/${path}`, { ...options, headers });
   if (resp.status === 401 || resp.status === 403) {
@@ -56,18 +56,18 @@ async function login(email, password) {
     if (!data2.ok) throw new Error("Invalid credentials");
     const result = await data2.json();
     authToken = result.token;
-    localStorage.setItem("augus_admin_token", authToken);
+    sessionStorage.setItem("augus_admin_token", authToken);
     return;
   }
 
   const result = await data.json();
   authToken = result.token;
-  localStorage.setItem("augus_admin_token", authToken);
+  sessionStorage.setItem("augus_admin_token", authToken);
 }
 
 function logout() {
   authToken = "";
-  localStorage.removeItem("augus_admin_token");
+  sessionStorage.removeItem("augus_admin_token");
   showLogin();
 }
 
@@ -259,7 +259,7 @@ async function loadObjects(setId) {
   }
   selectedSetId = setId;
   try {
-    const resp = await api(`collections/objects/records?filter=(set='${setId}')&sort=sort_order&perPage=200`);
+    const resp = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
     currentObjects = resp.items || [];
     renderObjectsList();
     $("#btnNewObject").classList.remove("hidden");
@@ -297,18 +297,19 @@ function renderObjectsList() {
 
     // Open on click/keyboard (but not after a drag)
     let didDrag = false;
-    card.addEventListener("dragstart", () => { didDrag = true; });
     card.addEventListener("click", () => { if (!didDrag) editObject(obj); didDrag = false; });
     card.addEventListener("keydown", (e) => { if (e.key === "Enter") editObject(obj); });
 
     // Drag-and-drop handlers
     card.addEventListener("dragstart", (e) => {
+      didDrag = true;
       dragSrcIndex = parseInt(card.dataset.index);
       e.dataTransfer.effectAllowed = "move";
       card.classList.add("dragging");
     });
 
     card.addEventListener("dragend", () => {
+      didDrag = false;
       card.classList.remove("dragging");
       container.querySelectorAll(".object-card").forEach((c) => c.classList.remove("drag-over"));
     });
@@ -776,7 +777,7 @@ function previewObject() {
   if (!editingObject) return;
   const set = currentSets.find((s) => s.id === editingObject.set);
   if (!set) return;
-  window.open(`/${set.slug}/${editingObject.slug}`, "_blank");
+  window.open(`/#/${set.slug}/${editingObject.slug}`, "_blank");
 }
 
 // ===== Toast =====
