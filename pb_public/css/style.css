@@ -177,6 +177,7 @@ body {
   display: none;
   flex-direction: column;
   min-height: calc(100dvh - var(--header-height) - var(--bottom-nav-height));
+  padding-bottom: var(--bottom-nav-height);
 }
 
 .view.active {
