@@ -104,7 +104,7 @@ async function loadSets() {
     currentSets = resp.items || [];
     renderSetsList();
   } catch (e) {
-    showToast("Failed to load sets: " + e.message);
+    showToast("Could not load sets. Please check your connection and try refreshing the page.");
   }
 }
 
@@ -192,7 +192,7 @@ async function saveSet(e) {
   const slug = $("#setSlug").value.trim();
   const reserved = ["admin", "api", "_", "js", "css"];
   if (reserved.includes(slug)) {
-    showToast(`"${slug}" is a reserved name and cannot be used as a slug.`);
+    showToast(`"${slug}" is reserved by the system. Please choose a different slug.`);
     return;
   }
   const formData = new FormData();
@@ -222,7 +222,7 @@ async function saveSet(e) {
     formDirty = false;
     showTab("sets");
   } catch (e) {
-    showToast("Error: " + e.message);
+    showToast("Could not save the set. Please check that all required fields are filled in and try again.");
   }
 }
 
@@ -235,7 +235,7 @@ function deleteSet() {
       formDirty = false;
       showTab("sets");
     } catch (e) {
-      showToast("Error: " + e.message);
+      showToast("Could not delete this set. It may still have objects — delete those first.");
     }
   });
 }
@@ -258,7 +258,7 @@ async function loadObjectSetFilter() {
       loadObjects(selectedSetId);
     }
   } catch (e) {
-    showToast("Failed to load sets");
+    showToast("Could not load sets. Please check your connection and try refreshing.");
   }
 }
 
@@ -276,7 +276,7 @@ async function loadObjects(setId) {
     renderObjectsList();
     $("#btnNewObject").classList.remove("hidden");
   } catch (e) {
-    showToast("Failed to load objects: " + e.message);
+    showToast("Could not load objects. Please check your connection and try again.");
   }
 }
 
@@ -362,7 +362,7 @@ function renderObjectsList() {
         currentObjects = reorderedWithSort;
         renderObjectsList();
       } catch (err) {
-        showToast("Error saving order: " + err.message);
+        showToast("Could not save the new order. Please try refreshing and reordering again.");
       }
     });
 
@@ -481,7 +481,7 @@ async function saveObject(e) {
     showToast("Object saved!");
     formDirty = false;
   } catch (e) {
-    showToast("Error: " + e.message);
+    showToast("Could not save the object. Please check that all required fields are filled in and the slug is unique.");
   }
 }
 
@@ -494,7 +494,7 @@ function deleteObject() {
       formDirty = false;
       backToObjects();
     } catch (e) {
-      showToast("Error: " + e.message);
+      showToast("Could not delete this object. Please try again.");
     }
   });
 }
@@ -594,7 +594,7 @@ async function loadObjectImages(objectId) {
     const resp = await api(`collections/object_images/records?filter=(object='${encodeURIComponent(objectId)}')&sort=sort_order&perPage=100`);
     renderImagesGrid(resp.items || []);
   } catch (e) {
-    showToast("Failed to load images");
+    showToast("Could not load images. Please try refreshing the page.");
   }
 }
 
@@ -655,7 +655,7 @@ function renderImagesGrid(images) {
         ]);
         loadObjectImages(editingObject.id);
       } catch (e) {
-        showToast("Error: " + e.message);
+        showToast("Could not reorder images. Please try again.");
       }
     });
   });
@@ -686,7 +686,7 @@ function renderImagesGrid(images) {
         showToast("Caption saved!");
         loadObjectImages(editingObject.id);
       } catch (e) {
-        showToast("Error: " + e.message);
+        showToast("Could not save the caption. Please try again.");
       }
     });
   });
@@ -700,7 +700,7 @@ function renderImagesGrid(images) {
           loadObjectImages(editingObject.id);
           showToast("Image deleted");
         } catch (e) {
-          showToast("Error: " + e.message);
+          showToast("Could not delete this image. Please try again.");
         }
       });
     });
@@ -733,7 +733,7 @@ async function uploadImage(e) {
     $("#imageCaptionSv").value = "";
     loadObjectImages(objectId);
   } catch (e) {
-    showToast("Error: " + e.message);
+    showToast("Could not upload the image. Please check the file size and format and try again.");
   }
 }
 
@@ -744,7 +744,7 @@ function generateQRCode() {
   // Find the set slug
   const set = currentSets.find((s) => s.id === editingObject.set);
   if (!set) {
-    showToast("Set not found");
+    showToast("Could not find the set for this object. Please try saving first.");
     return;
   }
 
@@ -980,7 +980,7 @@ function setupEvents() {
         const wrapper = btn.closest(".current-file");
         if (wrapper) wrapper.classList.add("hidden");
       } catch (err) {
-        showToast("Failed to remove file: " + err.message);
+        showToast("Could not remove the file. Please try again.");
       }
     }, "Remove");
   });
