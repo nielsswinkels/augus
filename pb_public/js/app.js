@@ -623,7 +623,7 @@ function renderGalleryImage() {
     state.galleryIndex < state.images.length - 1 ? "visible" : "hidden";
 
   // Read caption aloud
-  if (state.settings.captionsAloud && caption) {
+  if (state.settings.captionsAloud && caption && typeof speechSynthesis !== "undefined") {
     speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(caption);
     const targetLang = state.settings.language === "sv" ? "sv-SE" : "en-US";
@@ -1166,10 +1166,12 @@ function setupNavigationEvents() {
 }
 
 // ===== Toast =====
+let toastTimeout = null;
 function showToast(msg) {
+  if (toastTimeout) clearTimeout(toastTimeout);
   dom.toast.textContent = msg;
   dom.toast.classList.add("visible");
-  setTimeout(() => dom.toast.classList.remove("visible"), 3000);
+  toastTimeout = setTimeout(() => dom.toast.classList.remove("visible"), 3000);
 }
 
 // ===== Colour Scheme =====
@@ -1190,12 +1192,14 @@ function contrastTextColor(hex) {
   return onWhite > onBlack ? "#ffffff" : "#1a1a1a";
 }
 
-function darkenHex(hex, amount = 30) {
+function adjustHex(hex, amount = 30) {
+  const lum = relativeLuminance(hex);
+  const factor = lum < 0.3 ? amount : -amount; // lighten dark colors, darken light ones
   const clean = hex.replace("#", "");
   const clamp = (v) => Math.max(0, Math.min(255, v));
-  const r = clamp(parseInt(clean.slice(0, 2), 16) - amount);
-  const g = clamp(parseInt(clean.slice(2, 4), 16) - amount);
-  const b = clamp(parseInt(clean.slice(4, 6), 16) - amount);
+  const r = clamp(parseInt(clean.slice(0, 2), 16) + factor);
+  const g = clamp(parseInt(clean.slice(2, 4), 16) + factor);
+  const b = clamp(parseInt(clean.slice(4, 6), 16) + factor);
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
@@ -1216,7 +1220,7 @@ function applySetColors(set) {
 
   // Primary colour + derivatives
   root.setProperty("--color-primary", primary);
-  root.setProperty("--color-primary-hover", darkenHex(primary, 30));
+  root.setProperty("--color-primary-hover", adjustHex(primary, 30));
   root.setProperty("--color-primary-text", contrastTextColor(primary));
 
   // Subtitle highlight: very light tint of primary
@@ -1226,9 +1230,9 @@ function applySetColors(set) {
   root.setProperty("--color-bg", bg);
   root.setProperty("--color-text", contrastTextColor(bg));
   // Surface (cards, inputs): slightly darker than bg
-  root.setProperty("--color-surface", darkenHex(bg, 10));
+  root.setProperty("--color-surface", adjustHex(bg, 10));
   // Border: midpoint between bg and text direction
-  root.setProperty("--color-border", darkenHex(bg, 40));
+  root.setProperty("--color-border", adjustHex(bg, 40));
 }
 
 // ===== Utility =====
