@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sv">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -11,28 +11,22 @@
   <!-- ===== HEADER ===== -->
   <header class="header" role="banner">
     <h1 class="header__title" id="headerTitle">Augus</h1>
-    <div class="header__actions">
-      <button class="btn btn--icon" id="btnList" aria-label="Object list" title="Object list">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-      </button>
-      <button class="btn btn--icon hidden" id="btnMapView" aria-label="Map view" title="Map view">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-      </button>
-      <button class="btn btn--icon" id="btnScan" aria-label="Scan QR code" title="Scan QR code">
-        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5.5" y="5.5" width="2" height="2"/><rect x="14" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="16.5" y="5.5" width="2" height="2"/><rect x="3" y="14" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5.5" y="16.5" width="2" height="2"/><rect x="14" y="14" width="2" height="2"/><rect x="17" y="14" width="2" height="2"/><rect x="19" y="16" width="2" height="2"/><rect x="14" y="17" width="2" height="2"/><rect x="16" y="19" width="2" height="2"/><rect x="19" y="19" width="2" height="2"/></svg>
-      </button>
-      <button class="btn btn--icon" id="btnSettings" aria-label="Settings" title="Settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      </button>
-    </div>
   </header>
 
   <!-- ===== OBJECT PAGE ===== -->
   <main class="view object-page" id="viewObject" role="main">
+    <div class="loading" id="loadingIndicator" style="display:none">
+      <div class="spinner"></div>
+    </div>
     <div class="thumbnail-container hidden" id="thumbnailContainer">
       <img class="thumbnail" id="thumbnail" src="" alt="" role="button" tabindex="0" aria-label="View image gallery">
     </div>
 
+    <div class="subtitles-header hidden" id="subtitlesHeader">
+      <button class="btn btn--icon btn--small" id="btnKaraokeToggle" aria-label="Toggle focus mode" title="Focus mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+      </button>
+    </div>
     <div class="subtitles-area" id="subtitlesArea" aria-live="polite" aria-label="Audio transcript">
       <!-- Subtitle cues rendered here -->
     </div>
@@ -51,6 +45,9 @@
       <span class="player-progress__time" id="playerDuration" aria-hidden="true">0:00</span>
     </div>
     <div class="player-controls">
+      <button class="btn btn--icon btn--seq-nav hidden" id="btnPrevObject" aria-label="Previous object">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><polygon points="19,20 9,12 19,4"/><rect x="5" y="4" width="3" height="16"/></svg>
+      </button>
       <button class="btn btn--icon" id="btnSkipBack" aria-label="Skip back 15 seconds">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 5V1l-5 5 5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6h-2c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="bold" fill="currentColor">15</text></svg>
       </button>
@@ -61,8 +58,23 @@
       <button class="btn btn--icon" id="btnSkipForward" aria-label="Skip forward 15 seconds">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12.01 5V1l5 5-5 5V7c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6h2c0 4.42-3.58 8-8 8s-8-3.58-8-8 3.58-8 8-8z"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="bold" fill="currentColor">15</text></svg>
       </button>
+      <button class="btn btn--icon btn--seq-nav hidden" id="btnNextObject" aria-label="Next object">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><polygon points="5,4 15,12 5,20"/><rect x="16" y="4" width="3" height="16"/></svg>
+      </button>
+      <button class="btn btn--speed" id="btnPlaybackSpeed" aria-label="Playback speed">1x</button>
     </div>
     <audio id="audioElement" preload="metadata"></audio>
+  </div>
+
+  <!-- ===== WELCOME PAGE ===== -->
+  <div class="view" id="viewWelcome">
+    <div class="welcome-page">
+      <h1 class="welcome-page__title">Augus</h1>
+      <p class="welcome-page__subtitle" id="welcomeSubtitle">Choose an exhibition</p>
+      <ul class="welcome-page__sets" id="welcomeSetsList">
+        <!-- Rendered by JS -->
+      </ul>
+    </div>
   </div>
 
   <!-- ===== LIST VIEW ===== -->
@@ -93,7 +105,16 @@
 
   <!-- ===== QR SCANNER ===== -->
   <div class="view scanner-view" id="viewScanner" role="region" aria-label="QR code scanner">
-    <div class="scanner-video-container">
+    <div class="scanner-prompt" id="scannerPrompt">
+      <div class="scanner-prompt__content">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/>
+        </svg>
+        <p id="scannerPromptText">To scan QR codes on exhibit labels, we need access to your camera.</p>
+        <button class="btn btn--primary" id="btnAllowCamera">Allow Camera</button>
+      </div>
+    </div>
+    <div class="scanner-video-container hidden" id="scannerVideoContainer">
       <video id="scannerVideo" autoplay playsinline muted></video>
       <div class="scanner-overlay">
         <div class="scanner-frame" aria-hidden="true"></div>
@@ -114,9 +135,23 @@
       </div>
 
       <div class="setting-row">
-        <span class="setting-row__label" id="labelAutoplay">Autoplay audio</span>
+        <div class="setting-row__text">
+          <span class="setting-row__label" id="labelAutoplay">Autoplay audio</span>
+          <span class="setting-row__hint" id="hintAutoplay">Play audio automatically when opening an object</span>
+        </div>
         <label class="toggle">
           <input type="checkbox" id="settingAutoplay" checked aria-labelledby="labelAutoplay">
+          <span class="toggle__slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-row__text">
+          <span class="setting-row__label" id="labelCaptionsAloud">Read image captions aloud</span>
+          <span class="setting-row__hint" id="hintCaptionsAloud">Use text-to-speech to read image captions in the gallery</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="settingCaptionsAloud" aria-labelledby="labelCaptionsAloud">
           <span class="toggle__slider"></span>
         </label>
       </div>
@@ -135,15 +170,8 @@
           <button class="segmented__option active" data-fontsize="normal" role="radio" aria-checked="true">A</button>
           <button class="segmented__option" data-fontsize="xl" role="radio" aria-checked="false" style="font-size:1.25em">A</button>
           <button class="segmented__option" data-fontsize="xxl" role="radio" aria-checked="false" style="font-size:1.5em">A</button>
+          <button class="segmented__option" data-fontsize="xxxl" role="radio" aria-checked="false" style="font-size:1.75em">A</button>
         </div>
-      </div>
-
-      <div class="setting-row">
-        <span class="setting-row__label" id="labelCaptionsAloud">Read captions aloud</span>
-        <label class="toggle">
-          <input type="checkbox" id="settingCaptionsAloud" aria-labelledby="labelCaptionsAloud">
-          <span class="toggle__slider"></span>
-        </label>
       </div>
     </div>
   </div>
@@ -163,6 +191,26 @@
     </div>
     <p class="gallery-caption" id="galleryCaption"></p>
   </div>
+
+  <!-- ===== BOTTOM NAV ===== -->
+  <nav class="bottom-nav" id="bottomNav" aria-label="Navigation">
+    <button class="bottom-nav__btn" id="btnList" aria-label="Object list" title="Object list">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      <span class="bottom-nav__label" id="labelNavList">List</span>
+    </button>
+    <button class="bottom-nav__btn hidden" id="btnMapView" aria-label="Map view" title="Map view">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+      <span class="bottom-nav__label" id="labelNavMap">Map</span>
+    </button>
+    <button class="bottom-nav__btn" id="btnScan" aria-label="Scan QR code" title="Scan QR code">
+      <svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5.5" y="5.5" width="2" height="2"/><rect x="14" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="16.5" y="5.5" width="2" height="2"/><rect x="3" y="14" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5.5" y="16.5" width="2" height="2"/><rect x="14" y="14" width="2" height="2"/><rect x="17" y="14" width="2" height="2"/><rect x="19" y="16" width="2" height="2"/><rect x="14" y="17" width="2" height="2"/><rect x="16" y="19" width="2" height="2"/><rect x="19" y="19" width="2" height="2"/></svg>
+      <span class="bottom-nav__label" id="labelNavScan">Scan</span>
+    </button>
+    <button class="bottom-nav__btn" id="btnSettings" aria-label="Settings" title="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span class="bottom-nav__label" id="labelNavSettings">Settings</span>
+    </button>
+  </nav>
 
   <!-- ===== TOAST ===== -->
   <div class="toast" id="toast" role="alert" aria-live="assertive"></div>

@@ -1,3 +1,23 @@
 your-domain.com {
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy strict-origin-when-cross-origin
+        Permissions-Policy "camera=(self), microphone=()"
+    }
+
+    # Rate limiting: max 50 requests per second per client IP
+    # Requires caddy-rate-limit plugin: https://github.com/mholt/caddy-ratelimit
+    # Install: xcaddy build --with github.com/mholt/caddy-ratelimit
+    # Uncomment the block below after installing the plugin:
+    #
+    # rate_limit {
+    #     zone api_zone {
+    #         key {remote_host}
+    #         events 50
+    #         window 1s
+    #     }
+    # }
+
     reverse_proxy app:8090
 }

@@ -5,21 +5,24 @@
 const PB_URL = window.location.origin;
 
 // ===== State =====
-let authToken = localStorage.getItem("augus_admin_token") || "";
+let authToken = sessionStorage.getItem("augus_admin_token") || "";
 let currentSets = [];
 let currentObjects = [];
 let editingSet = null;
 let editingObject = null;
 let selectedSetId = "";
+let formDirty = false;
 
 // ===== DOM =====
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
 // ===== API =====
+// CSRF protection: The Authorization header provides implicit CSRF protection
+// because custom headers cannot be set by cross-origin form submissions.
 async function api(path, options = {}) {
   const headers = { ...options.headers };
-  if (authToken) headers["Authorization"] = authToken;
+  if (authToken) headers["Authorization"] = "Bearer " + authToken;
 
   const resp = await fetch(`${PB_URL}/api/${path}`, { ...options, headers });
   if (resp.status === 401 || resp.status === 403) {
@@ -56,18 +59,18 @@ async function login(email, password) {
     if (!data2.ok) throw new Error("Invalid credentials");
     const result = await data2.json();
     authToken = result.token;
-    localStorage.setItem("augus_admin_token", authToken);
+    sessionStorage.setItem("augus_admin_token", authToken);
     return;
   }
 
   const result = await data.json();
   authToken = result.token;
-  localStorage.setItem("augus_admin_token", authToken);
+  sessionStorage.setItem("augus_admin_token", authToken);
 }
 
 function logout() {
   authToken = "";
-  localStorage.removeItem("augus_admin_token");
+  sessionStorage.removeItem("augus_admin_token");
   showLogin();
 }
 
@@ -103,7 +106,7 @@ async function loadSets() {
     currentSets = resp.items || [];
     renderSetsList();
   } catch (e) {
-    showToast("Failed to load sets: " + e.message);
+    showToast("Could not load sets. Please check your connection and try refreshing the page.");
   }
 }
 
@@ -121,7 +124,7 @@ function renderSetsList() {
     card.setAttribute("role", "button");
     card.innerHTML = `
       <div class="set-card__info">
-        <div class="set-card__name">${esc(set.name_en)}</div>
+        <div class="set-card__name">${esc(set.name_en)}${set.published ? "" : ' <span class="set-card__draft">Draft</span>'}</div>
         <div class="set-card__slug">/${esc(set.slug)}</div>
       </div>
     `;
@@ -133,6 +136,7 @@ function renderSetsList() {
 
 function editSet(set) {
   editingSet = set;
+  formDirty = false;
   $("#setFormTitle").textContent = set ? "Edit Set" : "New Set";
   $("#panelSets").classList.add("hidden");
   $("#panelSetForm").classList.remove("hidden");
@@ -155,6 +159,9 @@ function editSet(set) {
       $("#setMapImageCurrent").classList.add("hidden");
     }
 
+    $("#setPublished").checked = !!set.published;
+    $("#setSequentialNav").checked = !!set.sequential_navigation;
+
     const primary = set.color_primary || "#0057b8";
     const accent = set.color_accent || "#ffffff";
     $("#setColorPrimary").value = primary;
@@ -174,6 +181,8 @@ function editSet(set) {
     $("#setColorPrimaryText").value = "#0057b8";
     $("#setColorAccent").value = "#ffffff";
     $("#setColorAccentText").value = "#ffffff";
+    $("#setPublished").checked = false;
+    $("#setSequentialNav").checked = true;
     $("#btnDeleteSet").classList.add("hidden");
     $("#btnGoToObjects").style.display = "none";
   }
@@ -185,7 +194,7 @@ async function saveSet(e) {
   const slug = $("#setSlug").value.trim();
   const reserved = ["admin", "api", "_", "js", "css"];
   if (reserved.includes(slug)) {
-    showToast(`"${slug}" is a reserved name and cannot be used as a slug.`);
+    showToast(`"${slug}" is reserved by the system. Please choose a different slug.`);
     return;
   }
   const formData = new FormData();
@@ -202,6 +211,8 @@ async function saveSet(e) {
   const accentVal = $("#setColorAccentText").value;
   formData.append("color_primary", /^#[0-9a-fA-F]{6}$/.test(primaryVal) ? primaryVal : $("#setColorPrimary").value);
   formData.append("color_accent", /^#[0-9a-fA-F]{6}$/.test(accentVal) ? accentVal : $("#setColorAccent").value);
+  formData.append("published", $("#setPublished").checked);
+  formData.append("sequential_navigation", $("#setSequentialNav").checked);
 
   try {
     if (id) {
@@ -210,22 +221,25 @@ async function saveSet(e) {
       await api("collections/sets/records", { method: "POST", body: formData });
     }
     showToast("Set saved!");
+    formDirty = false;
     showTab("sets");
   } catch (e) {
-    showToast("Error: " + e.message);
+    showToast("Could not save the set. Please check that all required fields are filled in and try again.");
   }
 }
 
-async function deleteSet() {
+function deleteSet() {
   if (!editingSet) return;
-  if (!confirm("Delete this set and all its objects? This cannot be undone.")) return;
-  try {
-    await api(`collections/sets/records/${editingSet.id}`, { method: "DELETE" });
-    showToast("Set deleted");
-    showTab("sets");
-  } catch (e) {
-    showToast("Error: " + e.message);
-  }
+  confirmAction($("#btnDeleteSet"), async () => {
+    try {
+      await api(`collections/sets/records/${editingSet.id}`, { method: "DELETE" });
+      showToast("Set deleted");
+      formDirty = false;
+      showTab("sets");
+    } catch (e) {
+      showToast("Could not delete this set. It may still have objects — delete those first.");
+    }
+  });
 }
 
 // ===== OBJECTS =====
@@ -246,7 +260,7 @@ async function loadObjectSetFilter() {
       loadObjects(selectedSetId);
     }
   } catch (e) {
-    showToast("Failed to load sets");
+    showToast("Could not load sets. Please check your connection and try refreshing.");
   }
 }
 
@@ -259,12 +273,12 @@ async function loadObjects(setId) {
   }
   selectedSetId = setId;
   try {
-    const resp = await api(`collections/objects/records?filter=(set='${setId}')&sort=sort_order&perPage=200`);
+    const resp = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
     currentObjects = resp.items || [];
     renderObjectsList();
     $("#btnNewObject").classList.remove("hidden");
   } catch (e) {
-    showToast("Failed to load objects: " + e.message);
+    showToast("Could not load objects. Please check your connection and try again.");
   }
 }
 
@@ -297,18 +311,19 @@ function renderObjectsList() {
 
     // Open on click/keyboard (but not after a drag)
     let didDrag = false;
-    card.addEventListener("dragstart", () => { didDrag = true; });
     card.addEventListener("click", () => { if (!didDrag) editObject(obj); didDrag = false; });
     card.addEventListener("keydown", (e) => { if (e.key === "Enter") editObject(obj); });
 
     // Drag-and-drop handlers
     card.addEventListener("dragstart", (e) => {
+      didDrag = true;
       dragSrcIndex = parseInt(card.dataset.index);
       e.dataTransfer.effectAllowed = "move";
       card.classList.add("dragging");
     });
 
     card.addEventListener("dragend", () => {
+      didDrag = false;
       card.classList.remove("dragging");
       container.querySelectorAll(".object-card").forEach((c) => c.classList.remove("drag-over"));
     });
@@ -349,7 +364,7 @@ function renderObjectsList() {
         currentObjects = reorderedWithSort;
         renderObjectsList();
       } catch (err) {
-        showToast("Error saving order: " + err.message);
+        showToast("Could not save the new order. Please try refreshing and reordering again.");
       }
     });
 
@@ -359,6 +374,7 @@ function renderObjectsList() {
 
 async function editObject(obj) {
   editingObject = obj;
+  formDirty = false;
   $("#objectFormTitle").textContent = obj ? "Edit Object" : "New Object";
   $("#panelObjects").classList.add("hidden");
   $("#panelObjectForm").classList.remove("hidden");
@@ -371,19 +387,18 @@ async function editObject(obj) {
     $("#objectDefaultLang").value = obj.default_language || "en";
     $("#objectNameEn").value = obj.name_en || "";
     $("#objectNameSv").value = obj.name_sv || "";
-    $("#objectDescEn").value = obj.description_en || "";
-    $("#objectDescSv").value = obj.description_sv || "";
     $("#objectMapX").value = obj.map_x ?? "";
     $("#objectMapY").value = obj.map_y ?? "";
     $("#btnDeleteObject").classList.remove("hidden");
     $("#btnPreviewObject").classList.remove("hidden");
     $("#btnQRCode").classList.remove("hidden");
+    $("#btnDuplicateObject").classList.remove("hidden");
 
     // Show current files
-    showCurrentFile("objectAudioEnCurrent", obj.audio_en, "objects", obj.id);
-    showCurrentFile("objectAudioSvCurrent", obj.audio_sv, "objects", obj.id);
-    showCurrentFile("objectSubtitlesEnCurrent", obj.subtitles_en, "objects", obj.id);
-    showCurrentFile("objectSubtitlesSvCurrent", obj.subtitles_sv, "objects", obj.id);
+    showCurrentFile("objectAudioEnCurrent", obj.audio_en, "objects", obj.id, "audio_en");
+    showCurrentFile("objectAudioSvCurrent", obj.audio_sv, "objects", obj.id, "audio_sv");
+    showCurrentFile("objectSubtitlesEnCurrent", obj.subtitles_en, "objects", obj.id, "subtitles_en");
+    showCurrentFile("objectSubtitlesSvCurrent", obj.subtitles_sv, "objects", obj.id, "subtitles_sv");
 
     // Load images
     loadObjectImages(obj.id);
@@ -398,8 +413,6 @@ async function editObject(obj) {
     $("#objectDefaultLang").value = "en";
     $("#objectNameEn").value = "";
     $("#objectNameSv").value = "";
-    $("#objectDescEn").value = "";
-    $("#objectDescSv").value = "";
     $("#objectMapX").value = "";
     $("#objectMapY").value = "";
     ["objectAudioEnCurrent", "objectAudioSvCurrent", "objectSubtitlesEnCurrent", "objectSubtitlesSvCurrent"]
@@ -407,6 +420,7 @@ async function editObject(obj) {
     $("#btnDeleteObject").classList.add("hidden");
     $("#btnPreviewObject").classList.add("hidden");
     $("#btnQRCode").classList.add("hidden");
+    $("#btnDuplicateObject").classList.add("hidden");
     $("#imagesGrid").innerHTML = "";
     setupMapPicker(null);
   }
@@ -417,10 +431,10 @@ async function editObject(obj) {
   });
 }
 
-function showCurrentFile(elId, filename, collection, recordId) {
+function showCurrentFile(elId, filename, collection, recordId, field) {
   const el = $(`#${elId}`);
   if (filename) {
-    el.innerHTML = `Current: ${esc(filename)} <button class="current-file__remove" data-record="${recordId}" data-collection="${collection}" data-filename="${filename}" title="Remove">&times;</button>`;
+    el.innerHTML = `Current: ${esc(filename)} <button class="current-file__remove" data-record="${recordId}" data-collection="${collection}" data-filename="${filename}" data-field="${field || ""}" title="Remove">&times;</button>`;
     el.classList.remove("hidden");
   } else {
     el.classList.add("hidden");
@@ -437,13 +451,11 @@ async function saveObject(e) {
   formData.append("default_language", $("#objectDefaultLang").value);
   formData.append("name_en", $("#objectNameEn").value.trim());
   formData.append("name_sv", $("#objectNameSv").value.trim());
-  formData.append("description_en", $("#objectDescEn").value.trim());
-  formData.append("description_sv", $("#objectDescSv").value.trim());
 
   const mapX = $("#objectMapX").value;
   const mapY = $("#objectMapY").value;
-  formData.append("map_x", mapX !== "" ? parseFloat(mapX) : 0);
-  formData.append("map_y", mapY !== "" ? parseFloat(mapY) : 0);
+  formData.append("map_x", mapX !== "" ? parseFloat(mapX) : -1);
+  formData.append("map_y", mapY !== "" ? parseFloat(mapY) : -1);
 
   // File uploads
   const audioEn = $("#objectAudioEn").files[0];
@@ -469,27 +481,62 @@ async function saveObject(e) {
       $("#btnQRCode").classList.remove("hidden");
     }
     showToast("Object saved!");
+    formDirty = false;
   } catch (e) {
-    showToast("Error: " + e.message);
+    showToast("Could not save the object. Please check that all required fields are filled in and the slug is unique.");
   }
 }
 
-async function deleteObject() {
+function deleteObject() {
   if (!editingObject) return;
-  if (!confirm("Delete this object? This cannot be undone.")) return;
-  try {
-    await api(`collections/objects/records/${editingObject.id}`, { method: "DELETE" });
-    showToast("Object deleted");
-    backToObjects();
-  } catch (e) {
-    showToast("Error: " + e.message);
-  }
+  confirmAction($("#btnDeleteObject"), async () => {
+    try {
+      await api(`collections/objects/records/${editingObject.id}`, { method: "DELETE" });
+      showToast("Object deleted");
+      formDirty = false;
+      backToObjects();
+    } catch (e) {
+      showToast("Could not delete this object. Please try again.");
+    }
+  });
 }
 
 function backToObjects() {
   $("#panelObjectForm").classList.add("hidden");
   $("#panelObjects").classList.remove("hidden");
   loadObjects(selectedSetId);
+}
+
+function duplicateObject() {
+  if (!editingObject) return;
+  // Open form in "new" mode with duplicated data pre-filled
+  $("#objectFormTitle").textContent = "New Object (Duplicate)";
+  $("#objectFormId").value = "";
+  $("#objectFormSetId").value = editingObject.set;
+  $("#objectSlug").value = editingObject.slug + "-copy";
+  $("#objectSortOrder").value = currentObjects.length + 1;
+  $("#objectDefaultLang").value = editingObject.default_language || "en";
+  $("#objectNameEn").value = editingObject.name_en || "";
+  $("#objectNameSv").value = editingObject.name_sv || "";
+  $("#objectMapX").value = editingObject.map_x ?? "";
+  $("#objectMapY").value = editingObject.map_y ?? "";
+
+  // Clear file inputs (files can't be duplicated)
+  ["objectAudioEn", "objectAudioSv", "objectSubtitlesEn", "objectSubtitlesSv"].forEach((id) => {
+    $(`#${id}`).value = "";
+  });
+  ["objectAudioEnCurrent", "objectAudioSvCurrent", "objectSubtitlesEnCurrent", "objectSubtitlesSvCurrent"]
+    .forEach((id) => $(`#${id}`).classList.add("hidden"));
+
+  // Reset state to new object mode
+  editingObject = null;
+  $("#btnDeleteObject").classList.add("hidden");
+  $("#btnPreviewObject").classList.add("hidden");
+  $("#btnQRCode").classList.add("hidden");
+  $("#btnDuplicateObject").classList.add("hidden");
+  $("#imagesGrid").innerHTML = "";
+
+  formDirty = true;
 }
 
 // ===== MAP PICKER =====
@@ -546,10 +593,10 @@ function setupMapPicker(obj) {
 // ===== IMAGES =====
 async function loadObjectImages(objectId) {
   try {
-    const resp = await api(`collections/object_images/records?filter=(object='${objectId}')&sort=sort_order&perPage=100`);
+    const resp = await api(`collections/object_images/records?filter=(object='${encodeURIComponent(objectId)}')&sort=sort_order&perPage=100`);
     renderImagesGrid(resp.items || []);
   } catch (e) {
-    showToast("Failed to load images");
+    showToast("Could not load images. Please try refreshing the page.");
   }
 }
 
@@ -610,7 +657,7 @@ function renderImagesGrid(images) {
         ]);
         loadObjectImages(editingObject.id);
       } catch (e) {
-        showToast("Error: " + e.message);
+        showToast("Could not reorder images. Please try again.");
       }
     });
   });
@@ -641,22 +688,23 @@ function renderImagesGrid(images) {
         showToast("Caption saved!");
         loadObjectImages(editingObject.id);
       } catch (e) {
-        showToast("Error: " + e.message);
+        showToast("Could not save the caption. Please try again.");
       }
     });
   });
 
   // Delete image handlers
   grid.querySelectorAll("[data-delete-image]").forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      if (!confirm("Delete this image?")) return;
-      try {
-        await api(`collections/object_images/records/${btn.dataset.deleteImage}`, { method: "DELETE" });
-        loadObjectImages(editingObject.id);
-        showToast("Image deleted");
-      } catch (e) {
-        showToast("Error: " + e.message);
-      }
+    btn.addEventListener("click", () => {
+      confirmAction(btn, async () => {
+        try {
+          await api(`collections/object_images/records/${btn.dataset.deleteImage}`, { method: "DELETE" });
+          loadObjectImages(editingObject.id);
+          showToast("Image deleted");
+        } catch (e) {
+          showToast("Could not delete this image. Please try again.");
+        }
+      });
     });
   });
 }
@@ -664,7 +712,7 @@ function renderImagesGrid(images) {
 async function uploadImage(e) {
   e.preventDefault();
   if (!editingObject || !$("#objectFormId").value) {
-    showToast("Save the object first before uploading images");
+    showToast("Please save the object first — images can only be added to saved objects.");
     return;
   }
 
@@ -687,7 +735,7 @@ async function uploadImage(e) {
     $("#imageCaptionSv").value = "";
     loadObjectImages(objectId);
   } catch (e) {
-    showToast("Error: " + e.message);
+    showToast("Could not upload the image. Please check the file size and format and try again.");
   }
 }
 
@@ -698,7 +746,7 @@ function generateQRCode() {
   // Find the set slug
   const set = currentSets.find((s) => s.id === editingObject.set);
   if (!set) {
-    showToast("Set not found");
+    showToast("Could not find the set for this object. Please try saving first.");
     return;
   }
 
@@ -721,36 +769,9 @@ function downloadQR() {
 }
 
 // Minimal QR code generation using canvas
-// Uses a simple encoding approach — for production, consider a proper library
+// Uses the vendored qrcode-generator library loaded via script tag in index.html
 function generateQRToCanvas(canvas, text) {
-  // We'll draw a placeholder with the URL text and load qrcode lib dynamically
-  const ctx = canvas.getContext("2d");
-  canvas.width = 300;
-  canvas.height = 300;
-
-  // Try to use the QR code generation API or fall back to text
-  // Load QR library dynamically
-  if (!window._qrScriptLoaded) {
-    const script = document.createElement("script");
-    script.src = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
-    script.onload = () => {
-      window._qrScriptLoaded = true;
-      drawQR(canvas, text);
-    };
-    script.onerror = () => {
-      // Fallback: just show the URL
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, 300, 300);
-      ctx.fillStyle = "#000000";
-      ctx.font = "12px sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText("QR generation failed", 150, 140);
-      ctx.fillText(text, 150, 160);
-    };
-    document.head.appendChild(script);
-  } else {
-    drawQR(canvas, text);
-  }
+  drawQR(canvas, text);
 }
 
 function drawQR(canvas, text) {
@@ -782,24 +803,17 @@ function previewObject() {
   if (!editingObject) return;
   const set = currentSets.find((s) => s.id === editingObject.set);
   if (!set) return;
-  window.open(`/${set.slug}/${editingObject.slug}`, "_blank");
+  window.open(`/#/${set.slug}/${editingObject.slug}`, "_blank");
 }
 
 // ===== Toast =====
+let adminToastTimeout = null;
 function showToast(msg) {
-  // Remove existing toast
-  const existing = document.querySelector(".toast");
-  if (existing) existing.remove();
-
-  const toast = document.createElement("div");
-  toast.className = "toast visible";
+  if (adminToastTimeout) clearTimeout(adminToastTimeout);
+  const toast = $("#adminToast");
   toast.textContent = msg;
-  toast.setAttribute("role", "alert");
-  document.body.appendChild(toast);
-  setTimeout(() => {
-    toast.classList.remove("visible");
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  toast.classList.add("visible");
+  adminToastTimeout = setTimeout(() => toast.classList.remove("visible"), 3000);
 }
 
 // ===== Utility =====
@@ -807,6 +821,23 @@ function esc(str) {
   const div = document.createElement("div");
   div.textContent = str || "";
   return div.innerHTML;
+}
+
+function confirmAction(btn, action, label = "Delete") {
+  if (btn.dataset.confirming === "true") {
+    action();
+    return;
+  }
+  const originalText = btn.textContent;
+  btn.textContent = "Confirm " + label + "?";
+  btn.dataset.confirming = "true";
+  btn.classList.add("btn--danger-confirm");
+  const timeout = setTimeout(() => {
+    btn.textContent = originalText;
+    btn.dataset.confirming = "false";
+    btn.classList.remove("btn--danger-confirm");
+  }, 5000);
+  btn.addEventListener("click", () => clearTimeout(timeout), { once: true });
 }
 
 // ===== Event Handlers =====
@@ -826,9 +857,31 @@ function setupEvents() {
   // Logout
   $("#btnLogout").addEventListener("click", logout);
 
+  // Dirty state tracking
+  function markDirty() { formDirty = true; }
+  $("#setForm").addEventListener("input", markDirty);
+  $("#setForm").addEventListener("change", markDirty);
+  $("#objectForm").addEventListener("input", markDirty);
+  $("#objectForm").addEventListener("change", markDirty);
+
+  window.addEventListener("beforeunload", (e) => {
+    if (formDirty) {
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
+
+  function checkDirtyAndProceed(action) {
+    if (formDirty) {
+      if (!confirm("You have unsaved changes. Discard them?")) return;
+      formDirty = false;
+    }
+    action();
+  }
+
   // Tabs
   $$(".admin-nav__tab").forEach((tab) => {
-    tab.addEventListener("click", () => showTab(tab.dataset.tab));
+    tab.addEventListener("click", () => checkDirtyAndProceed(() => showTab(tab.dataset.tab)));
   });
 
   // Colour pickers — two-way sync between swatch and hex text input
@@ -855,14 +908,18 @@ function setupEvents() {
   // Sets
   $("#btnNewSet").addEventListener("click", () => editSet(null));
   $("#btnBackToSets").addEventListener("click", () => {
-    $("#panelSetForm").classList.add("hidden");
-    $("#panelSets").classList.remove("hidden");
+    checkDirtyAndProceed(() => {
+      $("#panelSetForm").classList.add("hidden");
+      $("#panelSets").classList.remove("hidden");
+    });
   });
 
   $("#btnGoToObjects").addEventListener("click", () => {
     if (!editingSet) return;
-    selectedSetId = editingSet.id;
-    showTab("objects");
+    checkDirtyAndProceed(() => {
+      selectedSetId = editingSet.id;
+      showTab("objects");
+    });
   });
   $("#setForm").addEventListener("submit", saveSet);
   $("#btnDeleteSet").addEventListener("click", deleteSet);
@@ -870,7 +927,7 @@ function setupEvents() {
   // Objects
   $("#objectSetFilter").addEventListener("change", (e) => loadObjects(e.target.value));
   $("#btnNewObject").addEventListener("click", () => editObject(null));
-  $("#btnBackToObjects").addEventListener("click", backToObjects);
+  $("#btnBackToObjects").addEventListener("click", () => checkDirtyAndProceed(backToObjects));
   $("#objectForm").addEventListener("submit", saveObject);
   $("#btnDeleteObject").addEventListener("click", deleteObject);
 
@@ -882,8 +939,56 @@ function setupEvents() {
   $("#btnCloseQR").addEventListener("click", () => $("#qrModal").classList.add("hidden"));
   $("#btnDownloadQR").addEventListener("click", downloadQR);
 
+  // Duplicate
+  $("#btnDuplicateObject").addEventListener("click", () => checkDirtyAndProceed(duplicateObject));
+
   // Preview
   $("#btnPreviewObject").addEventListener("click", previewObject);
+
+  // File remove buttons (event delegation)
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".current-file__remove");
+    if (!btn) return;
+
+    confirmAction(btn, async () => {
+      const field = btn.dataset.field;
+      const record = btn.dataset.record;
+      const collection = btn.dataset.collection;
+
+      try {
+        if (field === "map_image" && editingSet) {
+          // Set map image removal
+          const formData = new FormData();
+          formData.append("map_image", "");
+          await api(`collections/sets/records/${editingSet.id}`, { method: "PATCH", body: formData });
+          editingSet.map_image = "";
+        } else if (record && collection && field) {
+          // Object file removal
+          const formData = new FormData();
+          formData.append(field, "");
+          await api(`collections/${collection}/records/${record}`, { method: "PATCH", body: formData });
+          if (editingObject && editingObject.id === record) {
+            editingObject[field] = "";
+          }
+        }
+        // Hide the current-file display
+        const wrapper = btn.closest(".current-file");
+        if (wrapper) wrapper.classList.add("hidden");
+      } catch (err) {
+        showToast("Could not remove the file. Please try again.");
+      }
+    }, "Remove");
+  });
+}
+
+// ===== JWT Expiration Check =====
+function isTokenExpired(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp < Date.now() / 1000;
+  } catch (e) {
+    return true;
+  }
 }
 
 // ===== Init =====
@@ -892,6 +997,11 @@ function init() {
 
   // Check if already authenticated
   if (authToken) {
+    // If the token is expired, log out immediately
+    if (isTokenExpired(authToken)) {
+      logout();
+      return;
+    }
     // Verify token by making a request
     api("collections/sets/records?perPage=1")
       .then(() => showApp())

@@ -14,7 +14,9 @@ const i18n = {
     autoplay: "Autoplay audio",
     language: "Language",
     fontSize: "Font size",
-    captionsAloud: "Read captions aloud",
+    captionsAloud: "Read image captions aloud",
+    hintAutoplay: "Play audio automatically when opening an object",
+    hintCaptionsAloud: "Use text-to-speech to read image captions in the gallery",
     scanText: "Scan the QR code on the next object",
     noAudio: "No audio available for this object.",
     unrecognizedQR: "Unrecognized QR code",
@@ -34,6 +36,21 @@ const i18n = {
     zoomOut: "Zoom out",
     mapHome: "Reset map view",
     loading: "Loading...",
+    navList: "List",
+    navMap: "Map",
+    navScan: "Scan",
+    navSettings: "Settings",
+    cameraPrompt: "To scan QR codes on exhibit labels, we need access to your camera.",
+    allowCamera: "Allow Camera",
+    prevObject: "Previous",
+    nextObject: "Next",
+    welcomeSubtitle: "Choose an exhibition",
+    noExhibitions: "No exhibitions available",
+    errorSetNotFound: "This exhibition could not be found. It may have been removed or the link may be incorrect.",
+    errorObjectNotFound: "This object could not be found. Please try scanning the QR code again.",
+    errorLoadFailed: "Something went wrong while loading. Please check your internet connection and try again.",
+    errorUnrecognizedQR: "This QR code isn't recognized. Make sure you're scanning a code from this guide.",
+    errorCameraDenied: "Camera access was denied. To scan QR codes, please allow camera access in your browser settings.",
   },
   sv: {
     objectList: "Objekt",
@@ -44,6 +61,8 @@ const i18n = {
     language: "Språk",
     fontSize: "Textstorlek",
     captionsAloud: "Läs bildtexter högt",
+    hintAutoplay: "Spela ljud automatiskt när du öppnar ett objekt",
+    hintCaptionsAloud: "Använd text-till-tal för att läsa bildtexter i galleriet",
     scanText: "Skanna QR-koden på nästa objekt",
     noAudio: "Inget ljud tillgängligt för detta objekt.",
     unrecognizedQR: "Okänd QR-kod",
@@ -63,6 +82,21 @@ const i18n = {
     zoomOut: "Zooma ut",
     mapHome: "Återställ kartvyn",
     loading: "Laddar...",
+    navList: "Lista",
+    navMap: "Karta",
+    navScan: "Skanna",
+    navSettings: "Inställningar",
+    cameraPrompt: "Vi behöver tillgång till din kamera för att skanna QR-koder på utställningsskyltarna.",
+    allowCamera: "Tillåt kamera",
+    prevObject: "Föregående",
+    nextObject: "Nästa",
+    welcomeSubtitle: "Välj en utställning",
+    noExhibitions: "Inga utställningar tillgängliga",
+    errorSetNotFound: "Den här utställningen kunde inte hittas. Den kan ha tagits bort eller så är länken felaktig.",
+    errorObjectNotFound: "Det här objektet kunde inte hittas. Försök skanna QR-koden igen.",
+    errorLoadFailed: "Något gick fel vid laddningen. Kontrollera din internetanslutning och försök igen.",
+    errorUnrecognizedQR: "Den här QR-koden känns inte igen. Se till att du skannar en kod från den här guiden.",
+    errorCameraDenied: "Kameraåtkomst nekades. För att skanna QR-koder, tillåt kameraåtkomst i webbläsarens inställningar.",
   },
 };
 
@@ -80,7 +114,7 @@ const state = {
   images: [],
   subtitleCues: [],
   galleryIndex: 0,
-  previousView: "object",
+  previousView: "list",
   scannerActive: false,
   mapZoom: 1,
   mapPan: { x: 0, y: 0 },
@@ -96,12 +130,21 @@ const dom = {
   btnList: $("#btnList"),
   btnScan: $("#btnScan"),
   btnSettings: $("#btnSettings"),
+  bottomNav: $("#bottomNav"),
+  labelNavList: $("#labelNavList"),
+  labelNavMap: $("#labelNavMap"),
+  labelNavScan: $("#labelNavScan"),
+  labelNavSettings: $("#labelNavSettings"),
   // Object page
   viewObject: $("#viewObject"),
   thumbnailContainer: $("#thumbnailContainer"),
   thumbnail: $("#thumbnail"),
   subtitlesArea: $("#subtitlesArea"),
+  subtitlesHeader: $("#subtitlesHeader"),
+  btnKaraokeToggle: $("#btnKaraokeToggle"),
   noAudioMessage: $("#noAudioMessage"),
+  btnPrevObject: $("#btnPrevObject"),
+  btnNextObject: $("#btnNextObject"),
   // Audio player
   audioPlayer: $("#audioPlayer"),
   audioElement: $("#audioElement"),
@@ -113,6 +156,7 @@ const dom = {
   iconPause: $("#iconPause"),
   btnSkipBack: $("#btnSkipBack"),
   btnSkipForward: $("#btnSkipForward"),
+  btnPlaybackSpeed: $("#btnPlaybackSpeed"),
   // List view
   viewList: $("#viewList"),
   objectList: $("#objectList"),
@@ -130,6 +174,10 @@ const dom = {
   scannerVideo: $("#scannerVideo"),
   scannerText: $("#scannerText"),
   scannerToast: $("#scannerToast"),
+  scannerPrompt: $("#scannerPrompt"),
+  scannerPromptText: $("#scannerPromptText"),
+  btnAllowCamera: $("#btnAllowCamera"),
+  scannerVideoContainer: $("#scannerVideoContainer"),
   // Settings
   settingsOverlay: $("#settingsOverlay"),
   settingsTitle: $("#settingsTitle"),
@@ -144,6 +192,10 @@ const dom = {
   btnGalleryPrev: $("#btnGalleryPrev"),
   btnGalleryNext: $("#btnGalleryNext"),
   btnCloseGallery: $("#btnCloseGallery"),
+  // Welcome page
+  viewWelcome: $("#viewWelcome"),
+  welcomeSubtitle: $("#welcomeSubtitle"),
+  welcomeSetsList: $("#welcomeSetsList"),
   // Toast
   toast: $("#toast"),
 };
@@ -152,7 +204,13 @@ const dom = {
 function loadSettings() {
   try {
     const saved = localStorage.getItem("augus_settings");
-    if (saved) Object.assign(state.settings, JSON.parse(saved));
+    if (saved) {
+      Object.assign(state.settings, JSON.parse(saved));
+    } else {
+      // First visit: detect browser language
+      const browserLang = (navigator.language || navigator.userLanguage || "sv").slice(0, 2).toLowerCase();
+      state.settings.language = browserLang === "sv" ? "sv" : "en";
+    }
   } catch (e) { /* ignore */ }
   applySettings();
 }
@@ -164,9 +222,10 @@ function saveSettings() {
 
 function applySettings() {
   // Font size
-  document.body.classList.remove("font-xl", "font-xxl");
+  document.body.classList.remove("font-xl", "font-xxl", "font-xxxl");
   if (state.settings.fontSize === "xl") document.body.classList.add("font-xl");
   if (state.settings.fontSize === "xxl") document.body.classList.add("font-xxl");
+  if (state.settings.fontSize === "xxxl") document.body.classList.add("font-xxxl");
 
   // Language UI
   document.documentElement.lang = state.settings.language;
@@ -199,6 +258,10 @@ function updateUILanguage() {
   $("#labelLanguage").textContent = t.language;
   $("#labelFontSize").textContent = t.fontSize;
   $("#labelCaptionsAloud").textContent = t.captionsAloud;
+  const hintAutoplay = $("#hintAutoplay");
+  const hintCaptions = $("#hintCaptionsAloud");
+  if (hintAutoplay) hintAutoplay.textContent = t.hintAutoplay;
+  if (hintCaptions) hintCaptions.textContent = t.hintCaptionsAloud;
   dom.btnList.setAttribute("aria-label", t.objectListLabel);
   dom.btnList.setAttribute("title", t.objectListLabel);
   dom.btnScan.setAttribute("aria-label", t.scanQR);
@@ -216,6 +279,19 @@ function updateUILanguage() {
   dom.btnMapHome.setAttribute("aria-label", t.mapHome);
   dom.btnZoomIn.setAttribute("aria-label", t.zoomIn);
   dom.btnZoomOut.setAttribute("aria-label", t.zoomOut);
+
+  // Bottom nav labels
+  dom.labelNavList.textContent = t.navList;
+  dom.labelNavMap.textContent = t.navMap;
+  dom.labelNavScan.textContent = t.navScan;
+  dom.labelNavSettings.textContent = t.navSettings;
+
+  // Scanner prompt
+  dom.scannerPromptText.textContent = t.cameraPrompt;
+  dom.btnAllowCamera.textContent = t.allowCamera;
+
+  // Welcome page
+  if (dom.welcomeSubtitle) dom.welcomeSubtitle.textContent = t.welcomeSubtitle;
 }
 
 function t(key) {
@@ -224,8 +300,13 @@ function t(key) {
 
 // ===== API helpers =====
 async function api(path) {
-  const resp = await fetch(`${PB_URL}/api/collections/${path}`);
-  if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+  let resp;
+  try {
+    resp = await fetch(`${PB_URL}/api/collections/${path}`);
+  } catch (e) {
+    throw new Error(t("errorLoadFailed"));
+  }
+  if (!resp.ok) throw new Error(t("errorLoadFailed"));
   return resp.json();
 }
 
@@ -261,15 +342,39 @@ function navigateTo(setSlug, objectSlug) {
 async function loadRoute() {
   const route = parseRoute();
   if (!route.setSlug) {
-    showView("list");
+    // Show welcome page with list of published sets
+    try {
+      const resp = await api('sets/records?filter=(published=true)&sort=name_en');
+      const lang = state.settings.language;
+      dom.welcomeSetsList.innerHTML = '';
+      if (resp.items && resp.items.length > 0) {
+        for (const set of resp.items) {
+          const name = set[`name_${lang}`] || set.name_en || set.slug;
+          const li = document.createElement('li');
+          const a = document.createElement('a');
+          a.href = `#/${set.slug}`;
+          a.className = 'welcome-page__set-link';
+          a.textContent = name;
+          li.appendChild(a);
+          dom.welcomeSetsList.appendChild(li);
+        }
+      } else {
+        dom.welcomeSetsList.innerHTML = `<li style="color:var(--color-text-secondary)">${escapeHtml(t("noExhibitions"))}</li>`;
+      }
+      showView('welcome');
+    } catch (e) {
+      showView('welcome');
+    }
     return;
   }
 
+  document.getElementById('loadingIndicator').style.display = 'flex';
+
   try {
     // Load set
-    const setsResp = await api(`sets/records?filter=(slug='${encodeURIComponent(route.setSlug)}')`);
+    const setsResp = await api(`sets/records?filter=(slug='${encodeURIComponent(route.setSlug)}'&&published=true)`);
     if (!setsResp.items || setsResp.items.length === 0) {
-      showToast("Set not found");
+      showToast(t("errorSetNotFound"), true);
       return;
     }
     state.currentSet = setsResp.items[0];
@@ -283,9 +388,10 @@ async function loadRoute() {
       const obj = state.objects.find((o) => o.slug === route.objectSlug);
       if (obj) {
         await loadObject(obj);
+        updateSequentialNav();
         showView("object");
       } else {
-        showToast("Object not found");
+        showToast(t("errorObjectNotFound"), true);
         showView("list");
       }
     } else {
@@ -293,7 +399,9 @@ async function loadRoute() {
     }
   } catch (err) {
     console.error("Failed to load route:", err);
-    showToast("Failed to load content");
+    showToast(t("errorLoadFailed"), true);
+  } finally {
+    document.getElementById('loadingIndicator').style.display = 'none';
   }
 }
 
@@ -374,7 +482,21 @@ async function loadObject(obj) {
     dom.audioElement.src = "";
     dom.audioPlayer.classList.add("hidden");
     dom.subtitlesArea.classList.add("hidden");
-    dom.noAudioMessage.textContent = t("noAudio");
+    // Show images if available, otherwise just the message
+    if (state.images && state.images.length > 0) {
+      const isSingle = state.images.length === 1;
+      const imgHtml = state.images.map(img => {
+        const url = fileUrl("object_images", img.id, img.image);
+        const maxH = isSingle ? "max-height:60vh;" : "";
+        return `<img src="${url}" alt="" style="max-width:100%;${maxH}border-radius:8px;margin-bottom:var(--spacing-sm);object-fit:contain">`;
+      }).join("");
+      dom.noAudioMessage.innerHTML = `<div style="padding:var(--spacing-md);text-align:center">
+        <p style="margin-bottom:var(--spacing-md);color:var(--color-text-secondary);font-style:italic">${escapeHtml(t("noAudio"))}</p>
+        ${imgHtml}
+      </div>`;
+    } else {
+      dom.noAudioMessage.textContent = t("noAudio");
+    }
     dom.noAudioMessage.classList.remove("hidden");
     state.subtitleCues = [];
     dom.subtitlesArea.innerHTML = "";
@@ -429,11 +551,13 @@ function parseVTT(text) {
 
 function renderSubtitles() {
   dom.subtitlesArea.innerHTML = "";
+  dom.subtitlesHeader.classList.toggle("hidden", state.subtitleCues.length === 0);
   for (let i = 0; i < state.subtitleCues.length; i++) {
     const cue = state.subtitleCues[i];
     const div = document.createElement("div");
     div.className = "subtitle-cue";
-    div.textContent = cue.text;
+    const timeStr = formatTime(cue.start);
+    div.innerHTML = `<span class="subtitle-cue__time">${timeStr}</span><span>${escapeHtml(cue.text)}</span>`;
     div.dataset.index = i;
     div.addEventListener("click", () => {
       dom.audioElement.currentTime = cue.start;
@@ -446,22 +570,33 @@ function renderSubtitles() {
 function updateSubtitleHighlight() {
   const time = dom.audioElement.currentTime;
   const cueElements = dom.subtitlesArea.querySelectorAll(".subtitle-cue");
-  let activeEl = null;
+  let activeIdx = -1;
 
   cueElements.forEach((el, i) => {
     const cue = state.subtitleCues[i];
-    if (cue && time >= cue.start && time < cue.end) {
-      el.classList.add("active");
-      activeEl = el;
-    } else {
-      el.classList.remove("active");
-    }
+    const isActive = cue && time >= cue.start && time < cue.end;
+    el.classList.toggle("active", isActive);
+    el.classList.remove("next");
+    if (isActive) activeIdx = i;
   });
 
-  // Auto-scroll to active cue
-  if (activeEl) {
-    activeEl.scrollIntoView({ behavior: "smooth", block: "center" });
+  // Mark the next cue for karaoke mode
+  if (activeIdx >= 0 && activeIdx + 1 < cueElements.length) {
+    cueElements[activeIdx + 1].classList.add("next");
   }
+
+  // Auto-scroll to active cue
+  if (activeIdx >= 0) {
+    cueElements[activeIdx].scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+// ===== Karaoke Mode =====
+function setupKaraokeToggle() {
+  dom.btnKaraokeToggle.addEventListener("click", () => {
+    dom.subtitlesArea.classList.toggle("karaoke");
+    dom.btnKaraokeToggle.classList.toggle("btn--active");
+  });
 }
 
 // ===== Audio Player =====
@@ -493,6 +628,19 @@ function setupAudioEvents() {
     dom.btnPlayPause.setAttribute("aria-label", t("play"));
   });
 
+  audio.addEventListener("ended", () => {
+    // Show "next object" prompt if sequential navigation is enabled
+    if (state.currentSet && state.currentSet.sequential_navigation && state.currentObject) {
+      const idx = state.objects.findIndex(o => o.id === state.currentObject.id);
+      if (idx >= 0 && idx + 1 < state.objects.length) {
+        const nextObj = state.objects[idx + 1];
+        const lang = state.settings.language;
+        const name = nextObj[`name_${lang}`] || nextObj.name_en || "Object";
+        showToast(`${t("nextObject")}: ${name}`);
+      }
+    }
+  });
+
   dom.btnPlayPause.addEventListener("click", () => {
     if (audio.paused) {
       audio.play();
@@ -513,6 +661,24 @@ function setupAudioEvents() {
     if (audio.duration) {
       audio.currentTime = (dom.playerSeekbar.value / 100) * audio.duration;
     }
+  });
+
+  // Playback speed control
+  const speeds = [1, 1.25, 1.5, 2, 0.75];
+  let speedIndex = 0;
+
+  dom.btnPlaybackSpeed.addEventListener("click", () => {
+    speedIndex = (speedIndex + 1) % speeds.length;
+    const speed = speeds[speedIndex];
+    audio.playbackRate = speed;
+    dom.btnPlaybackSpeed.textContent = speed + "x";
+  });
+
+  // Reset speed when loading new audio
+  audio.addEventListener("loadedmetadata", () => {
+    speedIndex = 0;
+    audio.playbackRate = 1;
+    dom.btnPlaybackSpeed.textContent = "1x";
   });
 }
 
@@ -550,6 +716,30 @@ function setupMediaSession(title) {
   });
 }
 
+// ===== Focus Trap Utility =====
+let galleryFocusTrapCleanup = null;
+let galleryPreviousFocus = null;
+let settingsFocusTrapCleanup = null;
+let settingsPreviousFocus = null;
+
+function trapFocus(container) {
+  const focusable = container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+
+  function handler(e) {
+    if (e.key !== 'Tab') return;
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }
+  container.addEventListener('keydown', handler);
+  if (first) first.focus();
+  return () => container.removeEventListener('keydown', handler);
+}
+
 // ===== Gallery =====
 function openGallery(index = 0) {
   if (state.images.length === 0) return;
@@ -563,12 +753,15 @@ function openGallery(index = 0) {
 
   renderGalleryImage();
   dom.galleryOverlay.classList.add("active");
-  dom.btnCloseGallery.focus();
+  galleryPreviousFocus = document.activeElement;
+  galleryFocusTrapCleanup = trapFocus(dom.galleryOverlay);
 }
 
 function closeGallery() {
   dom.galleryOverlay.classList.remove("active");
-  speechSynthesis.cancel();
+  if (galleryFocusTrapCleanup) { galleryFocusTrapCleanup(); galleryFocusTrapCleanup = null; }
+  if (galleryPreviousFocus) { galleryPreviousFocus.focus(); galleryPreviousFocus = null; }
+  if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
 
   // Resume audio if we paused it
   if (state.audioPausedByGallery) {
@@ -596,7 +789,7 @@ function renderGalleryImage() {
     state.galleryIndex < state.images.length - 1 ? "visible" : "hidden";
 
   // Read caption aloud
-  if (state.settings.captionsAloud && caption) {
+  if (state.settings.captionsAloud && caption && typeof speechSynthesis !== "undefined") {
     speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(caption);
     const targetLang = state.settings.language === "sv" ? "sv-SE" : "en-US";
@@ -647,6 +840,33 @@ function setupGalleryEvents() {
       renderGalleryImage();
     }
   });
+
+  // Gallery swipe gestures
+  let galleryTouchStartX = 0;
+  let galleryTouchStartY = 0;
+
+  dom.galleryOverlay.addEventListener("touchstart", (e) => {
+    galleryTouchStartX = e.touches[0].clientX;
+    galleryTouchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  dom.galleryOverlay.addEventListener("touchend", (e) => {
+    const dx = e.changedTouches[0].clientX - galleryTouchStartX;
+    const dy = e.changedTouches[0].clientY - galleryTouchStartY;
+
+    // Only trigger if horizontal swipe is dominant and > 50px
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx < 0 && state.galleryIndex < state.images.length - 1) {
+        // Swipe left = next
+        state.galleryIndex++;
+        renderGalleryImage();
+      } else if (dx > 0 && state.galleryIndex > 0) {
+        // Swipe right = previous
+        state.galleryIndex--;
+        renderGalleryImage();
+      }
+    }
+  });
 }
 
 // ===== List View =====
@@ -655,7 +875,6 @@ function renderObjectList() {
   dom.objectList.innerHTML = "";
   for (const obj of state.objects) {
     const name = obj[`name_${lang}`] || obj.name_en || "Object";
-    const desc = obj[`description_${lang}`] || obj.description_en || "";
     const isCurrent = state.currentObject && state.currentObject.id === obj.id;
 
     const li = document.createElement("li");
@@ -672,7 +891,6 @@ function renderObjectList() {
       <span class="object-list__number">${obj.sort_order}</span>
       <div class="object-list__info">
         <div class="object-list__name">${escapeHtml(name)}</div>
-        ${desc ? `<div class="object-list__desc">${escapeHtml(stripHtml(desc))}</div>` : ""}
       </div>
     `;
 
@@ -685,7 +903,7 @@ function renderObjectList() {
 }
 
 async function loadListThumbnails() {
-  for (const obj of state.objects) {
+  await Promise.all(state.objects.map(async (obj) => {
     try {
       const imgResp = await api(
         `object_images/records?filter=(object='${obj.id}')&sort=sort_order&perPage=1`
@@ -704,7 +922,7 @@ async function loadListThumbnails() {
         }
       }
     } catch (e) { /* ignore */ }
-  }
+  }));
 }
 
 // ===== Map View =====
@@ -721,7 +939,7 @@ function renderMapView() {
 
   // Add pins for each object
   for (const obj of state.objects) {
-    if (obj.map_x == null || obj.map_y == null) continue;
+    if (obj.map_x == null || obj.map_y == null || obj.map_x < 0 || obj.map_y < 0) continue;
     const pin = document.createElement("a");
     pin.className = "map-pin";
     pin.href = `#/${state.currentSet.slug}/${obj.slug}`;
@@ -784,6 +1002,52 @@ function setupMapEvents() {
   dom.btnZoomIn.addEventListener("click", () => zoomTowardCenter(1.3));
   dom.btnZoomOut.addEventListener("click", () => zoomTowardCenter(1 / 1.3));
 
+  // Double-tap-drag to zoom (one-handed zoom gesture)
+  let lastTapTime = 0;
+  let doubleTapDragging = false;
+  let doubleTapStartY = 0;
+  let doubleTapStartZoom = 1;
+  let doubleTapAnchor = { mx: 0, my: 0, sx: 0, sy: 0 }; // map-space and screen-space anchor
+
+  dom.mapViewContainer.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".map-controls") || e.target.closest(".map-pin")) return;
+    const now = Date.now();
+    if (now - lastTapTime < 300 && activePointers.size === 0) {
+      // Second tap — start double-tap-drag zoom
+      doubleTapDragging = true;
+      doubleTapStartY = e.clientY;
+      doubleTapStartZoom = state.mapZoom;
+      // Anchor: the point under the tap stays fixed during zoom
+      doubleTapAnchor.sx = e.clientX;
+      doubleTapAnchor.sy = e.clientY;
+      doubleTapAnchor.mx = (e.clientX - state.mapPan.x) / state.mapZoom;
+      doubleTapAnchor.my = (e.clientY - state.mapPan.y) / state.mapZoom;
+      dom.mapViewContainer.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      lastTapTime = 0; // reset so a third tap doesn't re-trigger
+      return;
+    }
+    lastTapTime = now;
+  }, true); // use capture so it fires before the pan handler
+
+  dom.mapViewContainer.addEventListener("pointermove", (e) => {
+    if (!doubleTapDragging) return;
+    const dy = doubleTapStartY - e.clientY; // drag up = positive = zoom in
+    const factor = Math.pow(2, dy / 150); // 150px of drag = 2× zoom
+    state.mapZoom = Math.max(0.5, Math.min(5, doubleTapStartZoom * factor));
+    // Reposition so anchor point stays under the original tap position
+    state.mapPan.x = doubleTapAnchor.sx - doubleTapAnchor.mx * state.mapZoom;
+    state.mapPan.y = doubleTapAnchor.sy - doubleTapAnchor.my * state.mapZoom;
+    applyMapTransform();
+  });
+
+  dom.mapViewContainer.addEventListener("pointerup", (e) => {
+    if (doubleTapDragging) {
+      doubleTapDragging = false;
+      return;
+    }
+  });
+
   // Pan (1 finger / mouse) + pinch-to-zoom (2 fingers)
   const activePointers = new Map(); // pointerId -> {x, y}
   let lastPinchDist = 0;
@@ -799,6 +1063,7 @@ function setupMapEvents() {
   }
 
   dom.mapViewContainer.addEventListener("pointerdown", (e) => {
+    if (doubleTapDragging) return;
     if (e.target.closest(".map-controls")) return;
     // Don't start a single-finger drag from a pin (preserves tap-to-navigate)
     if (e.target.closest(".map-pin") && activePointers.size === 0) return;
@@ -849,18 +1114,33 @@ function setupMapEvents() {
 // ===== QR Scanner =====
 let scannerStream = null;
 let scannerRAF = null;
+let scannerCanvas = null;
+let scannerCtx = null;
 
 async function startScanner() {
+  // Show prompt screen first, hide video container
+  dom.scannerPrompt.classList.remove("hidden");
+  dom.scannerVideoContainer.classList.add("hidden");
+  dom.scannerPromptText.textContent = t("cameraPrompt");
+  dom.btnAllowCamera.textContent = t("allowCamera");
+}
+
+async function activateCamera() {
   try {
     scannerStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: "environment" },
     });
+    // Hide prompt, show video
+    dom.scannerPrompt.classList.add("hidden");
+    dom.scannerVideoContainer.classList.remove("hidden");
     dom.scannerVideo.srcObject = scannerStream;
+    scannerCanvas = document.createElement("canvas");
+    scannerCtx = scannerCanvas.getContext("2d");
     state.scannerActive = true;
     scanFrame();
   } catch (e) {
     console.error("Camera access denied:", e);
-    showToast("Camera access denied");
+    showToast(t("errorCameraDenied"), true);
     showView(state.previousView);
   }
 }
@@ -872,7 +1152,16 @@ function stopScanner() {
     scannerStream.getTracks().forEach((track) => track.stop());
     scannerStream = null;
   }
+  scannerCanvas = null;
+  scannerCtx = null;
   dom.scannerVideo.srcObject = null;
+
+  // Reset scanner frame styles (in case QR feedback changed them)
+  const frame = document.querySelector('.scanner-frame');
+  if (frame) {
+    frame.style.borderColor = '';
+    frame.style.boxShadow = '';
+  }
 }
 
 function scanFrame() {
@@ -884,12 +1173,12 @@ function scanFrame() {
     return;
   }
 
-  const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(video, 0, 0);
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  if (scannerCanvas.width !== video.videoWidth || scannerCanvas.height !== video.videoHeight) {
+    scannerCanvas.width = video.videoWidth;
+    scannerCanvas.height = video.videoHeight;
+  }
+  scannerCtx.drawImage(video, 0, 0);
+  const imageData = scannerCtx.getImageData(0, 0, scannerCanvas.width, scannerCanvas.height);
 
   if (typeof jsQR !== "undefined") {
     const code = jsQR(imageData.data, imageData.width, imageData.height);
@@ -908,37 +1197,61 @@ function handleQRCode(data) {
   try {
     url = new URL(data);
   } catch {
-    showScannerToast(t("unrecognizedQR"));
+    showScannerToast(t("errorUnrecognizedQR"));
     return;
   }
 
   if (url.host !== currentHost) {
-    showScannerToast(t("unrecognizedQR"));
+    showScannerToast(t("errorUnrecognizedQR"));
     return;
   }
 
   // Parse hash-based route: /#/set-slug/object-slug
   const hash = (url.hash || "").replace(/^#\/?/, "");
   const parts = hash.split("/").filter(Boolean);
+  let setSlug = null;
+  let objectSlug = null;
+
   if (parts.length >= 2) {
-    stopScanner();
-    navigateTo(parts[0], parts[1]);
+    setSlug = parts[0];
+    objectSlug = parts[1];
   } else {
     // Also support path-based URLs for backwards compat
     const pathParts = url.pathname.replace(/^\/+|\/+$/g, "").split("/").filter(Boolean);
     if (pathParts.length >= 2) {
-      stopScanner();
-      navigateTo(pathParts[0], pathParts[1]);
-    } else {
-      showScannerToast(t("unrecognizedQR"));
+      setSlug = pathParts[0];
+      objectSlug = pathParts[1];
     }
+  }
+
+  if (setSlug && objectSlug) {
+    // Add subtle vibration feedback
+    if (navigator.vibrate) navigator.vibrate(100);
+
+    // Brief visual feedback - flash the scanner frame green
+    const frame = document.querySelector('.scanner-frame');
+    if (frame) {
+      frame.style.borderColor = '#4caf50';
+      frame.style.boxShadow = '0 0 0 9999px rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(76, 175, 80, 0.5)';
+    }
+
+    // Short delay before navigating for feedback to register
+    state.scannerActive = false; // Stop scanning immediately
+    setTimeout(() => {
+      stopScanner();
+      navigateTo(setSlug, objectSlug);
+    }, 300);
+  } else {
+    showScannerToast(t("errorUnrecognizedQR"));
   }
 }
 
+let scannerToastTimeout = null;
 function showScannerToast(msg) {
+  if (scannerToastTimeout) clearTimeout(scannerToastTimeout);
   dom.scannerToast.textContent = msg;
   dom.scannerToast.classList.add("visible");
-  setTimeout(() => dom.scannerToast.classList.remove("visible"), 2000);
+  scannerToastTimeout = setTimeout(() => dom.scannerToast.classList.remove("visible"), 2000);
 }
 
 // ===== View Management =====
@@ -969,11 +1282,15 @@ function showView(name) {
   dom.btnMapView.classList.toggle("hidden", !hasMap);
 
   // Mark active view button
-  dom.btnList.classList.toggle("btn--active", name === "list");
+  dom.btnList.classList.toggle("btn--active", name === "list" || name === "welcome");
   dom.btnMapView.classList.toggle("btn--active", name === "map");
+  dom.btnScan.classList.toggle("btn--active", name === "scanner");
 
-  // Header title: set name on list/map views, object name stays on object view
-  if ((name === "list" || name === "map") && state.currentSet) {
+  // Header title: "Augus" on welcome, set name on list/map views, object name stays on object view
+  if (name === "welcome") {
+    dom.headerTitle.textContent = "Augus";
+    document.title = "Augus";
+  } else if ((name === "list" || name === "map") && state.currentSet) {
     const lang = state.settings.language;
     const setName = state.currentSet[`name_${lang}`] || state.currentSet.name_en;
     dom.headerTitle.textContent = setName;
@@ -987,6 +1304,9 @@ function showView(name) {
 
   // Show target
   switch (name) {
+    case "welcome":
+      dom.viewWelcome.classList.add("active");
+      break;
     case "object":
       dom.viewObject.classList.add("active");
       break;
@@ -1006,6 +1326,7 @@ function showView(name) {
 }
 
 function getCurrentView() {
+  if (dom.viewWelcome.classList.contains("active")) return "welcome";
   if (dom.viewObject.classList.contains("active")) return "object";
   if (dom.viewList.classList.contains("active")) return "list";
   if (dom.viewMap.classList.contains("active")) return "map";
@@ -1016,24 +1337,29 @@ function getCurrentView() {
 // ===== Settings Events =====
 function setupSettingsEvents() {
   dom.btnSettings.addEventListener("click", () => {
+    settingsPreviousFocus = document.activeElement;
     dom.settingsOverlay.classList.add("active");
-    dom.btnCloseSettings.focus();
+    settingsFocusTrapCleanup = trapFocus(dom.settingsOverlay);
   });
 
-  dom.btnCloseSettings.addEventListener("click", () => {
+  function closeSettings() {
     dom.settingsOverlay.classList.remove("active");
-  });
+    if (settingsFocusTrapCleanup) { settingsFocusTrapCleanup(); settingsFocusTrapCleanup = null; }
+    if (settingsPreviousFocus) { settingsPreviousFocus.focus(); settingsPreviousFocus = null; }
+  }
+
+  dom.btnCloseSettings.addEventListener("click", closeSettings);
 
   // Close on overlay click
   dom.settingsOverlay.addEventListener("click", (e) => {
     if (e.target === dom.settingsOverlay) {
-      dom.settingsOverlay.classList.remove("active");
+      closeSettings();
     }
   });
 
   // Escape to close
   dom.settingsOverlay.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") dom.settingsOverlay.classList.remove("active");
+    if (e.key === "Escape") closeSettings();
   });
 
   // Autoplay toggle
@@ -1059,6 +1385,7 @@ function setupSettingsEvents() {
         loadObject(state.currentObject);
       }
       if (dom.viewList.classList.contains("active")) renderObjectList();
+      if (dom.viewMap.classList.contains("active")) renderMapView();
     });
   });
 
@@ -1083,15 +1410,55 @@ function setupNavigationEvents() {
 
   dom.btnMapView.addEventListener("click", () => showView("map"));
 
+  // Prev/Next object navigation
+  dom.btnPrevObject.addEventListener("click", () => navigateSequential(-1));
+  dom.btnNextObject.addEventListener("click", () => navigateSequential(1));
+
   // Browser back/forward (hash-based routing)
   window.addEventListener("hashchange", () => loadRoute());
 }
 
+function navigateSequential(direction) {
+  if (!state.currentObject || !state.currentSet) return;
+  const idx = state.objects.findIndex(o => o.id === state.currentObject.id);
+  const nextIdx = idx + direction;
+  if (nextIdx >= 0 && nextIdx < state.objects.length) {
+    navigateTo(state.currentSet.slug, state.objects[nextIdx].slug);
+  }
+}
+
+function updateSequentialNav() {
+  const enabled = state.currentSet && state.currentSet.sequential_navigation;
+  if (!enabled || !state.currentObject) {
+    dom.btnPrevObject.classList.add("hidden");
+    dom.btnNextObject.classList.add("hidden");
+    return;
+  }
+  const idx = state.objects.findIndex(o => o.id === state.currentObject.id);
+  dom.btnPrevObject.classList.toggle("hidden", idx <= 0);
+  dom.btnNextObject.classList.toggle("hidden", idx >= state.objects.length - 1);
+}
+
 // ===== Toast =====
-function showToast(msg) {
+let toastTimeout = null;
+function showToast(msg, isError = false) {
+  if (toastTimeout) clearTimeout(toastTimeout);
   dom.toast.textContent = msg;
+  dom.toast.classList.toggle("toast--error", isError);
   dom.toast.classList.add("visible");
-  setTimeout(() => dom.toast.classList.remove("visible"), 3000);
+  if (isError) {
+    // Error toasts persist — user must tap to dismiss
+    dom.toast.style.pointerEvents = "auto";
+    dom.toast.onclick = () => {
+      dom.toast.classList.remove("visible");
+      dom.toast.style.pointerEvents = "";
+      dom.toast.onclick = null;
+    };
+  } else {
+    dom.toast.style.pointerEvents = "";
+    dom.toast.onclick = null;
+    toastTimeout = setTimeout(() => dom.toast.classList.remove("visible"), 3000);
+  }
 }
 
 // ===== Colour Scheme =====
@@ -1108,16 +1475,18 @@ function contrastTextColor(hex) {
   // Returns dark or light text colour giving best WCAG contrast on the given bg
   const lum = relativeLuminance(hex);
   const onWhite = (1.05) / (lum + 0.05);
-  const onBlack = (lum + 0.05) / (0.05);
+  const onBlack = (lum + 0.05) / (0.0289 + 0.05);
   return onWhite > onBlack ? "#ffffff" : "#1a1a1a";
 }
 
-function darkenHex(hex, amount = 30) {
+function adjustHex(hex, amount = 30) {
+  const lum = relativeLuminance(hex);
+  const factor = lum < 0.3 ? amount : -amount; // lighten dark colors, darken light ones
   const clean = hex.replace("#", "");
   const clamp = (v) => Math.max(0, Math.min(255, v));
-  const r = clamp(parseInt(clean.slice(0, 2), 16) - amount);
-  const g = clamp(parseInt(clean.slice(2, 4), 16) - amount);
-  const b = clamp(parseInt(clean.slice(4, 6), 16) - amount);
+  const r = clamp(parseInt(clean.slice(0, 2), 16) + factor);
+  const g = clamp(parseInt(clean.slice(2, 4), 16) + factor);
+  const b = clamp(parseInt(clean.slice(4, 6), 16) + factor);
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
@@ -1138,7 +1507,7 @@ function applySetColors(set) {
 
   // Primary colour + derivatives
   root.setProperty("--color-primary", primary);
-  root.setProperty("--color-primary-hover", darkenHex(primary, 30));
+  root.setProperty("--color-primary-hover", adjustHex(primary, 30));
   root.setProperty("--color-primary-text", contrastTextColor(primary));
 
   // Subtitle highlight: very light tint of primary
@@ -1148,9 +1517,9 @@ function applySetColors(set) {
   root.setProperty("--color-bg", bg);
   root.setProperty("--color-text", contrastTextColor(bg));
   // Surface (cards, inputs): slightly darker than bg
-  root.setProperty("--color-surface", darkenHex(bg, 10));
+  root.setProperty("--color-surface", adjustHex(bg, 10));
   // Border: midpoint between bg and text direction
-  root.setProperty("--color-border", darkenHex(bg, 40));
+  root.setProperty("--color-border", adjustHex(bg, 40));
 }
 
 // ===== Utility =====
@@ -1160,20 +1529,30 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function stripHtml(html) {
-  const div = document.createElement("div");
-  div.innerHTML = html;
-  return div.textContent || "";
-}
 
 // ===== Init =====
 function init() {
   loadSettings();
   setupAudioEvents();
+  setupKaraokeToggle();
   setupGalleryEvents();
   setupSettingsEvents();
   setupNavigationEvents();
   setupMapEvents();
+
+  // Camera pre-prompt: allow button triggers actual camera access
+  dom.btnAllowCamera.addEventListener("click", () => activateCamera());
+
+  // Document-level Escape key handler for modals
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (dom.galleryOverlay.classList.contains("active")) {
+      closeGallery();
+    } else if (dom.settingsOverlay.classList.contains("active")) {
+      dom.btnCloseSettings.click();
+    }
+  });
+
   loadRoute();
 }
 

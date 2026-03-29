@@ -244,6 +244,12 @@ body {
 
 .btn--full { width: 100%; }
 
+.btn--danger-confirm {
+  background: var(--color-danger) !important;
+  color: #ffffff !important;
+  border-color: var(--color-danger) !important;
+}
+
 .btn--icon {
   border: none;
   background: transparent;
@@ -300,6 +306,29 @@ body {
   font-weight: 700;
   font-size: 1rem;
   padding: 0 var(--spacing-sm);
+}
+
+.form-fieldset__toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  user-select: none;
+}
+
+.form-fieldset__toggle::after {
+  content: "▾";
+  font-size: 0.8em;
+  transition: transform 0.2s;
+}
+
+.form-fieldset.collapsed .form-fieldset__toggle::after {
+  transform: rotate(-90deg);
+}
+
+.form-fieldset.collapsed > *:not(legend) {
+  display: none;
 }
 
 .form-row { margin-bottom: var(--spacing-sm); }
@@ -427,6 +456,19 @@ body {
   color: var(--color-text-secondary);
 }
 
+.set-card__draft {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger);
+  border-radius: 4px;
+  padding: 1px 6px;
+  vertical-align: middle;
+  margin-left: var(--spacing-xs);
+}
+
 .object-card[draggable="true"] {
   cursor: grab;
 }
@@ -437,6 +479,7 @@ body {
 
 .object-card.drag-over {
   border-color: var(--color-primary);
+  background: rgba(0, 87, 184, 0.12);
   background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
 }
 
