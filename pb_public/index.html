@@ -11,6 +11,7 @@
   <!-- ===== HEADER ===== -->
   <header class="header" role="banner">
     <h1 class="header__title" id="headerTitle">Augus</h1>
+    <img class="header__logo hidden" id="headerLogo" src="" alt="">
   </header>
 
   <!-- ===== OBJECT PAGE ===== -->
@@ -124,6 +125,13 @@
     </div>
   </div>
 
+  <!-- ===== ABOUT PAGE ===== -->
+  <div class="view" id="viewAbout">
+    <div class="about-page" id="aboutContent">
+      <!-- Rendered by JS -->
+    </div>
+  </div>
+
   <!-- ===== SETTINGS OVERLAY ===== -->
   <div class="settings-overlay" id="settingsOverlay" role="dialog" aria-label="Settings" aria-modal="true">
     <div class="settings-panel">
@@ -205,6 +213,10 @@
     <button class="bottom-nav__btn" id="btnScan" aria-label="Scan QR code" title="Scan QR code">
       <svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5.5" y="5.5" width="2" height="2"/><rect x="14" y="3" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="16.5" y="5.5" width="2" height="2"/><rect x="3" y="14" width="7" height="7" rx="1" fill="none" stroke="currentColor" stroke-width="2"/><rect x="5.5" y="16.5" width="2" height="2"/><rect x="14" y="14" width="2" height="2"/><rect x="17" y="14" width="2" height="2"/><rect x="19" y="16" width="2" height="2"/><rect x="14" y="17" width="2" height="2"/><rect x="16" y="19" width="2" height="2"/><rect x="19" y="19" width="2" height="2"/></svg>
       <span class="bottom-nav__label" id="labelNavScan">Scan</span>
+    </button>
+    <button class="bottom-nav__btn hidden" id="btnAbout" aria-label="About">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <span class="bottom-nav__label" id="labelNavAbout">About</span>
     </button>
     <button class="bottom-nav__btn" id="btnSettings" aria-label="Settings" title="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>

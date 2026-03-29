@@ -77,6 +77,22 @@
           <textarea id="setDescSv" class="form-input form-textarea"></textarea>
         </fieldset>
 
+        <fieldset class="form-fieldset">
+          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">About page (optional)</legend>
+          <label for="setAboutEn" class="form-label">About (English)</label>
+          <textarea id="setAboutEn" class="form-input form-textarea" rows="4"></textarea>
+          <label for="setAboutSv" class="form-label">Om (Svenska)</label>
+          <textarea id="setAboutSv" class="form-input form-textarea" rows="4"></textarea>
+          <p class="form-hint">Free text shown on the About page. Supports basic HTML.</p>
+        </fieldset>
+
+        <div class="form-row">
+          <label for="setLogo" class="form-label">Logo (optional)</label>
+          <input type="file" id="setLogo" class="form-input" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+          <div class="current-file hidden" id="setLogoCurrent"></div>
+          <p class="form-hint">Shown in the header. Recommended height: 32px</p>
+        </div>
+
         <div class="form-row">
           <label for="setMapImage" class="form-label">Map image (optional)</label>
           <input type="file" id="setMapImage" class="form-input" accept="image/png,image/jpeg,image/webp">
@@ -103,6 +119,29 @@
               <p class="form-hint">Page background colour</p>
             </div>
           </div>
+        </div>
+
+        <div class="form-row">
+          <label for="setCustomFont" class="form-label">Custom font (optional)</label>
+          <input type="file" id="setCustomFont" class="form-input" accept=".woff2,.woff,.ttf,.otf">
+          <div class="current-file hidden" id="setCustomFontCurrent"></div>
+          <p class="form-hint">Upload a .woff2, .woff, .ttf, or .otf font file. Used for titles and body text.</p>
+        </div>
+
+        <div class="form-row">
+          <label for="setSubtitleFont" class="form-label">Subtitle font</label>
+          <select id="setSubtitleFont" class="form-input form-select">
+            <option value="">System default</option>
+            <option value="Georgia">Georgia (serif)</option>
+            <option value="Verdana">Verdana (sans-serif)</option>
+            <option value="Trebuchet MS">Trebuchet MS (sans-serif)</option>
+            <option value="Palatino">Palatino / Book Antiqua (serif)</option>
+            <option value="Courier New">Courier New (monospace)</option>
+            <option value="Atkinson Hyperlegible Next">Atkinson Hyperlegible Next</option>
+            <option value="OpenDyslexic">OpenDyslexic</option>
+            <option value="Lexend">Lexend</option>
+          </select>
+          <p class="form-hint">Choose a font optimized for reading subtitles/transcripts</p>
         </div>
 
         <div class="form-row">

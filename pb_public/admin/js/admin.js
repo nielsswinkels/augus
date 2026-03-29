@@ -151,6 +151,14 @@ function editSet(set) {
     $("#btnDeleteSet").classList.remove("hidden");
     $("#btnGoToObjects").style.display = "";
 
+    if (set.logo) {
+      $("#setLogoCurrent").innerHTML = `Current: ${esc(set.logo)} <button class="current-file__remove" data-field="logo" title="Remove">&times;</button>`;
+      $("#setLogoCurrent").classList.remove("hidden");
+    } else {
+      $("#setLogoCurrent").classList.add("hidden");
+    }
+    $("#setLogo").value = "";
+
     if (set.map_image) {
       const url = fileUrl("sets", set.id, set.map_image);
       $("#setMapImageCurrent").innerHTML = `Current: ${esc(set.map_image)} <button class="current-file__remove" data-field="map_image" title="Remove">&times;</button>`;
@@ -158,6 +166,18 @@ function editSet(set) {
     } else {
       $("#setMapImageCurrent").classList.add("hidden");
     }
+
+    $("#setAboutEn").value = set.about_en || "";
+    $("#setAboutSv").value = set.about_sv || "";
+
+    $("#setCustomFont").value = "";
+    if (set.custom_font) {
+      $("#setCustomFontCurrent").innerHTML = `Current: ${esc(set.custom_font)} <button class="current-file__remove" data-field="custom_font" title="Remove">&times;</button>`;
+      $("#setCustomFontCurrent").classList.remove("hidden");
+    } else {
+      $("#setCustomFontCurrent").classList.add("hidden");
+    }
+    $("#setSubtitleFont").value = set.subtitle_font || "";
 
     $("#setPublished").checked = !!set.published;
     $("#setSequentialNav").checked = !!set.sequential_navigation;
@@ -175,8 +195,15 @@ function editSet(set) {
     $("#setNameSv").value = "";
     $("#setDescEn").value = "";
     $("#setDescSv").value = "";
+    $("#setLogo").value = "";
+    $("#setLogoCurrent").classList.add("hidden");
     $("#setMapImage").value = "";
     $("#setMapImageCurrent").classList.add("hidden");
+    $("#setAboutEn").value = "";
+    $("#setAboutSv").value = "";
+    $("#setCustomFont").value = "";
+    $("#setCustomFontCurrent").classList.add("hidden");
+    $("#setSubtitleFont").value = "";
     $("#setColorPrimary").value = "#0057b8";
     $("#setColorPrimaryText").value = "#0057b8";
     $("#setColorAccent").value = "#ffffff";
@@ -204,8 +231,18 @@ async function saveSet(e) {
   formData.append("description_en", $("#setDescEn").value.trim());
   formData.append("description_sv", $("#setDescSv").value.trim());
 
+  const logoFile = $("#setLogo").files[0];
+  if (logoFile) formData.append("logo", logoFile);
+
   const mapFile = $("#setMapImage").files[0];
   if (mapFile) formData.append("map_image", mapFile);
+
+  formData.append("about_en", $("#setAboutEn").value.trim());
+  formData.append("about_sv", $("#setAboutSv").value.trim());
+
+  const fontFile = $("#setCustomFont").files[0];
+  if (fontFile) formData.append("custom_font", fontFile);
+  formData.append("subtitle_font", $("#setSubtitleFont").value);
 
   const primaryVal = $("#setColorPrimaryText").value;
   const accentVal = $("#setColorAccentText").value;
@@ -956,12 +993,24 @@ function setupEvents() {
       const collection = btn.dataset.collection;
 
       try {
-        if (field === "map_image" && editingSet) {
+        if (field === "logo" && editingSet) {
+          // Set logo removal
+          const formData = new FormData();
+          formData.append("logo", "");
+          await api(`collections/sets/records/${editingSet.id}`, { method: "PATCH", body: formData });
+          editingSet.logo = "";
+        } else if (field === "map_image" && editingSet) {
           // Set map image removal
           const formData = new FormData();
           formData.append("map_image", "");
           await api(`collections/sets/records/${editingSet.id}`, { method: "PATCH", body: formData });
           editingSet.map_image = "";
+        } else if (field === "custom_font" && editingSet) {
+          // Set custom font removal
+          const formData = new FormData();
+          formData.append("custom_font", "");
+          await api(`collections/sets/records/${editingSet.id}`, { method: "PATCH", body: formData });
+          editingSet.custom_font = "";
         } else if (record && collection && field) {
           // Object file removal
           const formData = new FormData();

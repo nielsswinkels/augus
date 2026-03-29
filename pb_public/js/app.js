@@ -39,7 +39,9 @@ const i18n = {
     navList: "List",
     navMap: "Map",
     navScan: "Scan",
+    navAbout: "About",
     navSettings: "Settings",
+    aboutTitle: "About",
     cameraPrompt: "To scan QR codes on exhibit labels, we need access to your camera.",
     allowCamera: "Allow Camera",
     prevObject: "Previous",
@@ -85,7 +87,9 @@ const i18n = {
     navList: "Lista",
     navMap: "Karta",
     navScan: "Skanna",
+    navAbout: "Om",
     navSettings: "Inställningar",
+    aboutTitle: "Om",
     cameraPrompt: "Vi behöver tillgång till din kamera för att skanna QR-koder på utställningsskyltarna.",
     allowCamera: "Tillåt kamera",
     prevObject: "Föregående",
@@ -127,13 +131,16 @@ const $$ = (sel) => document.querySelectorAll(sel);
 
 const dom = {
   headerTitle: $("#headerTitle"),
+  headerLogo: $("#headerLogo"),
   btnList: $("#btnList"),
   btnScan: $("#btnScan"),
+  btnAbout: $("#btnAbout"),
   btnSettings: $("#btnSettings"),
   bottomNav: $("#bottomNav"),
   labelNavList: $("#labelNavList"),
   labelNavMap: $("#labelNavMap"),
   labelNavScan: $("#labelNavScan"),
+  labelNavAbout: $("#labelNavAbout"),
   labelNavSettings: $("#labelNavSettings"),
   // Object page
   viewObject: $("#viewObject"),
@@ -196,6 +203,9 @@ const dom = {
   viewWelcome: $("#viewWelcome"),
   welcomeSubtitle: $("#welcomeSubtitle"),
   welcomeSetsList: $("#welcomeSetsList"),
+  // About page
+  viewAbout: $("#viewAbout"),
+  aboutContent: $("#aboutContent"),
   // Toast
   toast: $("#toast"),
 };
@@ -284,7 +294,12 @@ function updateUILanguage() {
   dom.labelNavList.textContent = t.navList;
   dom.labelNavMap.textContent = t.navMap;
   dom.labelNavScan.textContent = t.navScan;
+  dom.labelNavAbout.textContent = t.navAbout;
   dom.labelNavSettings.textContent = t.navSettings;
+
+  // About button
+  dom.btnAbout.setAttribute("aria-label", t.navAbout);
+  dom.btnAbout.setAttribute("title", t.navAbout);
 
   // Scanner prompt
   dom.scannerPromptText.textContent = t.cameraPrompt;
@@ -292,6 +307,11 @@ function updateUILanguage() {
 
   // Welcome page
   if (dom.welcomeSubtitle) dom.welcomeSubtitle.textContent = t.welcomeSubtitle;
+
+  // Re-render about content if on about view
+  if (dom.viewAbout.classList.contains("active")) {
+    renderAboutContent();
+  }
 }
 
 function t(key) {
@@ -379,6 +399,19 @@ async function loadRoute() {
     }
     state.currentSet = setsResp.items[0];
     applySetColors(state.currentSet);
+    applySetFonts(state.currentSet);
+
+    // Logo
+    if (state.currentSet.logo) {
+      dom.headerLogo.src = fileUrl("sets", state.currentSet.id, state.currentSet.logo);
+      dom.headerLogo.classList.remove("hidden");
+    } else {
+      dom.headerLogo.classList.add("hidden");
+    }
+
+    // About button: only show if set has about content
+    const hasAbout = !!(state.currentSet.about_en || state.currentSet.about_sv);
+    dom.btnAbout.classList.toggle("hidden", !hasAbout);
 
     // Load all objects in this set
     const objResp = await api(`objects/records?filter=(set='${state.currentSet.id}')&sort=sort_order&perPage=200`);
@@ -869,6 +902,14 @@ function setupGalleryEvents() {
   });
 }
 
+// ===== About Page =====
+function renderAboutContent() {
+  if (!state.currentSet) return;
+  const lang = state.settings.language;
+  const content = state.currentSet[`about_${lang}`] || state.currentSet.about_en || "";
+  dom.aboutContent.innerHTML = content;
+}
+
 // ===== List View =====
 function renderObjectList() {
   const lang = state.settings.language;
@@ -1281,15 +1322,26 @@ function showView(name) {
   const hasMap = !!(state.currentSet && state.currentSet.map_image);
   dom.btnMapView.classList.toggle("hidden", !hasMap);
 
+  // About button: visible only when the set has about content
+  const hasAbout = !!(state.currentSet && (state.currentSet.about_en || state.currentSet.about_sv));
+  dom.btnAbout.classList.toggle("hidden", !hasAbout);
+
   // Mark active view button
   dom.btnList.classList.toggle("btn--active", name === "list" || name === "welcome");
   dom.btnMapView.classList.toggle("btn--active", name === "map");
   dom.btnScan.classList.toggle("btn--active", name === "scanner");
+  dom.btnAbout.classList.toggle("btn--active", name === "about");
 
   // Header title: "Augus" on welcome, set name on list/map views, object name stays on object view
   if (name === "welcome") {
     dom.headerTitle.textContent = "Augus";
     document.title = "Augus";
+    dom.headerLogo.classList.add("hidden");
+  } else if (name === "about" && state.currentSet) {
+    const lang = state.settings.language;
+    const aboutTitle = (i18n[lang] || i18n.en).aboutTitle;
+    dom.headerTitle.textContent = aboutTitle;
+    document.title = `${aboutTitle} — Augus`;
   } else if ((name === "list" || name === "map") && state.currentSet) {
     const lang = state.settings.language;
     const setName = state.currentSet[`name_${lang}`] || state.currentSet.name_en;
@@ -1322,6 +1374,10 @@ function showView(name) {
       dom.viewScanner.classList.add("active");
       startScanner();
       break;
+    case "about":
+      dom.viewAbout.classList.add("active");
+      renderAboutContent();
+      break;
   }
 }
 
@@ -1331,6 +1387,7 @@ function getCurrentView() {
   if (dom.viewList.classList.contains("active")) return "list";
   if (dom.viewMap.classList.contains("active")) return "map";
   if (dom.viewScanner.classList.contains("active")) return "scanner";
+  if (dom.viewAbout.classList.contains("active")) return "about";
   return "object";
 }
 
@@ -1386,6 +1443,12 @@ function setupSettingsEvents() {
       }
       if (dom.viewList.classList.contains("active")) renderObjectList();
       if (dom.viewMap.classList.contains("active")) renderMapView();
+      if (dom.viewAbout.classList.contains("active")) {
+        renderAboutContent();
+        const aboutTitle = (i18n[state.settings.language] || i18n.en).aboutTitle;
+        dom.headerTitle.textContent = aboutTitle;
+        document.title = `${aboutTitle} — Augus`;
+      }
     });
   });
 
@@ -1407,6 +1470,8 @@ function setupNavigationEvents() {
   });
 
   dom.btnScan.addEventListener("click", () => showView("scanner"));
+
+  dom.btnAbout.addEventListener("click", () => showView("about"));
 
   dom.btnMapView.addEventListener("click", () => showView("map"));
 
@@ -1520,6 +1585,57 @@ function applySetColors(set) {
   root.setProperty("--color-surface", adjustHex(bg, 10));
   // Border: midpoint between bg and text direction
   root.setProperty("--color-border", adjustHex(bg, 40));
+}
+
+function applySetFonts(set) {
+  // Custom font via @font-face
+  let fontStyleEl = document.getElementById('customFontStyle');
+  if (!fontStyleEl) {
+    fontStyleEl = document.createElement('style');
+    fontStyleEl.id = 'customFontStyle';
+    document.head.appendChild(fontStyleEl);
+  }
+
+  if (set.custom_font) {
+    const fontUrl = fileUrl("sets", set.id, set.custom_font);
+    fontStyleEl.textContent = `
+      @font-face {
+        font-family: 'CustomSetFont';
+        src: url('${fontUrl}');
+        font-display: swap;
+      }
+      body {
+        --font-family: 'CustomSetFont', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+    `;
+  } else {
+    fontStyleEl.textContent = '';
+  }
+
+  // Subtitle font
+  const subtitleFont = set.subtitle_font;
+
+  // Load Google Fonts if needed
+  const googleFonts = ['Atkinson Hyperlegible Next', 'OpenDyslexic', 'Lexend'];
+  let googleFontLink = document.getElementById('subtitleGoogleFont');
+  if (subtitleFont && googleFonts.includes(subtitleFont)) {
+    if (!googleFontLink) {
+      googleFontLink = document.createElement('link');
+      googleFontLink.id = 'subtitleGoogleFont';
+      googleFontLink.rel = 'stylesheet';
+      document.head.appendChild(googleFontLink);
+    }
+    const fontParam = subtitleFont.replace(/ /g, '+');
+    googleFontLink.href = `https://fonts.googleapis.com/css2?family=${fontParam}&display=swap`;
+  } else if (googleFontLink) {
+    googleFontLink.remove();
+  }
+
+  if (subtitleFont) {
+    document.documentElement.style.setProperty('--subtitle-font', `'${subtitleFont}', var(--font-family)`);
+  } else {
+    document.documentElement.style.removeProperty('--subtitle-font');
+  }
 }
 
 // ===== Utility =====
