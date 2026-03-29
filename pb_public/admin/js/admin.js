@@ -18,6 +18,8 @@ const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
 
 // ===== API =====
+// CSRF protection: The Authorization header provides implicit CSRF protection
+// because custom headers cannot be set by cross-origin form submissions.
 async function api(path, options = {}) {
   const headers = { ...options.headers };
   if (authToken) headers["Authorization"] = "Bearer " + authToken;
@@ -180,7 +182,7 @@ function editSet(set) {
     $("#setColorAccent").value = "#ffffff";
     $("#setColorAccentText").value = "#ffffff";
     $("#setPublished").checked = false;
-    $("#setSequentialNav").checked = false;
+    $("#setSequentialNav").checked = true;
     $("#btnDeleteSet").classList.add("hidden");
     $("#btnGoToObjects").style.display = "none";
   }
@@ -710,7 +712,7 @@ function renderImagesGrid(images) {
 async function uploadImage(e) {
   e.preventDefault();
   if (!editingObject || !$("#objectFormId").value) {
-    showToast("Save the object first before uploading images");
+    showToast("Please save the object first — images can only be added to saved objects.");
     return;
   }
 
@@ -805,20 +807,13 @@ function previewObject() {
 }
 
 // ===== Toast =====
+let adminToastTimeout = null;
 function showToast(msg) {
-  // Remove existing toast
-  const existing = document.querySelector(".toast");
-  if (existing) existing.remove();
-
-  const toast = document.createElement("div");
-  toast.className = "toast visible";
+  if (adminToastTimeout) clearTimeout(adminToastTimeout);
+  const toast = $("#adminToast");
   toast.textContent = msg;
-  toast.setAttribute("role", "alert");
-  document.body.appendChild(toast);
-  setTimeout(() => {
-    toast.classList.remove("visible");
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  toast.classList.add("visible");
+  adminToastTimeout = setTimeout(() => toast.classList.remove("visible"), 3000);
 }
 
 // ===== Utility =====
