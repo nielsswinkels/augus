@@ -177,7 +177,7 @@ function editSet(set) {
     } else {
       $("#setCustomFontCurrent").classList.add("hidden");
     }
-    $("#setSubtitleFont").value = set.subtitle_font || "";
+    $("#setSubtitleFont").value = set.subtitle_font || "Atkinson Hyperlegible Next";
 
     $("#setPublished").checked = !!set.published;
     $("#setSequentialNav").checked = !!set.sequential_navigation;
@@ -203,7 +203,7 @@ function editSet(set) {
     $("#setAboutSv").value = "";
     $("#setCustomFont").value = "";
     $("#setCustomFontCurrent").classList.add("hidden");
-    $("#setSubtitleFont").value = "";
+    $("#setSubtitleFont").value = "Atkinson Hyperlegible Next";
     $("#setColorPrimary").value = "#0057b8";
     $("#setColorPrimaryText").value = "#0057b8";
     $("#setColorAccent").value = "#ffffff";
