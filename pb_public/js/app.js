@@ -372,7 +372,7 @@ async function loadRoute() {
 
   try {
     // Load set
-    const setsResp = await api(`sets/records?filter=(slug='${encodeURIComponent(route.setSlug)}'&&published=true)`);
+    const setsResp = await api(`sets/records?filter=(slug='${encodeURIComponent(route.setSlug)}'%26%26published=true)`);
     if (!setsResp.items || setsResp.items.length === 0) {
       showToast(t("errorSetNotFound"), true);
       return;
