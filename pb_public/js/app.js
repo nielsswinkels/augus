@@ -1437,8 +1437,8 @@ function setupSettingsEvents() {
       const oldLang = state.settings.language;
       state.settings.language = btn.dataset.lang;
       saveSettings();
-      // Reload current object with new language
-      if (state.currentObject && oldLang !== state.settings.language) {
+      // Reload current object with new language (only if viewing it)
+      if (state.currentObject && oldLang !== state.settings.language && dom.viewObject.classList.contains("active")) {
         loadObject(state.currentObject);
       }
       if (dom.viewList.classList.contains("active")) renderObjectList();
