@@ -19,8 +19,13 @@
     <div class="loading" id="loadingIndicator" style="display:none">
       <div class="spinner"></div>
     </div>
-    <div class="thumbnail-container hidden" id="thumbnailContainer">
-      <img class="thumbnail" id="thumbnail" src="" alt="" role="button" tabindex="0" aria-label="View image gallery">
+    <div class="carousel hidden" id="carouselContainer">
+      <div class="carousel__track" id="carouselTrack">
+        <!-- Images rendered by JS -->
+      </div>
+      <button class="carousel__arrow carousel__arrow--prev hidden" id="carouselPrev" aria-label="Previous image">&lsaquo;</button>
+      <button class="carousel__arrow carousel__arrow--next hidden" id="carouselNext" aria-label="Next image">&rsaquo;</button>
+      <div class="carousel__dots" id="carouselDots"></div>
     </div>
 
     <div class="subtitles-header hidden" id="subtitlesHeader">

@@ -203,32 +203,120 @@ body {
 /* ===== OBJECT PAGE ===== */
 .object-page {
   padding-bottom: calc(var(--player-height) + var(--bottom-nav-height));
+  display: flex;
+  flex-direction: column;
 }
 
-/* Thumbnail */
-.thumbnail-container {
-  padding: var(--spacing-md);
-  text-align: center;
+/* Image Carousel */
+.carousel {
+  position: relative;
+  flex-shrink: 1;
+  min-height: 0;
+  overflow: hidden;
+  touch-action: pan-y;
 }
 
-.thumbnail {
-  max-width: 100%;
-  max-height: 200px;
-  border-radius: 8px;
-  cursor: pointer;
-  border: 2px solid var(--color-border);
+.carousel__track {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.carousel__track::-webkit-scrollbar {
+  display: none;
+}
+
+.carousel__slide {
+  flex: 0 0 85%;
+  padding: var(--spacing-sm) var(--spacing-xs);
+  scroll-snap-align: start;
+}
+
+.carousel__slide:first-child {
+  padding-left: var(--spacing-md);
+}
+
+.carousel__slide:last-child {
+  padding-right: var(--spacing-md);
+}
+
+.carousel__slide img {
+  width: 100%;
+  height: min(180px, 25dvh);
   object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--color-border);
+  display: block;
 }
 
-.thumbnail:hover {
+.carousel__slide img:hover {
   border-color: var(--color-primary);
+}
+
+.carousel__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.85);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  color: var(--color-text);
+}
+
+.carousel__arrow--prev { left: var(--spacing-xs); }
+.carousel__arrow--next { right: var(--spacing-xs); }
+
+.carousel__arrow:hover { background: #ffffff; }
+
+.carousel__dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: var(--spacing-xs) 0 var(--spacing-sm);
+}
+
+.carousel__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.carousel__dot.active {
+  background: var(--color-primary);
+}
+
+.carousel--single .carousel__slide {
+  flex: 0 0 100%;
+  padding: var(--spacing-md);
+}
+
+.carousel--single .carousel__dots {
+  display: none;
 }
 
 /* Subtitles */
 .subtitles-area {
   flex: 1;
   padding: var(--spacing-md);
+  padding-bottom: var(--spacing-xl);
   overflow-y: auto;
+  min-height: 30dvh;
 }
 
 .subtitle-cue {
@@ -239,8 +327,6 @@ body {
   font-size: var(--font-size-base);
   line-height: var(--line-height);
   cursor: pointer;
-  display: flex;
-  gap: var(--spacing-sm);
   font-family: var(--subtitle-font, var(--font-family));
 }
 
@@ -248,19 +334,11 @@ body {
   background: var(--color-surface);
 }
 
-.subtitle-cue__time {
-  font-size: 0.75rem;
-  color: var(--color-text-secondary);
-  min-width: 3em;
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
-  padding-top: 0.1em;
-}
-
 .subtitles-header {
   display: flex;
   justify-content: flex-end;
   padding: 0 var(--spacing-md);
+  flex-shrink: 0;
 }
 
 .subtitles-area.karaoke .subtitle-cue {
@@ -302,6 +380,7 @@ body {
   background: var(--color-bg);
   border-top: 2px solid var(--color-border);
   padding: var(--spacing-sm) var(--spacing-md);
+  padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom, 0px));
 }
 
 .audio-player.hidden {
