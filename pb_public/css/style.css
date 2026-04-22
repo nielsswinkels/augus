@@ -212,12 +212,12 @@ body {
   position: relative;
   flex-shrink: 1;
   min-height: 0;
-  overflow: hidden;
   touch-action: pan-y;
 }
 
 .carousel__track {
   display: flex;
+  flex-wrap: nowrap;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
@@ -230,6 +230,7 @@ body {
 
 .carousel__slide {
   flex: 0 0 85%;
+  flex-shrink: 0;
   padding: var(--spacing-sm) var(--spacing-xs);
   scroll-snap-align: start;
 }
