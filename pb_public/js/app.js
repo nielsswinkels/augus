@@ -589,8 +589,7 @@ function renderSubtitles() {
     const cue = state.subtitleCues[i];
     const div = document.createElement("div");
     div.className = "subtitle-cue";
-    const timeStr = formatTime(cue.start);
-    div.innerHTML = `<span class="subtitle-cue__time">${timeStr}</span><span>${escapeHtml(cue.text)}</span>`;
+    div.innerHTML = escapeHtml(cue.text);
     div.dataset.index = i;
     div.addEventListener("click", () => {
       dom.audioElement.currentTime = cue.start;
