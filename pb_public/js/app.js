@@ -118,6 +118,7 @@ const state = {
   images: [],
   subtitleCues: [],
   galleryIndex: 0,
+  carouselIndex: 0,
   previousView: "list",
   scannerActive: false,
   mapZoom: 1,
@@ -144,8 +145,11 @@ const dom = {
   labelNavSettings: $("#labelNavSettings"),
   // Object page
   viewObject: $("#viewObject"),
-  thumbnailContainer: $("#thumbnailContainer"),
-  thumbnail: $("#thumbnail"),
+  carouselContainer: $("#carouselContainer"),
+  carouselTrack: $("#carouselTrack"),
+  carouselDots: $("#carouselDots"),
+  carouselPrev: $("#carouselPrev"),
+  carouselNext: $("#carouselNext"),
   subtitlesArea: $("#subtitlesArea"),
   subtitlesHeader: $("#subtitlesHeader"),
   btnKaraokeToggle: $("#btnKaraokeToggle"),
@@ -458,18 +462,14 @@ async function loadObject(obj) {
     state.images = [];
   }
 
-  // Show thumbnail only if images exist
+  // Render image carousel
   if (state.images.length > 0) {
-    const firstImg = state.images[0];
-    const url = fileUrl("object_images", firstImg.id, firstImg.image);
-    dom.thumbnail.src = url;
-    const caption = firstImg[`caption_${lang}`] || firstImg.caption_en || "";
-    dom.thumbnail.alt = caption || name;
-    dom.thumbnail.setAttribute("aria-label", t("viewGallery"));
-    dom.thumbnailContainer.classList.remove("hidden");
+    state.carouselIndex = 0;
+    renderCarousel();
+    dom.carouselContainer.classList.remove("hidden");
   } else {
-    dom.thumbnail.src = "";
-    dom.thumbnailContainer.classList.add("hidden");
+    dom.carouselTrack.innerHTML = "";
+    dom.carouselContainer.classList.add("hidden");
   }
 
   // Determine audio track
@@ -621,6 +621,111 @@ function updateSubtitleHighlight() {
   if (activeIdx >= 0) {
     cueElements[activeIdx].scrollIntoView({ behavior: "smooth", block: "center" });
   }
+}
+
+// ===== Image Carousel =====
+function renderCarousel() {
+  const lang = state.settings.language;
+  dom.carouselTrack.innerHTML = "";
+  dom.carouselDots.innerHTML = "";
+
+  const isSingle = state.images.length === 1;
+  dom.carouselContainer.classList.toggle("carousel--single", isSingle);
+
+  for (let i = 0; i < state.images.length; i++) {
+    const img = state.images[i];
+    const url = fileUrl("object_images", img.id, img.image);
+    const caption = img[`caption_${lang}`] || img.caption_en || "";
+    const slide = document.createElement("div");
+    slide.className = "carousel__slide";
+    const imgEl = document.createElement("img");
+    imgEl.src = url;
+    imgEl.alt = caption || `Image ${i + 1}`;
+    imgEl.loading = i === 0 ? "eager" : "lazy";
+    imgEl.addEventListener("click", () => openGallery(i));
+    slide.appendChild(imgEl);
+    dom.carouselTrack.appendChild(slide);
+
+    if (!isSingle) {
+      const dot = document.createElement("button");
+      dot.className = "carousel__dot" + (i === 0 ? " active" : "");
+      dot.setAttribute("aria-label", `Image ${i + 1}`);
+      dot.addEventListener("click", () => scrollCarouselTo(i));
+      dom.carouselDots.appendChild(dot);
+    }
+  }
+
+  updateCarouselArrows();
+}
+
+function scrollCarouselTo(index) {
+  state.carouselIndex = Math.max(0, Math.min(index, state.images.length - 1));
+  const slide = dom.carouselTrack.children[state.carouselIndex];
+  if (slide) {
+    slide.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+  }
+  updateCarouselArrows();
+  updateCarouselDots();
+}
+
+function updateCarouselArrows() {
+  if (state.images.length <= 1) {
+    dom.carouselPrev.classList.add("hidden");
+    dom.carouselNext.classList.add("hidden");
+    return;
+  }
+  dom.carouselPrev.classList.toggle("hidden", state.carouselIndex <= 0);
+  dom.carouselNext.classList.toggle("hidden", state.carouselIndex >= state.images.length - 1);
+}
+
+function updateCarouselDots() {
+  const dots = dom.carouselDots.querySelectorAll(".carousel__dot");
+  dots.forEach((dot, i) => dot.classList.toggle("active", i === state.carouselIndex));
+}
+
+function setupCarouselEvents() {
+  dom.carouselPrev.addEventListener("click", (e) => {
+    e.stopPropagation();
+    scrollCarouselTo(state.carouselIndex - 1);
+  });
+  dom.carouselNext.addEventListener("click", (e) => {
+    e.stopPropagation();
+    scrollCarouselTo(state.carouselIndex + 1);
+  });
+
+  // Swipe support
+  let touchStartX = 0;
+  dom.carouselTrack.addEventListener("touchstart", (e) => {
+    touchStartX = e.touches[0].clientX;
+  }, { passive: true });
+
+  dom.carouselTrack.addEventListener("touchend", (e) => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 40) {
+      if (dx < 0) scrollCarouselTo(state.carouselIndex + 1);
+      else scrollCarouselTo(state.carouselIndex - 1);
+    }
+  });
+
+  // Track scroll position to update index and dots
+  let scrollTimeout = null;
+  dom.carouselTrack.addEventListener("scroll", () => {
+    if (scrollTimeout) clearTimeout(scrollTimeout);
+    scrollTimeout = setTimeout(() => {
+      const slides = dom.carouselTrack.children;
+      if (slides.length === 0) return;
+      const trackLeft = dom.carouselTrack.scrollLeft;
+      let closest = 0;
+      let closestDist = Infinity;
+      for (let i = 0; i < slides.length; i++) {
+        const dist = Math.abs(slides[i].offsetLeft - trackLeft);
+        if (dist < closestDist) { closestDist = dist; closest = i; }
+      }
+      state.carouselIndex = closest;
+      updateCarouselArrows();
+      updateCarouselDots();
+    }, 100);
+  });
 }
 
 // ===== Karaoke Mode =====
@@ -838,11 +943,11 @@ function renderGalleryImage() {
 }
 
 function setupGalleryEvents() {
-  dom.thumbnail.addEventListener("click", () => openGallery(0));
-  dom.thumbnail.addEventListener("keydown", (e) => {
+  // Gallery open is handled by carousel image clicks (passes the index)
+  dom.carouselContainer.addEventListener("keydown", (e) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      openGallery(0);
+      openGallery(state.carouselIndex);
     }
   });
 
@@ -1651,6 +1756,7 @@ function init() {
   setupAudioEvents();
   setupKaraokeToggle();
   setupGalleryEvents();
+  setupCarouselEvents();
   setupSettingsEvents();
   setupNavigationEvents();
   setupMapEvents();
