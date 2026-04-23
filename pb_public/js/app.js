@@ -151,8 +151,6 @@ const dom = {
   carouselPrev: $("#carouselPrev"),
   carouselNext: $("#carouselNext"),
   subtitlesArea: $("#subtitlesArea"),
-  subtitlesHeader: $("#subtitlesHeader"),
-  btnKaraokeToggle: $("#btnKaraokeToggle"),
   noAudioMessage: $("#noAudioMessage"),
   btnPrevObject: $("#btnPrevObject"),
   btnNextObject: $("#btnNextObject"),
@@ -584,7 +582,6 @@ function parseVTT(text) {
 
 function renderSubtitles() {
   dom.subtitlesArea.innerHTML = "";
-  dom.subtitlesHeader.classList.toggle("hidden", state.subtitleCues.length === 0);
   for (let i = 0; i < state.subtitleCues.length; i++) {
     const cue = state.subtitleCues[i];
     const div = document.createElement("div");
@@ -611,11 +608,6 @@ function updateSubtitleHighlight() {
     el.classList.remove("next");
     if (isActive) activeIdx = i;
   });
-
-  // Mark the next cue for karaoke mode
-  if (activeIdx >= 0 && activeIdx + 1 < cueElements.length) {
-    cueElements[activeIdx + 1].classList.add("next");
-  }
 
   // Auto-scroll to active cue
   if (activeIdx >= 0) {
@@ -725,14 +717,6 @@ function setupCarouselEvents() {
       updateCarouselArrows();
       updateCarouselDots();
     }, 100);
-  });
-}
-
-// ===== Karaoke Mode =====
-function setupKaraokeToggle() {
-  dom.btnKaraokeToggle.addEventListener("click", () => {
-    dom.subtitlesArea.classList.toggle("karaoke");
-    dom.btnKaraokeToggle.classList.toggle("btn--active");
   });
 }
 
@@ -1754,7 +1738,6 @@ function escapeHtml(str) {
 function init() {
   loadSettings();
   setupAudioEvents();
-  setupKaraokeToggle();
   setupGalleryEvents();
   setupCarouselEvents();
   setupSettingsEvents();
