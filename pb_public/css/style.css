@@ -125,7 +125,7 @@ body {
   gap: var(--spacing-sm);
 }
 
-.header__settings {
+.btn.header__settings {
   display: none;
 }
 
@@ -1254,7 +1254,7 @@ body {
     padding: 0 var(--spacing-lg);
   }
 
-  .header__settings {
+  .btn.header__settings {
     display: inline-flex;
   }
 
