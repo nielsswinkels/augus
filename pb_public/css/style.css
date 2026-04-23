@@ -202,7 +202,7 @@ body {
 
 /* ===== OBJECT PAGE ===== */
 .object-page.active {
-  height: calc(100dvh - var(--header-height) - var(--player-height) - var(--bottom-nav-height));
+  height: calc(100dvh - var(--header-height) - var(--bottom-nav-height));
   padding-bottom: 0;
   display: flex;
   flex-direction: column;
@@ -356,17 +356,12 @@ body {
   flex: 1;
 }
 
-/* Audio player — sticky bottom, above bottom nav */
+/* Audio player — inside object page flex layout */
 .audio-player {
-  position: fixed;
-  bottom: var(--bottom-nav-height);
-  left: 0;
-  right: 0;
-  z-index: 200;
+  flex-shrink: 0;
   background: var(--color-bg);
   border-top: 2px solid var(--color-border);
   padding: var(--spacing-sm) var(--spacing-md);
-  padding-bottom: calc(var(--spacing-sm) + env(safe-area-inset-bottom, 0px));
 }
 
 .audio-player.hidden {
@@ -992,7 +987,7 @@ body {
 /* ===== TOAST ===== */
 .toast {
   position: fixed;
-  bottom: calc(var(--player-height) + var(--bottom-nav-height) + var(--spacing-md));
+  bottom: calc(var(--bottom-nav-height) + var(--spacing-md));
   left: 50%;
   transform: translateX(-50%);
   background: var(--color-text);
