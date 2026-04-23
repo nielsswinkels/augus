@@ -1333,19 +1333,19 @@ body {
     padding: var(--spacing-xl) var(--spacing-lg);
   }
 
-  /* Carousel can be wider on desktop */
+  /* Object page: center content at a readable max-width */
+  .object-page.active {
+    align-items: center;
+  }
+
+  .object-page.active > * {
+    width: 100%;
+    max-width: 800px;
+  }
+
+  /* Carousel images taller on desktop */
   .carousel__slide img {
-    height: min(250px, 30dvh);
-  }
-
-  /* Subtitles capped at readable width */
-  .subtitles-area {
-    max-width: 700px;
-  }
-
-  /* Audio player capped */
-  .audio-player {
-    max-width: 700px;
+    height: min(280px, 35dvh);
   }
 
   /* Toast above bottom of page */
