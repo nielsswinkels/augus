@@ -5,14 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="theme-color" content="#0057b8">
   <title>Augus</title>
-  <link rel="stylesheet" href="/css/style.css?v=20260329d">
+  <link rel="stylesheet" href="/css/style.css?v=20260329e">
 </head>
 <body>
   <!-- ===== HEADER ===== -->
   <header class="header" role="banner">
     <h1 class="header__title" id="headerTitle">Augus</h1>
-    <img class="header__logo hidden" id="headerLogo" src="" alt="">
+    <div class="header__right">
+      <img class="header__logo hidden" id="headerLogo" src="" alt="">
+      <button class="btn btn--icon header__settings" id="btnSettingsDesktop" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
   </header>
+
+  <div class="app-layout">
 
   <!-- ===== OBJECT PAGE ===== -->
   <main class="view object-page" id="viewObject" role="main">
@@ -81,6 +88,11 @@
   <!-- ===== LIST VIEW ===== -->
   <div class="view" id="viewList" role="region" aria-label="Object list">
     <div class="list-view">
+      <div class="list-view__nav hidden" id="listViewNav">
+        <button class="btn btn--icon" id="btnMapDesktop" aria-label="Map view" title="Map view">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        </button>
+      </div>
       <ul class="object-list" id="objectList" role="list">
         <!-- Items rendered by JS -->
       </ul>
@@ -135,6 +147,8 @@
       <!-- Rendered by JS -->
     </div>
   </div>
+
+  </div><!-- /.app-layout -->
 
   <!-- ===== SETTINGS OVERLAY ===== -->
   <div class="settings-overlay" id="settingsOverlay" role="dialog" aria-label="Settings" aria-modal="true">
@@ -228,6 +242,6 @@
   <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
 
   <script src="/js/lib/jsQR.js"></script>
-  <script src="/js/app.js?v=20260329d" type="module"></script>
+  <script src="/js/app.js?v=20260329e" type="module"></script>
 </body>
 </html>

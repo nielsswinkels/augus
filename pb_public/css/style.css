@@ -110,6 +110,16 @@ body {
   white-space: nowrap;
 }
 
+.header__right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.header__settings {
+  display: none;
+}
+
 .header__logo {
   height: 32px;
   max-width: 120px;
@@ -548,6 +558,10 @@ body {
 .list-view__title {
   font-size: var(--font-size-xl);
   font-weight: 700;
+}
+
+.list-view__nav {
+  display: none;
 }
 
 .list-about-link {
@@ -1220,4 +1234,159 @@ body {
   color: var(--color-text-secondary);
   margin-top: var(--spacing-xs);
   line-height: var(--line-height);
+}
+
+/* ===== DESKTOP LAYOUT ===== */
+@media (min-width: 768px) {
+  /* Header */
+  .header {
+    padding: 0 var(--spacing-lg);
+  }
+
+  .header__settings {
+    display: inline-flex;
+  }
+
+  .header__right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  /* Hide bottom nav on desktop */
+  .bottom-nav {
+    display: none;
+  }
+
+  /* Hide scanner on desktop */
+  #viewScanner {
+    display: none !important;
+  }
+
+  /* Layout container: two-column grid */
+  .app-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    height: calc(100dvh - var(--header-height));
+    overflow: hidden;
+  }
+
+  /* List view: becomes left sidebar */
+  #viewList {
+    border-right: 2px solid var(--color-border);
+    overflow-y: auto;
+    min-height: 0;
+    padding-bottom: 0;
+  }
+
+  /* Remove bottom-nav related padding */
+  .view {
+    padding-bottom: 0;
+    min-height: 0;
+  }
+
+  /* Object page fills the right column */
+  .object-page.active {
+    height: 100%;
+  }
+
+  /* Right-panel content views */
+  #viewObject,
+  #viewMap,
+  #viewAbout {
+    grid-column: 2;
+    overflow: hidden;
+  }
+
+  /* When list is shown as sidebar alongside another view,
+     place it in column 1 */
+  #viewList.active {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  /* Make the right-panel views also sit in row 1 */
+  #viewObject.active,
+  #viewMap.active,
+  #viewAbout.active {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  /* Welcome page spans full width (no sidebar) */
+  #viewWelcome.active {
+    grid-column: 1 / -1;
+  }
+
+  /* Map view fills available space */
+  #viewMap.active {
+    height: 100%;
+  }
+
+  .map-view {
+    height: 100%;
+  }
+
+  /* About page gets a readable max-width */
+  .about-page {
+    max-width: 650px;
+    padding: var(--spacing-xl) var(--spacing-lg);
+  }
+
+  /* Carousel can be wider on desktop */
+  .carousel__slide img {
+    height: min(250px, 30dvh);
+  }
+
+  /* Subtitles capped at readable width */
+  .subtitles-area {
+    max-width: 700px;
+  }
+
+  /* Audio player capped */
+  .audio-player {
+    max-width: 700px;
+  }
+
+  /* Toast above bottom of page */
+  .toast {
+    bottom: var(--spacing-lg);
+  }
+
+  /* Settings panel becomes centered modal on desktop */
+  .settings-overlay {
+    align-items: center;
+  }
+
+  .settings-panel {
+    border-radius: 16px;
+    max-height: 70vh;
+  }
+
+  /* Welcome page centered with more space */
+  .welcome-page {
+    padding-top: calc(var(--spacing-xl) * 3);
+  }
+
+  .welcome-page__sets {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  /* List view nav strip (map button) */
+  .list-view__nav {
+    display: flex !important;
+    justify-content: flex-end;
+    padding: var(--spacing-xs) 0;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .list-view__nav.hidden {
+    display: none !important;
+  }
+
+  .list-view {
+    padding: var(--spacing-md) var(--spacing-md) var(--spacing-lg);
+  }
 }
