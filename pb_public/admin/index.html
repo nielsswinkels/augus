@@ -52,7 +52,7 @@
         <h2 id="setFormTitle">New Set</h2>
         <button class="btn btn--primary" id="btnGoToObjects" style="display:none">Objects &rarr;</button>
       </div>
-      <form id="setForm" class="admin-form">
+      <form id="setForm" class="admin-form" novalidate>
         <input type="hidden" id="setFormId">
 
         <div class="form-row">
@@ -195,7 +195,7 @@
           <button class="btn" id="btnQRCode" title="QR Code">QR Code</button>
         </div>
       </div>
-      <form id="objectForm" class="admin-form">
+      <form id="objectForm" class="admin-form" novalidate>
         <input type="hidden" id="objectFormId">
         <input type="hidden" id="objectFormSetId">
 
@@ -257,11 +257,11 @@
           <div class="form-row form-row--inline" style="margin-top:var(--spacing-sm)">
             <div>
               <label for="objectMapX" class="form-label">X (%)</label>
-              <input type="number" id="objectMapX" class="form-input" min="0" max="100" step="0.1">
+              <input type="number" id="objectMapX" class="form-input" max="100" step="0.1">
             </div>
             <div>
               <label for="objectMapY" class="form-label">Y (%)</label>
-              <input type="number" id="objectMapY" class="form-input" min="0" max="100" step="0.1">
+              <input type="number" id="objectMapY" class="form-input" max="100" step="0.1">
             </div>
           </div>
         </fieldset>
