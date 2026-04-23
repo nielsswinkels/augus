@@ -528,7 +528,10 @@ function deleteObject() {
   if (!editingObject) return;
   confirmAction($("#btnDeleteObject"), async () => {
     try {
+      const setId = editingObject.set;
       await api(`collections/objects/records/${editingObject.id}`, { method: "DELETE" });
+      // Re-number remaining objects to close gaps
+      await renumberObjects(setId);
       showToast("Object deleted");
       formDirty = false;
       backToObjects();
@@ -536,6 +539,22 @@ function deleteObject() {
       showToast("Could not delete this object. Please try again.");
     }
   });
+}
+
+async function renumberObjects(setId) {
+  try {
+    const resp = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
+    const objects = resp.items || [];
+    await Promise.all(objects.map((obj, i) => {
+      const newOrder = i + 1;
+      if (obj.sort_order === newOrder) return Promise.resolve();
+      return api(`collections/objects/records/${obj.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sort_order: newOrder }),
+      });
+    }));
+  } catch (e) { /* renumbering is best-effort */ }
 }
 
 function backToObjects() {
