@@ -548,6 +548,24 @@ body {
   font-weight: 700;
 }
 
+.list-about-link {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: var(--font-size-base);
+  border-radius: 8px;
+  transition: background 0.15s;
+}
+
+.list-about-link:active {
+  background: var(--color-surface);
+}
+
 .object-list {
   list-style: none;
   display: flex;

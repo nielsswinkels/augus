@@ -135,13 +135,13 @@ const dom = {
   headerLogo: $("#headerLogo"),
   btnList: $("#btnList"),
   btnScan: $("#btnScan"),
-  btnAbout: $("#btnAbout"),
+  listAboutLink: $("#listAboutLink"),
+  listAboutText: $("#listAboutText"),
   btnSettings: $("#btnSettings"),
   bottomNav: $("#bottomNav"),
   labelNavList: $("#labelNavList"),
   labelNavMap: $("#labelNavMap"),
   labelNavScan: $("#labelNavScan"),
-  labelNavAbout: $("#labelNavAbout"),
   labelNavSettings: $("#labelNavSettings"),
   // Object page
   viewObject: $("#viewObject"),
@@ -297,12 +297,10 @@ function updateUILanguage() {
   dom.labelNavList.textContent = t.navList;
   dom.labelNavMap.textContent = t.navMap;
   dom.labelNavScan.textContent = t.navScan;
-  dom.labelNavAbout.textContent = t.navAbout;
   dom.labelNavSettings.textContent = t.navSettings;
 
-  // About button
-  dom.btnAbout.setAttribute("aria-label", t.navAbout);
-  dom.btnAbout.setAttribute("title", t.navAbout);
+  // About link in list view
+  dom.listAboutText.textContent = t.aboutTitle;
 
   // Scanner prompt
   dom.scannerPromptText.textContent = t.cameraPrompt;
@@ -415,7 +413,7 @@ async function loadRoute() {
 
     // About button: only show if set has about content
     const hasAbout = !!(state.currentSet.about_en || state.currentSet.about_sv);
-    dom.btnAbout.classList.toggle("hidden", !hasAbout);
+    dom.listAboutLink.classList.toggle("hidden", !hasAbout);
 
     // Load all objects in this set
     const objResp = await api(`objects/records?filter=(set='${state.currentSet.id}')&sort=sort_order&perPage=200`);
@@ -1486,15 +1484,10 @@ function showView(name) {
   const hasMap = !!(state.currentSet && state.currentSet.map_image);
   dom.btnMapView.classList.toggle("hidden", !hasMap);
 
-  // About button: visible only when the set has about content
-  const hasAbout = !!(state.currentSet && (state.currentSet.about_en || state.currentSet.about_sv));
-  dom.btnAbout.classList.toggle("hidden", !hasAbout);
-
   // Mark active view button
   dom.btnList.classList.toggle("btn--active", name === "list" || name === "welcome");
   dom.btnMapView.classList.toggle("btn--active", name === "map");
   dom.btnScan.classList.toggle("btn--active", name === "scanner");
-  dom.btnAbout.classList.toggle("btn--active", name === "about");
 
   // Header title: "Augus" on welcome, set name on list/map views, object name stays on object view
   if (name === "welcome") {
@@ -1635,7 +1628,10 @@ function setupNavigationEvents() {
 
   dom.btnScan.addEventListener("click", () => showView("scanner"));
 
-  dom.btnAbout.addEventListener("click", () => showView("about"));
+  dom.listAboutLink.addEventListener("click", (e) => {
+    e.preventDefault();
+    showView("about");
+  });
 
   dom.btnMapView.addEventListener("click", () => showView("map"));
 
