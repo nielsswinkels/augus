@@ -212,16 +212,18 @@ body {
   position: relative;
   flex-shrink: 1;
   min-height: 0;
-  touch-action: pan-y;
+  width: 100%;
+  overflow: hidden;
 }
 
 .carousel__track {
   display: flex;
   flex-wrap: nowrap;
-  overflow-x: auto;
+  overflow-x: scroll;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  touch-action: pan-x;
 }
 
 .carousel__track::-webkit-scrollbar {
