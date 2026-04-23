@@ -312,12 +312,35 @@ async function loadObjects(setId) {
   try {
     const resp = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
     currentObjects = resp.items || [];
-    // Auto-fix numbering gaps
-    const hasGaps = currentObjects.some((obj, i) => obj.sort_order !== i + 1);
-    if (hasGaps && currentObjects.length > 0) {
-      await renumberObjects(setId);
-      const resp2 = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
-      currentObjects = resp2.items || [];
+    // Auto-fix numbering gaps (e.g. after deletion)
+    if (currentObjects.length > 0) {
+      let needsFix = false;
+      for (let i = 0; i < currentObjects.length; i++) {
+        if (currentObjects[i].sort_order !== i + 1) { needsFix = true; break; }
+      }
+      if (needsFix) {
+        const updates = [];
+        for (let i = 0; i < currentObjects.length; i++) {
+          if (currentObjects[i].sort_order !== i + 1) {
+            updates.push(
+              api(`collections/objects/records/${currentObjects[i].id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ sort_order: i + 1 }),
+              })
+            );
+          }
+        }
+        if (updates.length > 0) {
+          try {
+            await Promise.all(updates);
+            const resp2 = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
+            currentObjects = resp2.items || [];
+          } catch (e) {
+            console.error("Renumber failed:", e);
+          }
+        }
+      }
     }
     renderObjectsList();
     $("#btnNewObject").classList.remove("hidden");
