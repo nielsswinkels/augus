@@ -202,9 +202,10 @@ body {
 
 /* ===== OBJECT PAGE ===== */
 .object-page {
-  padding-bottom: calc(var(--player-height) + var(--bottom-nav-height));
+  height: calc(100dvh - var(--header-height) - var(--player-height) - var(--bottom-nav-height));
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* Image Carousel */
@@ -317,9 +318,9 @@ body {
 .subtitles-area {
   flex: 1;
   padding: var(--spacing-md);
-  padding-bottom: var(--spacing-xl);
+  padding-bottom: var(--spacing-md);
   overflow-y: auto;
-  min-height: 30dvh;
+  min-height: 0;
 }
 
 .subtitle-cue {
