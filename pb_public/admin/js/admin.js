@@ -137,6 +137,7 @@ function renderSetsList() {
 function editSet(set) {
   editingSet = set;
   formDirty = false;
+  resetConfirmButton($("#btnDeleteSet"));
   $("#setFormTitle").textContent = set ? "Edit Set" : "New Set";
   $("#panelSets").classList.add("hidden");
   $("#panelSetForm").classList.remove("hidden");
@@ -442,6 +443,7 @@ function renderObjectsList() {
 async function editObject(obj) {
   editingObject = obj;
   formDirty = false;
+  resetConfirmButton($("#btnDeleteObject"));
   $("#objectFormTitle").textContent = obj ? "Edit Object" : "New Object";
   $("#panelObjects").classList.add("hidden");
   $("#panelObjectForm").classList.remove("hidden");
@@ -924,11 +926,19 @@ function confirmAction(btn, action, label = "Delete") {
   btn.dataset.confirming = "true";
   btn.classList.add("btn--danger-confirm");
   const timeout = setTimeout(() => {
-    btn.textContent = originalText;
-    btn.dataset.confirming = "false";
-    btn.classList.remove("btn--danger-confirm");
+    resetConfirmButton(btn);
   }, 5000);
   btn.addEventListener("click", () => clearTimeout(timeout), { once: true });
+}
+
+function resetConfirmButton(btn) {
+  if (btn.dataset.confirming === "true") {
+    btn.dataset.confirming = "false";
+    btn.classList.remove("btn--danger-confirm");
+    if (btn.id === "btnDeleteSet") btn.textContent = "Delete Set";
+    else if (btn.id === "btnDeleteObject") btn.textContent = "Delete Object";
+    else btn.textContent = "Delete";
+  }
 }
 
 // ===== Event Handlers =====
