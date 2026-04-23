@@ -218,6 +218,7 @@ function editSet(set) {
 
 async function saveSet(e) {
   e.preventDefault();
+  if (!validateRequiredFields($("#setForm"))) return;
   const id = $("#setFormId").value;
   const slug = $("#setSlug").value.trim();
   const reserved = ["admin", "api", "_", "js", "css"];
@@ -512,6 +513,7 @@ function showCurrentFile(elId, filename, collection, recordId, field) {
 
 async function saveObject(e) {
   e.preventDefault();
+  if (!validateRequiredFields($("#objectForm"))) return;
   const id = $("#objectFormId").value;
   const formData = new FormData();
   formData.append("set", $("#objectFormSetId").value || selectedSetId);
@@ -916,6 +918,29 @@ function esc(str) {
   return div.innerHTML;
 }
 
+function validateRequiredFields(form) {
+  const requiredInputs = form.querySelectorAll("[required]");
+  let valid = true;
+  let firstInvalid = null;
+  requiredInputs.forEach((input) => {
+    input.classList.remove("invalid");
+    if (!input.value.trim()) {
+      input.classList.add("invalid");
+      valid = false;
+      if (!firstInvalid) firstInvalid = input;
+    }
+  });
+  if (!valid && firstInvalid) {
+    // Expand collapsed fieldset if the invalid field is inside one
+    const fieldset = firstInvalid.closest(".form-fieldset.collapsed");
+    if (fieldset) fieldset.classList.remove("collapsed");
+    firstInvalid.focus();
+    firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+    showToast("Please fill in all required fields.");
+  }
+  return valid;
+}
+
 function confirmAction(btn, action, label = "Delete") {
   if (btn.dataset.confirming === "true") {
     action();
@@ -960,9 +985,12 @@ function setupEvents() {
 
   // Dirty state tracking
   function markDirty() { formDirty = true; }
+  function clearInvalid(e) { e.target.classList.remove("invalid"); }
   $("#setForm").addEventListener("input", markDirty);
+  $("#setForm").addEventListener("input", clearInvalid);
   $("#setForm").addEventListener("change", markDirty);
   $("#objectForm").addEventListener("input", markDirty);
+  $("#objectForm").addEventListener("input", clearInvalid);
   $("#objectForm").addEventListener("change", markDirty);
 
   window.addEventListener("beforeunload", (e) => {
