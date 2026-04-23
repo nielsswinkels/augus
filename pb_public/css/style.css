@@ -203,6 +203,7 @@ body {
 /* ===== OBJECT PAGE ===== */
 .object-page {
   height: calc(100dvh - var(--header-height) - var(--player-height) - var(--bottom-nav-height));
+  padding-bottom: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
