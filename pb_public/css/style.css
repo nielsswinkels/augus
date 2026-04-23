@@ -464,6 +464,7 @@ body {
   justify-content: center;
   position: relative;
   overflow: hidden;
+  touch-action: none;
 }
 
 .gallery-body__image {
@@ -471,6 +472,8 @@ body {
   max-height: 70vh;
   object-fit: contain;
   border-radius: 4px;
+  transform-origin: center center;
+  transition: transform 0.1s ease-out;
 }
 
 .gallery-nav {
