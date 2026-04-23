@@ -553,7 +553,7 @@ body {
   align-items: center;
   gap: var(--spacing-sm);
   padding: var(--spacing-sm) var(--spacing-md);
-  margin-bottom: var(--spacing-md);
+  margin-top: var(--spacing-md);
   color: var(--color-primary);
   text-decoration: none;
   font-weight: 600;
