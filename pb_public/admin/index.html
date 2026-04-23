@@ -56,14 +56,14 @@
         <input type="hidden" id="setFormId">
 
         <div class="form-row">
-          <label for="setSlug" class="form-label">Slug (URL-safe, lowercase)</label>
+          <label for="setSlug" class="form-label">Slug (URL-safe, lowercase) <span class="required">*</span></label>
           <input type="text" id="setSlug" class="form-input" required pattern="^[a-z0-9\-]+$"
             placeholder="e.g. viking-gallery">
         </div>
 
         <fieldset class="form-fieldset">
           <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">English</legend>
-          <label for="setNameEn" class="form-label">Name</label>
+          <label for="setNameEn" class="form-label">Name <span class="required">*</span></label>
           <input type="text" id="setNameEn" class="form-input" required>
           <label for="setDescEn" class="form-label">Description</label>
           <textarea id="setDescEn" class="form-input form-textarea"></textarea>
@@ -160,6 +160,7 @@
           <p class="form-hint">Unpublished sets are hidden from visitors</p>
         </div>
 
+        <p class="form-required-note"><span class="required">*</span> Required field</p>
         <div class="form-actions">
           <button type="submit" class="btn btn--primary">Save</button>
           <button type="button" class="btn btn--danger" id="btnDeleteSet">Delete Set</button>
@@ -200,12 +201,12 @@
 
         <div class="form-row form-row--inline">
           <div>
-            <label for="objectSlug" class="form-label">Slug</label>
+            <label for="objectSlug" class="form-label">Slug <span class="required">*</span></label>
             <input type="text" id="objectSlug" class="form-input" required pattern="^[a-z0-9\-]+$"
               placeholder="e.g. runestone-1">
           </div>
           <div>
-            <label for="objectSortOrder" class="form-label">Number / Order</label>
+            <label for="objectSortOrder" class="form-label">Number / Order <span class="required">*</span></label>
             <input type="number" id="objectSortOrder" class="form-input" required min="0" value="1">
           </div>
           <div>
@@ -219,7 +220,7 @@
 
         <fieldset class="form-fieldset">
           <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">English</legend>
-          <label for="objectNameEn" class="form-label">Name</label>
+          <label for="objectNameEn" class="form-label">Name <span class="required">*</span></label>
           <input type="text" id="objectNameEn" class="form-input" required>
           <label for="objectAudioEn" class="form-label">Audio (MP3)</label>
           <input type="file" id="objectAudioEn" class="form-input" accept="audio/mpeg,audio/mp3,audio/ogg">
@@ -265,6 +266,7 @@
           </div>
         </fieldset>
 
+        <p class="form-required-note"><span class="required">*</span> Required field</p>
         <div class="form-actions">
           <button type="submit" class="btn btn--primary">Save Object</button>
           <button type="button" class="btn btn--danger" id="btnDeleteObject">Delete Object</button>
