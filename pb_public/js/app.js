@@ -300,7 +300,9 @@ function updateUILanguage() {
   dom.labelNavSettings.textContent = t.navSettings;
 
   // About link in list view
-  dom.listAboutText.textContent = t.aboutTitle;
+  dom.listAboutText.textContent = state.currentSet
+    ? `${t.aboutTitle} ${state.currentSet[`name_${state.settings.language}`] || state.currentSet.name_en || ""}`
+    : t.aboutTitle;
 
   // Scanner prompt
   dom.scannerPromptText.textContent = t.cameraPrompt;
@@ -1496,7 +1498,9 @@ function showView(name) {
     dom.headerLogo.classList.add("hidden");
   } else if (name === "about" && state.currentSet) {
     const lang = state.settings.language;
-    const aboutTitle = (i18n[lang] || i18n.en).aboutTitle;
+    const aboutLabel = (i18n[lang] || i18n.en).aboutTitle;
+    const setName = state.currentSet[`name_${lang}`] || state.currentSet.name_en || "";
+    const aboutTitle = `${aboutLabel} ${setName}`;
     dom.headerTitle.textContent = aboutTitle;
     document.title = `${aboutTitle} — Augus`;
   } else if ((name === "list" || name === "map") && state.currentSet) {
@@ -1602,7 +1606,9 @@ function setupSettingsEvents() {
       if (dom.viewMap.classList.contains("active")) renderMapView();
       if (dom.viewAbout.classList.contains("active")) {
         renderAboutContent();
-        const aboutTitle = (i18n[state.settings.language] || i18n.en).aboutTitle;
+        const aboutLabel = (i18n[state.settings.language] || i18n.en).aboutTitle;
+        const setName = state.currentSet[`name_${state.settings.language}`] || state.currentSet.name_en || "";
+        const aboutTitle = `${aboutLabel} ${setName}`;
         dom.headerTitle.textContent = aboutTitle;
         document.title = `${aboutTitle} — Augus`;
       }
