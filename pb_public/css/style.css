@@ -101,6 +101,15 @@ body {
   border-bottom: 2px solid var(--color-border);
 }
 
+.header__left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+}
+
 .header__title {
   font-size: var(--font-size-xl);
   font-weight: 700;
@@ -124,7 +133,9 @@ body {
   height: 32px;
   max-width: 120px;
   object-fit: contain;
+  flex-shrink: 0;
 }
+
 
 /* ===== BUTTONS ===== */
 .btn {
