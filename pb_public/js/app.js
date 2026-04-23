@@ -648,6 +648,7 @@ function renderCarousel() {
   const lang = state.settings.language;
   dom.carouselTrack.innerHTML = "";
   dom.carouselDots.innerHTML = "";
+  dom.carouselTrack.scrollLeft = 0;
 
   const isSingle = state.images.length === 1;
   dom.carouselContainer.classList.toggle("carousel--single", isSingle);
