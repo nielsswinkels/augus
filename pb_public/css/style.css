@@ -201,7 +201,7 @@ body {
 }
 
 /* ===== OBJECT PAGE ===== */
-.object-page {
+.object-page.active {
   height: calc(100dvh - var(--header-height) - var(--player-height) - var(--bottom-nav-height));
   padding-bottom: 0;
   display: flex;
