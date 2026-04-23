@@ -312,6 +312,13 @@ async function loadObjects(setId) {
   try {
     const resp = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
     currentObjects = resp.items || [];
+    // Auto-fix numbering gaps
+    const hasGaps = currentObjects.some((obj, i) => obj.sort_order !== i + 1);
+    if (hasGaps && currentObjects.length > 0) {
+      await renumberObjects(setId);
+      const resp2 = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
+      currentObjects = resp2.items || [];
+    }
     renderObjectsList();
     $("#btnNewObject").classList.remove("hidden");
   } catch (e) {
@@ -545,16 +552,21 @@ async function renumberObjects(setId) {
   try {
     const resp = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
     const objects = resp.items || [];
-    await Promise.all(objects.map((obj, i) => {
+    const updates = [];
+    for (let i = 0; i < objects.length; i++) {
       const newOrder = i + 1;
-      if (obj.sort_order === newOrder) return Promise.resolve();
-      return api(`collections/objects/records/${obj.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sort_order: newOrder }),
-      });
-    }));
-  } catch (e) { /* renumbering is best-effort */ }
+      if (objects[i].sort_order !== newOrder) {
+        updates.push(api(`collections/objects/records/${objects[i].id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sort_order: newOrder }),
+        }));
+      }
+    }
+    if (updates.length > 0) await Promise.all(updates);
+  } catch (e) {
+    console.error("Renumber failed:", e);
+  }
 }
 
 function backToObjects() {
