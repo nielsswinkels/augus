@@ -137,6 +137,8 @@ const dom = {
   btnScan: $("#btnScan"),
   listAboutLink: $("#listAboutLink"),
   listAboutText: $("#listAboutText"),
+  listViewNav: $("#listViewNav"),
+  btnMapDesktop: $("#btnMapDesktop"),
   btnSettings: $("#btnSettings"),
   bottomNav: $("#bottomNav"),
   labelNavList: $("#labelNavList"),
@@ -190,6 +192,7 @@ const dom = {
   // Settings
   settingsOverlay: $("#settingsOverlay"),
   settingsTitle: $("#settingsTitle"),
+  btnSettingsDesktop: $("#btnSettingsDesktop"),
   settingAutoplay: $("#settingAutoplay"),
   settingCaptionsAloud: $("#settingCaptionsAloud"),
   btnCloseSettings: $("#btnCloseSettings"),
@@ -1569,9 +1572,18 @@ function showView(name) {
   // Hide all views
   $$(".view").forEach((v) => v.classList.remove("active"));
 
+  // On desktop, keep the list sidebar visible alongside content views
+  const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+  if (isDesktop && state.currentSet && name !== "welcome" && name !== "list" && name !== "scanner") {
+    dom.viewList.classList.add("active");
+    renderObjectList();
+  }
+
   // Map button: visible only when the set has a map
   const hasMap = !!(state.currentSet && state.currentSet.map_image);
   dom.btnMapView.classList.toggle("hidden", !hasMap);
+  // Desktop: show map button in list sidebar nav
+  dom.listViewNav.classList.toggle("hidden", !hasMap);
 
   // Mark active view button
   dom.btnList.classList.toggle("btn--active", name === "list" || name === "welcome");
@@ -1641,11 +1653,13 @@ function getCurrentView() {
 
 // ===== Settings Events =====
 function setupSettingsEvents() {
-  dom.btnSettings.addEventListener("click", () => {
+  function openSettings() {
     settingsPreviousFocus = document.activeElement;
     dom.settingsOverlay.classList.add("active");
     settingsFocusTrapCleanup = trapFocus(dom.settingsOverlay);
-  });
+  }
+  dom.btnSettings.addEventListener("click", openSettings);
+  dom.btnSettingsDesktop.addEventListener("click", openSettings);
 
   function closeSettings() {
     dom.settingsOverlay.classList.remove("active");
@@ -1725,6 +1739,8 @@ function setupNavigationEvents() {
     e.preventDefault();
     showView("about");
   });
+
+  dom.btnMapDesktop.addEventListener("click", () => showView("map"));
 
   dom.btnMapView.addEventListener("click", () => showView("map"));
 
