@@ -338,25 +338,6 @@ body {
   background: var(--color-surface);
 }
 
-.subtitles-header {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 var(--spacing-md);
-  flex-shrink: 0;
-}
-
-.subtitles-area.karaoke .subtitle-cue {
-  display: none;
-}
-
-.subtitles-area.karaoke .subtitle-cue.active,
-.subtitles-area.karaoke .subtitle-cue.next {
-  display: flex;
-}
-
-.subtitles-area.karaoke .subtitle-cue.active {
-  font-size: var(--font-size-xl);
-}
 
 .subtitle-cue.active {
   background: var(--color-highlight);
