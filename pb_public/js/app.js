@@ -413,9 +413,14 @@ async function loadRoute() {
       dom.headerLogo.classList.add("hidden");
     }
 
-    // About button: only show if set has about content
+    // About link: only show if set has about content
     const hasAbout = !!(state.currentSet.about_en || state.currentSet.about_sv);
     dom.listAboutLink.classList.toggle("hidden", !hasAbout);
+    if (hasAbout) {
+      const aboutLabel = (i18n[state.settings.language] || i18n.en).aboutTitle;
+      const setName = state.currentSet[`name_${state.settings.language}`] || state.currentSet.name_en || "";
+      dom.listAboutText.textContent = `${aboutLabel} ${setName}`;
+    }
 
     // Load all objects in this set
     const objResp = await api(`objects/records?filter=(set='${state.currentSet.id}')&sort=sort_order&perPage=200`);
