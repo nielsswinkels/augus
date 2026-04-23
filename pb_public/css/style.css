@@ -681,6 +681,33 @@ body {
   transform: translate(-50%, -50%) scale(1.15);
 }
 
+.map-cluster {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: var(--font-size-base);
+  width: 3em;
+  height: 3em;
+  border-radius: 50%;
+  background: var(--color-text);
+  color: var(--color-bg);
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 11;
+  text-decoration: none;
+  font-family: inherit;
+  padding: 0;
+}
+
+.map-cluster:hover {
+  background: var(--color-text-secondary);
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
 .map-controls {
   position: absolute;
   bottom: var(--spacing-md);

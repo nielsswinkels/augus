@@ -1144,25 +1144,18 @@ function renderMapView() {
   const mapUrl = fileUrl("sets", state.currentSet.id, state.currentSet.map_image);
   dom.mapImage.src = mapUrl;
 
-  // Remove old pins
-  dom.mapContainer.querySelectorAll(".map-pin").forEach((el) => el.remove());
-
-  // Add pins for each object
+  // Store pin data for clustering
+  state.mapPins = [];
   for (const obj of state.objects) {
     if (obj.map_x == null || obj.map_y == null || obj.map_x < 0 || obj.map_y < 0) continue;
-    const pin = document.createElement("a");
-    pin.className = "map-pin";
-    pin.href = `#/${state.currentSet.slug}/${obj.slug}`;
-    pin.textContent = obj.sort_order;
-    pin.style.left = `${obj.map_x}%`;
-    pin.style.top = `${obj.map_y}%`;
-    const name = obj[`name_${lang}`] || obj.name_en || "Object";
-    pin.setAttribute("aria-label", `${obj.sort_order}. ${name}`);
-    pin.addEventListener("click", (e) => {
-      e.preventDefault();
-      navigateTo(state.currentSet.slug, obj.slug);
+    state.mapPins.push({
+      x: obj.map_x,
+      y: obj.map_y,
+      sortOrder: obj.sort_order,
+      slug: obj.slug,
+      name: obj[`name_${lang}`] || obj.name_en || "Object",
+      obj: obj,
     });
-    dom.mapContainer.appendChild(pin);
   }
 
   // Center map vertically within the container (width is already 100% via CSS)
@@ -1174,18 +1167,107 @@ function renderMapView() {
     state.mapPan = { x: 0, y: Math.max(0, (containerH - renderedH) / 2) };
     state.mapHomeZoom = state.mapZoom;
     state.mapHomePan = { ...state.mapPan };
+    renderMapPins();
     applyMapTransform();
   };
   if (dom.mapImage.complete) dom.mapImage.onload();
 }
 
+function clusterPins(pins, zoom) {
+  const containerW = dom.mapViewContainer.clientWidth || 400;
+  const clusterRadius = 50 / (zoom * containerW / 100);
+
+  const used = new Set();
+  const clusters = [];
+
+  for (let i = 0; i < pins.length; i++) {
+    if (used.has(i)) continue;
+    const cluster = { pins: [pins[i]], cx: pins[i].x, cy: pins[i].y };
+    used.add(i);
+
+    for (let j = i + 1; j < pins.length; j++) {
+      if (used.has(j)) continue;
+      const dx = pins[j].x - cluster.cx;
+      const dy = pins[j].y - cluster.cy;
+      if (Math.sqrt(dx * dx + dy * dy) < clusterRadius) {
+        cluster.pins.push(pins[j]);
+        used.add(j);
+        cluster.cx = cluster.pins.reduce((s, p) => s + p.x, 0) / cluster.pins.length;
+        cluster.cy = cluster.pins.reduce((s, p) => s + p.y, 0) / cluster.pins.length;
+      }
+    }
+    clusters.push(cluster);
+  }
+  return clusters;
+}
+
+function renderMapPins() {
+  dom.mapContainer.querySelectorAll(".map-pin, .map-cluster").forEach((el) => el.remove());
+
+  if (!state.mapPins || state.mapPins.length === 0) return;
+
+  const clusters = clusterPins(state.mapPins, state.mapZoom);
+
+  for (const cluster of clusters) {
+    if (cluster.pins.length === 1) {
+      const p = cluster.pins[0];
+      const pin = document.createElement("a");
+      pin.className = "map-pin";
+      pin.href = `#/${state.currentSet.slug}/${p.slug}`;
+      pin.textContent = p.sortOrder;
+      pin.style.left = `${p.x}%`;
+      pin.style.top = `${p.y}%`;
+      pin.setAttribute("aria-label", `${p.sortOrder}. ${p.name}`);
+      pin.addEventListener("click", (e) => {
+        e.preventDefault();
+        navigateTo(state.currentSet.slug, p.slug);
+      });
+      dom.mapContainer.appendChild(pin);
+    } else {
+      const el = document.createElement("button");
+      el.className = "map-cluster";
+      el.style.left = `${cluster.cx}%`;
+      el.style.top = `${cluster.cy}%`;
+      el.textContent = cluster.pins.length;
+      const names = cluster.pins.map(p => p.name).join(", ");
+      el.setAttribute("aria-label", `${cluster.pins.length} objects: ${names}`);
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        // Zoom into the cluster
+        const rect = dom.mapViewContainer.getBoundingClientRect();
+        const mx = (cluster.cx / 100) * dom.mapImage.clientWidth;
+        const my = (cluster.cy / 100) * dom.mapImage.clientHeight;
+        state.mapZoom = Math.min(4, state.mapZoom * 2);
+        state.mapPan.x = rect.width / 2 - mx * state.mapZoom;
+        state.mapPan.y = rect.height / 2 - my * state.mapZoom;
+        renderMapPins();
+        applyMapTransform();
+      });
+      dom.mapContainer.appendChild(el);
+    }
+  }
+}
+
+let lastClusterZoom = 0;
+let clusterDebounce = null;
 function applyMapTransform() {
   dom.mapContainer.style.transform = `translate(${state.mapPan.x}px, ${state.mapPan.y}px) scale(${state.mapZoom})`;
-  // Counter-scale pins so they stay the same visual size regardless of zoom level
   const invScale = 1 / state.mapZoom;
-  dom.mapContainer.querySelectorAll(".map-pin").forEach(pin => {
-    pin.style.transform = `translate(-50%, -50%) scale(${invScale})`;
+  dom.mapContainer.querySelectorAll(".map-pin, .map-cluster").forEach(el => {
+    el.style.transform = `translate(-50%, -50%) scale(${invScale})`;
   });
+  // Re-cluster when zoom changes significantly
+  if (Math.abs(state.mapZoom - lastClusterZoom) > 0.3) {
+    if (clusterDebounce) clearTimeout(clusterDebounce);
+    clusterDebounce = setTimeout(() => {
+      lastClusterZoom = state.mapZoom;
+      renderMapPins();
+      const inv = 1 / state.mapZoom;
+      dom.mapContainer.querySelectorAll(".map-pin, .map-cluster").forEach(el => {
+        el.style.transform = `translate(-50%, -50%) scale(${inv})`;
+      });
+    }, 150);
+  }
 }
 
 function setupMapEvents() {
