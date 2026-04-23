@@ -1156,3 +1156,16 @@ body {
 .welcome-page__set-link:focus-visible {
   border-color: var(--color-primary);
 }
+
+.welcome-page__set-name {
+  display: block;
+}
+
+.welcome-page__set-desc {
+  display: block;
+  font-size: var(--font-size-base);
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  margin-top: var(--spacing-xs);
+  line-height: var(--line-height);
+}

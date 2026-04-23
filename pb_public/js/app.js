@@ -372,11 +372,12 @@ async function loadRoute() {
       if (resp.items && resp.items.length > 0) {
         for (const set of resp.items) {
           const name = set[`name_${lang}`] || set.name_en || set.slug;
+          const desc = set[`description_${lang}`] || set.description_en || "";
           const li = document.createElement('li');
           const a = document.createElement('a');
           a.href = `#/${set.slug}`;
           a.className = 'welcome-page__set-link';
-          a.textContent = name;
+          a.innerHTML = `<span class="welcome-page__set-name">${escapeHtml(name)}</span>${desc ? `<span class="welcome-page__set-desc">${escapeHtml(desc)}</span>` : ""}`;
           li.appendChild(a);
           dom.welcomeSetsList.appendChild(li);
         }
