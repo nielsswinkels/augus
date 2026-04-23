@@ -1266,7 +1266,7 @@ body {
   /* Layout container: two-column grid */
   .app-layout {
     display: grid;
-    grid-template-columns: 300px 1fr;
+    grid-template-columns: 360px 1fr;
     height: calc(100dvh - var(--header-height));
     overflow: hidden;
   }
