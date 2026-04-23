@@ -236,15 +236,17 @@ body {
   flex-shrink: 0;
   min-width: 0;
   padding: var(--spacing-sm) var(--spacing-xs);
-  scroll-snap-align: start;
+  scroll-snap-align: center;
 }
 
 .carousel__slide:first-child {
   padding-left: var(--spacing-md);
+  scroll-snap-align: start;
 }
 
 .carousel__slide:last-child {
   padding-right: var(--spacing-md);
+  scroll-snap-align: end;
 }
 
 .carousel__slide img {
