@@ -197,6 +197,7 @@ const dom = {
   galleryOverlay: $("#galleryOverlay"),
   galleryCounter: $("#galleryCounter"),
   galleryImage: $("#galleryImage"),
+  galleryBody: $(".gallery-body"),
   galleryCaption: $("#galleryCaption"),
   btnGalleryPrev: $("#btnGalleryPrev"),
   btnGalleryNext: $("#btnGalleryNext"),
@@ -963,31 +964,105 @@ function setupGalleryEvents() {
     }
   });
 
-  // Gallery swipe gestures
+  // Gallery pinch-to-zoom, double-tap zoom, and swipe
+  let galleryZoom = 1;
+  let galleryPan = { x: 0, y: 0 };
+  let galleryPinchDist = 0;
+  let galleryPointers = new Map();
+  let galleryLastTap = 0;
   let galleryTouchStartX = 0;
   let galleryTouchStartY = 0;
+  let galleryTouchStartTime = 0;
 
-  dom.galleryOverlay.addEventListener("touchstart", (e) => {
-    galleryTouchStartX = e.touches[0].clientX;
-    galleryTouchStartY = e.touches[0].clientY;
-  }, { passive: true });
+  function resetGalleryZoom() {
+    galleryZoom = 1;
+    galleryPan = { x: 0, y: 0 };
+    dom.galleryImage.style.transform = "";
+  }
 
-  dom.galleryOverlay.addEventListener("touchend", (e) => {
-    const dx = e.changedTouches[0].clientX - galleryTouchStartX;
-    const dy = e.changedTouches[0].clientY - galleryTouchStartY;
+  function applyGalleryTransform() {
+    dom.galleryImage.style.transform = `translate(${galleryPan.x}px, ${galleryPan.y}px) scale(${galleryZoom})`;
+  }
 
-    // Only trigger if horizontal swipe is dominant and > 50px
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (dx < 0 && state.galleryIndex < state.images.length - 1) {
-        // Swipe left = next
-        state.galleryIndex++;
-        renderGalleryImage();
-      } else if (dx > 0 && state.galleryIndex > 0) {
-        // Swipe right = previous
-        state.galleryIndex--;
-        renderGalleryImage();
-      }
+  // Reset zoom when switching images
+  const origRender = renderGalleryImage;
+  renderGalleryImage = function() {
+    resetGalleryZoom();
+    origRender();
+  };
+
+  dom.galleryBody.addEventListener("pointerdown", (e) => {
+    if (e.target.closest(".gallery-nav")) return;
+    galleryPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    dom.galleryBody.setPointerCapture(e.pointerId);
+    if (galleryPointers.size === 2) {
+      const [a, b] = [...galleryPointers.values()];
+      galleryPinchDist = Math.hypot(a.x - b.x, a.y - b.y);
     }
+    if (galleryPointers.size === 1) {
+      galleryTouchStartX = e.clientX;
+      galleryTouchStartY = e.clientY;
+      galleryTouchStartTime = Date.now();
+    }
+  });
+
+  dom.galleryBody.addEventListener("pointermove", (e) => {
+    if (!galleryPointers.has(e.pointerId)) return;
+    const prev = galleryPointers.get(e.pointerId);
+    galleryPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (galleryPointers.size === 1 && galleryZoom > 1) {
+      galleryPan.x += e.clientX - prev.x;
+      galleryPan.y += e.clientY - prev.y;
+      applyGalleryTransform();
+    } else if (galleryPointers.size === 2 && galleryPinchDist > 0) {
+      const [a, b] = [...galleryPointers.values()];
+      const newDist = Math.hypot(a.x - b.x, a.y - b.y);
+      const ratio = newDist / galleryPinchDist;
+      galleryZoom = Math.max(1, Math.min(5, galleryZoom * ratio));
+      galleryPinchDist = newDist;
+      if (galleryZoom <= 1) galleryPan = { x: 0, y: 0 };
+      applyGalleryTransform();
+    }
+  });
+
+  dom.galleryBody.addEventListener("pointerup", (e) => {
+    galleryPointers.delete(e.pointerId);
+    if (galleryPointers.size < 2) galleryPinchDist = 0;
+
+    // Single-finger release: handle swipe or double-tap
+    if (galleryPointers.size === 0 && galleryZoom <= 1) {
+      const dx = e.clientX - galleryTouchStartX;
+      const dy = e.clientY - galleryTouchStartY;
+      const dt = Date.now() - galleryTouchStartTime;
+
+      // Swipe to navigate (only when not zoomed)
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5 && dt < 500) {
+        if (dx < 0 && state.galleryIndex < state.images.length - 1) {
+          state.galleryIndex++;
+          renderGalleryImage();
+        } else if (dx > 0 && state.galleryIndex > 0) {
+          state.galleryIndex--;
+          renderGalleryImage();
+        }
+      }
+
+      // Double-tap to zoom
+      const now = Date.now();
+      if (now - galleryLastTap < 300 && Math.abs(dx) < 10) {
+        galleryZoom = 2.5;
+        applyGalleryTransform();
+      }
+      galleryLastTap = now;
+    }
+
+    // Snap back if zoomed out
+    if (galleryZoom <= 1) resetGalleryZoom();
+  });
+
+  dom.galleryBody.addEventListener("pointercancel", (e) => {
+    galleryPointers.delete(e.pointerId);
+    if (galleryPointers.size < 2) galleryPinchDist = 0;
   });
 }
 
