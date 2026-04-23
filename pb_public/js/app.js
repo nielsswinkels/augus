@@ -395,6 +395,24 @@ async function loadRoute() {
     return;
   }
 
+  // If same set is already loaded, just switch object (no reload needed)
+  if (state.currentSet && state.currentSet.slug === route.setSlug && state.objects.length > 0) {
+    if (route.objectSlug) {
+      const obj = state.objects.find((o) => o.slug === route.objectSlug);
+      if (obj) {
+        await loadObject(obj);
+        updateSequentialNav();
+        showView("object");
+      } else {
+        showToast(t("errorObjectNotFound"), true);
+        showView("list");
+      }
+    } else {
+      showView("list");
+    }
+    return;
+  }
+
   document.getElementById('loadingIndicator').style.display = 'flex';
 
   try {
