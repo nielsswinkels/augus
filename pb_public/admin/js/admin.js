@@ -320,6 +320,21 @@ async function loadObjects(setId) {
   try {
     const resp = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
     currentObjects = resp.items || [];
+    // Auto-fix: set published=true for objects missing the field (pre-migration)
+    const unpublishedFixes = currentObjects
+      .filter(obj => obj.published !== true && obj.published !== false)
+      .map(obj => api(`collections/objects/records/${obj.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ published: true }),
+      }));
+    if (unpublishedFixes.length > 0) {
+      try {
+        await Promise.all(unpublishedFixes);
+        const resp0 = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
+        currentObjects = resp0.items || [];
+      } catch (e) { /* best effort */ }
+    }
     // Auto-fix numbering gaps (e.g. after deletion)
     if (currentObjects.length > 0) {
       let needsFix = false;
@@ -379,7 +394,7 @@ function renderObjectsList() {
       <span class="drag-handle" title="Drag to reorder" aria-hidden="true">⠿</span>
       <span class="object-card__number">${obj.sort_order}</span>
       <div class="object-card__info">
-        <div class="object-card__name">${esc(obj.name_en)}${obj.published === false ? ' <span class="set-card__draft">Draft</span>' : ""}</div>
+        <div class="object-card__name">${esc(obj.name_en)}${obj.published === false || obj.published === "false" ? ' <span class="set-card__draft">Draft</span>' : ""}</div>
         <div class="object-card__slug">/${esc(obj.slug)}</div>
       </div>
     `;
@@ -536,7 +551,7 @@ async function saveObject(e) {
   const mapY = $("#objectMapY").value;
   formData.append("map_x", mapX !== "" ? parseFloat(mapX) : -1);
   formData.append("map_y", mapY !== "" ? parseFloat(mapY) : -1);
-  formData.append("published", $("#objectPublished").checked);
+  formData.append("published", $("#objectPublished").checked ? "true" : "false");
 
   const floorBtns = $("#objectFloorButtons");
   formData.append("floor", floorBtns.dataset.selectedFloor || "");
