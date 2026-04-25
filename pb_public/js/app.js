@@ -444,7 +444,7 @@ async function loadRoute() {
     }
 
     // Load all objects in this set
-    const objResp = await api(`objects/records?filter=(set='${state.currentSet.id}')&sort=sort_order&perPage=200`);
+    const objResp = await api(`objects/records?filter=(set='${state.currentSet.id}'%26%26published=true)&sort=sort_order&perPage=200`);
     state.objects = objResp.items || [];
 
     if (route.objectSlug) {
