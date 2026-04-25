@@ -799,7 +799,8 @@ async function loadFloors(setId) {
 function renderFloorsList() {
   const container = $("#floorsList");
   container.innerHTML = "";
-  for (const floor of currentFloors) {
+  for (let i = 0; i < currentFloors.length; i++) {
+    const floor = currentFloors[i];
     const card = document.createElement("div");
     card.className = "floor-card";
     card.innerHTML = `
@@ -824,7 +825,9 @@ function renderFloorsList() {
           Current: ${esc(floor.map_image || "")}
         </div>
       </div>
-      <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-xs)">
+      <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-xs);align-items:center">
+        <button type="button" class="btn btn--small floor-move-up" data-index="${i}" ${i === 0 ? "disabled" : ""} title="Move up">&#9650;</button>
+        <button type="button" class="btn btn--small floor-move-down" data-index="${i}" ${i === currentFloors.length - 1 ? "disabled" : ""} title="Move down">&#9660;</button>
         <button type="button" class="btn btn--primary btn--small floor-save" data-id="${floor.id}">Save</button>
         <button type="button" class="btn btn--danger btn--small floor-delete" data-id="${floor.id}">Delete</button>
       </div>
@@ -864,6 +867,35 @@ function renderFloorsList() {
           showToast("Could not delete floor.");
         }
       });
+    });
+  });
+
+  // Wire move up/down buttons
+  container.querySelectorAll(".floor-move-up, .floor-move-down").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const idx = parseInt(btn.dataset.index);
+      const isUp = btn.classList.contains("floor-move-up");
+      const swapIdx = isUp ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= currentFloors.length) return;
+      const a = currentFloors[idx];
+      const b = currentFloors[swapIdx];
+      try {
+        await Promise.all([
+          api(`collections/floors/records/${a.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sort_order: b.sort_order }),
+          }),
+          api(`collections/floors/records/${b.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sort_order: a.sort_order }),
+          }),
+        ]);
+        loadFloors(editingSet.id);
+      } catch (e) {
+        showToast("Could not reorder floors.");
+      }
     });
   });
 }
