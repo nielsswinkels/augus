@@ -320,21 +320,6 @@ async function loadObjects(setId) {
   try {
     const resp = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
     currentObjects = resp.items || [];
-    // Auto-fix: publish objects that were created before the published field existed
-    const needsPublish = currentObjects.filter(obj => !obj.published);
-    if (needsPublish.length > 0) {
-      try {
-        await Promise.all(needsPublish.map(obj =>
-          api(`collections/objects/records/${obj.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ published: true }),
-          })
-        ));
-        const resp0 = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
-        currentObjects = resp0.items || [];
-      } catch (e) { /* best effort */ }
-    }
     // Auto-fix numbering gaps (e.g. after deletion)
     if (currentObjects.length > 0) {
       let needsFix = false;
