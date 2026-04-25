@@ -56,13 +56,11 @@ migrate((app) => {
   });
   app.save(floors);
 
-  // Add floor relation to objects
+  // Add floor field to objects (text field storing floor record ID)
   const objects = app.findCollectionByNameOrId("objects");
-  objects.fields.add(new RelationField({
+  objects.fields.add(new TextField({
     name: "floor",
     required: false,
-    collectionId: floors.id,
-    maxSelect: 1,
   }));
   app.save(objects);
 
@@ -74,19 +72,16 @@ migrate((app) => {
   }));
   app.save(sets);
 }, (app) => {
-  // Remove default_floor from sets
   const sets = app.findCollectionByNameOrId("sets");
   const df = sets.fields.getByName("default_floor");
   if (df) sets.fields.remove(df.id);
   app.save(sets);
 
-  // Remove floor from objects
   const objects = app.findCollectionByNameOrId("objects");
   const f = objects.fields.getByName("floor");
   if (f) objects.fields.remove(f.id);
   app.save(objects);
 
-  // Delete floors collection
   const floors = app.findCollectionByNameOrId("floors");
   app.delete(floors);
 });
