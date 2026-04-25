@@ -42,11 +42,8 @@ Comprehensive documentation for self-hosting. README with setup guide, deploymen
 - **Should cover:** Docker setup, PocketBase admin, creating first set/objects, QR code printing, custom domain, Caddy configuration
 - **Scope:** 1 session
 
-### Multi-Floor Map Support
-Support for exhibitions spanning multiple floors. The map view would have floor selector buttons (e.g., "Floor 1", "Floor 2") that switch between different map images. Each floor has its own map image with its own set of object pins.
-- **Data model:** A set could have multiple map images keyed by floor (e.g., a `map_floors` JSON field or a separate `floors` collection with floor name + map image). Each object gets a `map_floor` field in addition to `map_x` and `map_y`.
-- **Visitor UI:** Buttons/tabs above the map to switch floors. Pins only show for the selected floor. Cluster counts could show total across floors with a badge.
-- **Admin UI:** Floor management in set form (add/remove floors, upload map per floor). Object form gets a floor dropdown next to the map picker.
+### ~~Multi-Floor Map Support~~ ✅ Done
+Implemented: floors collection, floor selector buttons, per-floor pin filtering, default floor setting, admin CRUD.
 - **Scope:** 2-3 sessions
 
 ### Outdoor Exhibitions with GPS
@@ -57,6 +54,13 @@ Replace the static map image with a real map (OpenStreetMap via Leaflet.js) for 
 - **Challenges:** GPS accuracy varies (5-15m outdoors), battery drain from continuous tracking, permission handling, offline map tiles for areas with poor connectivity.
 - **Library:** Leaflet.js (~40KB) is the standard open-source choice, uses OpenStreetMap tiles (free).
 - **Scope:** 3-4 sessions
+
+### Hybrid Indoor/Outdoor Exhibitions
+Combine multi-floor indoor maps with outdoor GPS maps in a single exhibition. The floor selector buttons would include an "Outdoor" option that switches from a static floor map to a live OpenStreetMap view. Visitors could walk through an outdoor area, enter a building, and seamlessly switch between GPS-tracked outdoor navigation and floor-based indoor maps.
+- **Builds on:** Multi-floor maps (done) + Outdoor GPS exhibitions (above)
+- **UI idea:** Floor buttons like "Outdoor", "G", "1", "2" — tapping "Outdoor" switches to Leaflet map with GPS, tapping a floor switches to that floor's static map image
+- **Challenge:** Indoor/outdoor transition detection (GPS signal loss could auto-suggest switching to indoor mode)
+- **Scope:** 1-2 sessions (after both prerequisites are built)
 
 ---
 
