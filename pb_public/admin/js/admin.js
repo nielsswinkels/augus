@@ -373,7 +373,7 @@ function renderObjectsList() {
       <span class="drag-handle" title="Drag to reorder" aria-hidden="true">⠿</span>
       <span class="object-card__number">${obj.sort_order}</span>
       <div class="object-card__info">
-        <div class="object-card__name">${esc(obj.name_en)}</div>
+        <div class="object-card__name">${esc(obj.name_en)}${obj.published === false ? ' <span class="set-card__draft">Draft</span>' : ""}</div>
         <div class="object-card__slug">/${esc(obj.slug)}</div>
       </div>
     `;
@@ -459,6 +459,7 @@ async function editObject(obj) {
     $("#objectNameSv").value = obj.name_sv || "";
     $("#objectMapX").value = obj.map_x ?? "";
     $("#objectMapY").value = obj.map_y ?? "";
+    $("#objectPublished").checked = obj.published !== false;
     $("#btnDeleteObject").classList.remove("hidden");
     $("#btnPreviewObject").classList.remove("hidden");
     $("#btnQRCode").classList.remove("hidden");
@@ -485,6 +486,7 @@ async function editObject(obj) {
     $("#objectNameSv").value = "";
     $("#objectMapX").value = "";
     $("#objectMapY").value = "";
+    $("#objectPublished").checked = true;
     ["objectAudioEnCurrent", "objectAudioSvCurrent", "objectSubtitlesEnCurrent", "objectSubtitlesSvCurrent"]
       .forEach((id) => $(`#${id}`).classList.add("hidden"));
     $("#btnDeleteObject").classList.add("hidden");
@@ -527,6 +529,7 @@ async function saveObject(e) {
   const mapY = $("#objectMapY").value;
   formData.append("map_x", mapX !== "" ? parseFloat(mapX) : -1);
   formData.append("map_y", mapY !== "" ? parseFloat(mapY) : -1);
+  formData.append("published", $("#objectPublished").checked);
 
   // File uploads
   const audioEn = $("#objectAudioEn").files[0];
