@@ -854,14 +854,16 @@ function renderFloorsList() {
 
   // Wire delete buttons
   container.querySelectorAll(".floor-delete").forEach(btn => {
-    confirmAction(btn, async () => {
-      try {
-        await api(`collections/floors/records/${btn.dataset.id}`, { method: "DELETE" });
-        showToast("Floor deleted");
-        loadFloors(editingSet.id);
-      } catch (e) {
-        showToast("Could not delete floor.");
-      }
+    btn.addEventListener("click", () => {
+      confirmAction(btn, async () => {
+        try {
+          await api(`collections/floors/records/${btn.dataset.id}`, { method: "DELETE" });
+          showToast("Floor deleted");
+          loadFloors(editingSet.id);
+        } catch (e) {
+          showToast("Could not delete floor.");
+        }
+      });
     });
   });
 }
