@@ -255,16 +255,26 @@ async function saveSet(e) {
   const accentVal = $("#setColorAccentText").value;
   formData.append("color_primary", /^#[0-9a-fA-F]{6}$/.test(primaryVal) ? primaryVal : $("#setColorPrimary").value);
   formData.append("color_accent", /^#[0-9a-fA-F]{6}$/.test(accentVal) ? accentVal : $("#setColorAccent").value);
-  formData.append("published", $("#setPublished").checked ? "1" : "0");
-  formData.append("sequential_navigation", $("#setSequentialNav").checked);
   formData.append("default_floor", $("#setDefaultFloor").value);
 
   try {
+    let savedSetId;
     if (id) {
       await api(`collections/sets/records/${id}`, { method: "PATCH", body: formData });
+      savedSetId = id;
     } else {
-      await api("collections/sets/records", { method: "POST", body: formData });
+      const result = await api("collections/sets/records", { method: "POST", body: formData });
+      savedSetId = result.id;
     }
+    // Separate JSON PATCH for boolean fields
+    await api(`collections/sets/records/${savedSetId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        published: $("#setPublished").checked,
+        sequential_navigation: $("#setSequentialNav").checked,
+      }),
+    });
     showToast("Set saved!");
     formDirty = false;
     showTab("sets");
@@ -536,7 +546,6 @@ async function saveObject(e) {
   const mapY = $("#objectMapY").value;
   formData.append("map_x", mapX !== "" ? parseFloat(mapX) : -1);
   formData.append("map_y", mapY !== "" ? parseFloat(mapY) : -1);
-  formData.append("published", $("#objectPublished").checked ? "1" : "0");
 
   const floorBtns = $("#objectFloorButtons");
   formData.append("floor", floorBtns.dataset.selectedFloor || "");
