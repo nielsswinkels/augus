@@ -825,8 +825,8 @@ function renderFloorsList() {
         </div>
       </div>
       <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-xs)">
-        <button type="button" class="btn btn--primary btn--small floor-save" data-id="${floor.id}" style="color:var(--color-primary-text)">Save</button>
-        <button type="button" class="btn btn--danger btn--small floor-delete" data-id="${floor.id}" style="color:var(--color-danger)">Delete</button>
+        <button type="button" class="btn btn--primary btn--small floor-save" data-id="${floor.id}">Save</button>
+        <button type="button" class="btn btn--danger btn--small floor-delete" data-id="${floor.id}">Delete</button>
       </div>
     `;
     container.appendChild(card);
