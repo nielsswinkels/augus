@@ -847,7 +847,7 @@ function renderFloorsList() {
         showToast("Floor saved!");
         loadFloors(editingSet.id);
       } catch (e) {
-        showToast("Could not save floor. Please check all fields are filled in.");
+        showToast("Could not save floor: " + e.message);
       }
     });
   });
