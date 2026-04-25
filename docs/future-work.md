@@ -42,6 +42,22 @@ Comprehensive documentation for self-hosting. README with setup guide, deploymen
 - **Should cover:** Docker setup, PocketBase admin, creating first set/objects, QR code printing, custom domain, Caddy configuration
 - **Scope:** 1 session
 
+### Multi-Floor Map Support
+Support for exhibitions spanning multiple floors. The map view would have floor selector buttons (e.g., "Floor 1", "Floor 2") that switch between different map images. Each floor has its own map image with its own set of object pins.
+- **Data model:** A set could have multiple map images keyed by floor (e.g., a `map_floors` JSON field or a separate `floors` collection with floor name + map image). Each object gets a `map_floor` field in addition to `map_x` and `map_y`.
+- **Visitor UI:** Buttons/tabs above the map to switch floors. Pins only show for the selected floor. Cluster counts could show total across floors with a badge.
+- **Admin UI:** Floor management in set form (add/remove floors, upload map per floor). Object form gets a floor dropdown next to the map picker.
+- **Scope:** 2-3 sessions
+
+### Outdoor Exhibitions with GPS
+Replace the static map image with a real map (OpenStreetMap via Leaflet.js) for outdoor exhibitions. Objects are placed at GPS coordinates instead of percentage positions. Visitors can see their live position on the map and get auto-triggered audio when they approach an object.
+- **Data model:** Objects get `latitude` and `longitude` fields (in addition to or instead of `map_x`/`map_y`). A set gets a toggle for outdoor/indoor mode.
+- **Visitor UI:** Embedded OpenStreetMap with object pins. GPS tracking via `navigator.geolocation.watchPosition()`. When the visitor walks within a configurable radius (e.g., 10-20 meters) of an object, auto-play its audio. Show a "you are here" dot on the map.
+- **Admin UI:** Click-to-place on a real map instead of an image. Or enter GPS coordinates directly.
+- **Challenges:** GPS accuracy varies (5-15m outdoors), battery drain from continuous tracking, permission handling, offline map tiles for areas with poor connectivity.
+- **Library:** Leaflet.js (~40KB) is the standard open-source choice, uses OpenStreetMap tiles (free).
+- **Scope:** 3-4 sessions
+
 ---
 
 ## Small improvements to consider
