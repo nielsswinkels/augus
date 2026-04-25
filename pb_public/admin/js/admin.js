@@ -863,7 +863,7 @@ async function addFloor() {
     showToast("Floor added — fill in the details below");
     loadFloors(editingSet.id);
   } catch (e) {
-    showToast("Could not add floor.");
+    showToast("Could not add floor: " + e.message);
   }
 }
 
