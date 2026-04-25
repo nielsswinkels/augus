@@ -56,11 +56,13 @@ migrate((app) => {
   });
   app.save(floors);
 
-  // Add floor field to objects (text field storing floor record ID)
+  // Add floor relation to objects
   const objects = app.findCollectionByNameOrId("objects");
-  objects.fields.add(new TextField({
+  objects.fields.add(new RelationField({
     name: "floor",
     required: false,
+    collectionId: floors.id,
+    maxSelect: 1,
   }));
   app.save(objects);
 
