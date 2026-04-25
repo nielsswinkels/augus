@@ -99,6 +99,19 @@
           <div class="current-file hidden" id="setMapImageCurrent"></div>
         </div>
 
+        <fieldset class="form-fieldset" id="floorsFieldset" style="display:none">
+          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Floors</legend>
+          <p class="form-hint" style="margin-bottom:var(--spacing-sm)">Add floors for separate map images per level. If no floors are added, the single map image above is used.</p>
+          <div id="floorsList"></div>
+          <button type="button" class="btn" id="btnAddFloor" style="margin-top:var(--spacing-sm)">+ Add Floor</button>
+          <div class="form-row" style="margin-top:var(--spacing-sm)" id="defaultFloorRow">
+            <label for="setDefaultFloor" class="form-label">Default floor</label>
+            <select id="setDefaultFloor" class="form-input form-select">
+              <option value="">First floor</option>
+            </select>
+          </div>
+        </fieldset>
+
         <div class="form-row">
           <label class="form-label">Colour scheme (optional)</label>
           <div class="color-scheme-row">
@@ -252,6 +265,12 @@
 
         <fieldset class="form-fieldset" id="mapPositionFieldset">
           <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Map position</legend>
+          <div class="form-row hidden" id="floorSelectRow">
+            <label class="form-label">Floor</label>
+            <div class="floor-buttons" id="objectFloorButtons">
+              <!-- Floor buttons rendered by JS -->
+            </div>
+          </div>
           <div id="mapPickerContainer" class="map-picker-container hidden">
             <p class="form-hint" style="margin-bottom:var(--spacing-sm)">Click on the map to place the pin</p>
             <div class="map-picker" id="mapPicker">

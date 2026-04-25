@@ -124,6 +124,8 @@ const state = {
   mapZoom: 1,
   mapPan: { x: 0, y: 0 },
   audioPausedByGallery: false,
+  floors: [],
+  currentFloorId: null,
 };
 
 // ===== DOM References =====
@@ -177,6 +179,7 @@ const dom = {
   mapViewContainer: $("#mapViewContainer"),
   mapContainer: $("#mapContainer"),
   mapImage: $("#mapImage"),
+  mapFloorSelector: $("#mapFloorSelector"),
   btnMapHome: $("#btnMapHome"),
   btnZoomIn: $("#btnZoomIn"),
   btnZoomOut: $("#btnZoomOut"),
@@ -446,6 +449,23 @@ async function loadRoute() {
     // Load all objects in this set
     const objResp = await api(`objects/records?filter=(set='${state.currentSet.id}'%26%26published=true)&sort=sort_order&perPage=200`);
     state.objects = objResp.items || [];
+
+    // Load floors
+    try {
+      const floorResp = await api(`floors/records?filter=(set='${state.currentSet.id}')&sort=sort_order&perPage=50`);
+      state.floors = floorResp.items || [];
+    } catch (e) {
+      state.floors = [];
+    }
+    // Set default floor
+    if (state.floors.length > 0) {
+      const defaultId = state.currentSet.default_floor;
+      state.currentFloorId = (defaultId && state.floors.find(f => f.id === defaultId))
+        ? defaultId
+        : state.floors[0].id;
+    } else {
+      state.currentFloorId = null;
+    }
 
     if (route.objectSlug) {
       const obj = state.objects.find((o) => o.slug === route.objectSlug);
@@ -1161,18 +1181,47 @@ async function loadListThumbnails() {
 
 // ===== Map View =====
 function renderMapView() {
-  if (!state.currentSet || !state.currentSet.map_image) return;
+  if (!state.currentSet) return;
 
   const lang = state.settings.language;
+  const hasFloors = state.floors.length > 0;
 
-  const mapUrl = fileUrl("sets", state.currentSet.id, state.currentSet.map_image);
-  dom.mapImage.src = mapUrl;
+  // Floor selector
+  if (hasFloors) {
+    dom.mapFloorSelector.innerHTML = "";
+    for (const floor of state.floors) {
+      const btn = document.createElement("button");
+      btn.className = "map-floor-btn" + (floor.id === state.currentFloorId ? " active" : "");
+      btn.textContent = floor.label;
+      btn.title = floor[`name_${lang}`] || floor.name_en || floor.label;
+      btn.setAttribute("aria-label", floor[`name_${lang}`] || floor.name_en || floor.label);
+      btn.addEventListener("click", () => {
+        state.currentFloorId = floor.id;
+        renderMapView();
+      });
+      dom.mapFloorSelector.appendChild(btn);
+    }
+    dom.mapFloorSelector.classList.remove("hidden");
 
-  // Store pin data for clustering (use display index, not sort_order)
+    const currentFloor = state.floors.find(f => f.id === state.currentFloorId);
+    if (currentFloor && currentFloor.map_image) {
+      dom.mapImage.src = fileUrl("floors", currentFloor.id, currentFloor.map_image);
+    } else {
+      return; // no map image for this floor
+    }
+  } else if (state.currentSet.map_image) {
+    dom.mapFloorSelector.classList.add("hidden");
+    dom.mapImage.src = fileUrl("sets", state.currentSet.id, state.currentSet.map_image);
+  } else {
+    return;
+  }
+
+  // Build pins — filter by floor if multi-floor
   state.mapPins = [];
   for (let idx = 0; idx < state.objects.length; idx++) {
     const obj = state.objects[idx];
     if (obj.map_x == null || obj.map_y == null || obj.map_x < 0 || obj.map_y < 0) continue;
+    if (hasFloors && obj.floor !== state.currentFloorId) continue;
     state.mapPins.push({
       x: obj.map_x,
       y: obj.map_y,
@@ -1192,10 +1241,11 @@ function renderMapView() {
     state.mapPan = { x: 0, y: Math.max(0, (containerH - renderedH) / 2) };
     state.mapHomeZoom = state.mapZoom;
     state.mapHomePan = { ...state.mapPan };
+    lastClusterZoom = 0;
     renderMapPins();
     applyMapTransform();
   };
-  if (dom.mapImage.complete) dom.mapImage.onload();
+  if (dom.mapImage.complete && dom.mapImage.src) dom.mapImage.onload();
 }
 
 function clusterPins(pins, zoom) {
@@ -1602,7 +1652,7 @@ function showView(name) {
   }
 
   // Map button: visible only when the set has a map
-  const hasMap = !!(state.currentSet && state.currentSet.map_image);
+  const hasMap = !!(state.currentSet && (state.currentSet.map_image || state.floors.length > 0));
   dom.btnMapView.classList.toggle("hidden", !hasMap);
   // Desktop: show map button in list sidebar nav
   dom.listViewNav.classList.toggle("hidden", !hasMap);

@@ -733,6 +733,36 @@ body {
   transform: translate(-50%, -50%) scale(1.1);
 }
 
+.map-floor-selector {
+  position: absolute;
+  top: var(--spacing-md);
+  left: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  z-index: 20;
+}
+
+.map-floor-btn {
+  background: var(--color-bg);
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  min-width: 40px;
+  text-align: center;
+}
+
+.map-floor-btn.active {
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary);
+}
+
 .map-controls {
   position: absolute;
   bottom: var(--spacing-md);
