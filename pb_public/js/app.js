@@ -1105,7 +1105,9 @@ function renderAboutContent() {
 function renderObjectList() {
   const lang = state.settings.language;
   dom.objectList.innerHTML = "";
-  for (const obj of state.objects) {
+  for (let idx = 0; idx < state.objects.length; idx++) {
+    const obj = state.objects[idx];
+    const displayNum = idx + 1;
     const name = obj[`name_${lang}`] || obj.name_en || "Object";
     const isCurrent = state.currentObject && state.currentObject.id === obj.id;
 
@@ -1120,7 +1122,7 @@ function renderObjectList() {
     });
 
     a.innerHTML = `
-      <span class="object-list__number">${obj.sort_order}</span>
+      <span class="object-list__number">${displayNum}</span>
       <div class="object-list__info">
         <div class="object-list__name">${escapeHtml(name)}</div>
       </div>
@@ -1166,14 +1168,15 @@ function renderMapView() {
   const mapUrl = fileUrl("sets", state.currentSet.id, state.currentSet.map_image);
   dom.mapImage.src = mapUrl;
 
-  // Store pin data for clustering
+  // Store pin data for clustering (use display index, not sort_order)
   state.mapPins = [];
-  for (const obj of state.objects) {
+  for (let idx = 0; idx < state.objects.length; idx++) {
+    const obj = state.objects[idx];
     if (obj.map_x == null || obj.map_y == null || obj.map_x < 0 || obj.map_y < 0) continue;
     state.mapPins.push({
       x: obj.map_x,
       y: obj.map_y,
-      sortOrder: obj.sort_order,
+      displayNum: idx + 1,
       slug: obj.slug,
       name: obj[`name_${lang}`] || obj.name_en || "Object",
       obj: obj,
@@ -1236,10 +1239,10 @@ function renderMapPins() {
       const pin = document.createElement("a");
       pin.className = "map-pin";
       pin.href = `#/${state.currentSet.slug}/${p.slug}`;
-      pin.textContent = p.sortOrder;
+      pin.textContent = p.displayNum;
       pin.style.left = `${p.x}%`;
       pin.style.top = `${p.y}%`;
-      pin.setAttribute("aria-label", `${p.sortOrder}. ${p.name}`);
+      pin.setAttribute("aria-label", `${p.displayNum}. ${p.name}`);
       pin.addEventListener("click", (e) => {
         e.preventDefault();
         navigateTo(state.currentSet.slug, p.slug);
