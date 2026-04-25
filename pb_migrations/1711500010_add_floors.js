@@ -56,7 +56,7 @@ migrate((app) => {
   });
   app.save(floors);
 
-  // Add floor field to objects (text field storing floor record ID)
+  // Add floor field to objects (stores floor record ID)
   const objects = app.findCollectionByNameOrId("objects");
   objects.fields.add(new TextField({
     name: "floor",
