@@ -883,14 +883,14 @@ async function addFloor() {
 
 function updateDefaultFloorDropdown() {
   const select = $("#setDefaultFloor");
-  select.innerHTML = '<option value="">First floor</option>';
+  select.innerHTML = "";
   for (const floor of currentFloors) {
     const opt = document.createElement("option");
     opt.value = floor.id;
     opt.textContent = floor.label + (floor.name_en ? ` — ${floor.name_en}` : "");
     select.appendChild(opt);
   }
-  select.value = editingSet.default_floor || "";
+  select.value = editingSet.default_floor || (currentFloors.length > 0 ? currentFloors[0].id : "");
   $("#defaultFloorRow").style.display = currentFloors.length > 0 ? "" : "none";
 }
 
