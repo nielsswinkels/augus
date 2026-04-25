@@ -871,7 +871,7 @@ async function addFloor() {
   const formData = new FormData();
   formData.append("set", editingSet.id);
   formData.append("label", String(currentFloors.length + 1));
-  formData.append("sort_order", currentFloors.length);
+  formData.append("sort_order", String(currentFloors.length + 1));
   try {
     await api("collections/floors/records", { method: "POST", body: formData });
     showToast("Floor added — fill in the details below");
