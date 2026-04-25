@@ -8,6 +8,7 @@ const PB_URL = window.location.origin;
 let authToken = sessionStorage.getItem("augus_admin_token") || "";
 let currentSets = [];
 let currentObjects = [];
+let currentFloors = [];
 let editingSet = null;
 let editingObject = null;
 let selectedSetId = "";
@@ -183,6 +184,9 @@ function editSet(set) {
     $("#setPublished").checked = !!set.published;
     $("#setSequentialNav").checked = !!set.sequential_navigation;
 
+    $("#floorsFieldset").style.display = "";
+    loadFloors(set.id);
+
     const primary = set.color_primary || "#0057b8";
     const accent = set.color_accent || "#ffffff";
     $("#setColorPrimary").value = primary;
@@ -213,6 +217,7 @@ function editSet(set) {
     $("#setSequentialNav").checked = true;
     $("#btnDeleteSet").classList.add("hidden");
     $("#btnGoToObjects").style.display = "none";
+    $("#floorsFieldset").style.display = "none";
   }
 }
 
@@ -252,6 +257,7 @@ async function saveSet(e) {
   formData.append("color_accent", /^#[0-9a-fA-F]{6}$/.test(accentVal) ? accentVal : $("#setColorAccent").value);
   formData.append("published", $("#setPublished").checked);
   formData.append("sequential_navigation", $("#setSequentialNav").checked);
+  formData.append("default_floor", $("#setDefaultFloor").value);
 
   try {
     if (id) {
@@ -475,7 +481,7 @@ async function editObject(obj) {
     loadObjectImages(obj.id);
 
     // Set up map picker
-    setupMapPicker(obj);
+    await setupMapPicker(obj);
   } else {
     $("#objectFormId").value = "";
     $("#objectFormSetId").value = selectedSetId;
@@ -494,7 +500,8 @@ async function editObject(obj) {
     $("#btnQRCode").classList.add("hidden");
     $("#btnDuplicateObject").classList.add("hidden");
     $("#imagesGrid").innerHTML = "";
-    setupMapPicker(null);
+    $("#objectFloorButtons").dataset.selectedFloor = "";
+    await setupMapPicker(null);
   }
 
   // Clear file inputs
@@ -530,6 +537,9 @@ async function saveObject(e) {
   formData.append("map_x", mapX !== "" ? parseFloat(mapX) : -1);
   formData.append("map_y", mapY !== "" ? parseFloat(mapY) : -1);
   formData.append("published", $("#objectPublished").checked);
+
+  const floorBtns = $("#objectFloorButtons");
+  formData.append("floor", floorBtns.dataset.selectedFloor || "");
 
   // File uploads
   const audioEn = $("#objectAudioEn").files[0];
@@ -638,7 +648,7 @@ function duplicateObject() {
 }
 
 // ===== MAP PICKER =====
-function setupMapPicker(obj) {
+async function setupMapPicker(obj) {
   const set = currentSets.find((s) => s.id === (obj ? obj.set : selectedSetId));
   const container = $("#mapPickerContainer");
   const noMap = $("#mapPickerNoMap");
@@ -647,16 +657,79 @@ function setupMapPicker(obj) {
   const pin = $("#mapPickerPin");
   const pinLabel = $("#mapPickerPinLabel");
 
-  if (!set || !set.map_image) {
-    container.classList.add("hidden");
-    noMap.classList.remove("hidden");
-    return;
+  // Load floors for this set
+  let floors = [];
+  if (set) {
+    try {
+      const floorsResp = await api(`collections/floors/records?filter=(set='${encodeURIComponent(set.id)}')&sort=sort_order&perPage=50`);
+      floors = floorsResp.items || [];
+    } catch (e) {
+      floors = [];
+    }
   }
 
-  noMap.classList.add("hidden");
-  container.classList.remove("hidden");
-  img.src = fileUrl("sets", set.id, set.map_image);
-  pinLabel.textContent = obj ? obj.sort_order : "";
+  // Floor buttons
+  if (floors.length > 0) {
+    $("#floorSelectRow").classList.remove("hidden");
+    const btnContainer = $("#objectFloorButtons");
+    btnContainer.innerHTML = "";
+    const selectedFloor = obj ? obj.floor : "";
+    floors.forEach(floor => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn--small" + (floor.id === selectedFloor ? " btn--primary" : "");
+      btn.textContent = floor.label;
+      btn.title = floor.name_en || floor.label;
+      btn.addEventListener("click", () => {
+        // Update active state
+        btnContainer.querySelectorAll(".btn").forEach(b => b.classList.remove("btn--primary"));
+        btn.classList.add("btn--primary");
+        // Store selected floor
+        btnContainer.dataset.selectedFloor = floor.id;
+        // Swap map picker image
+        if (floor.map_image) {
+          const url = fileUrl("floors", floor.id, floor.map_image);
+          img.src = url;
+          container.classList.remove("hidden");
+          noMap.classList.add("hidden");
+        }
+      });
+      btnContainer.appendChild(btn);
+    });
+    // Set initial value
+    btnContainer.dataset.selectedFloor = selectedFloor;
+
+    // Show map for selected floor or first floor with a map image
+    const activeFloor = floors.find(f => f.id === selectedFloor) || floors.find(f => f.map_image) || null;
+    if (activeFloor && activeFloor.map_image) {
+      noMap.classList.add("hidden");
+      container.classList.remove("hidden");
+      img.src = fileUrl("floors", activeFloor.id, activeFloor.map_image);
+      pinLabel.textContent = obj ? obj.sort_order : "";
+    } else if (!set || !set.map_image) {
+      container.classList.add("hidden");
+      noMap.classList.remove("hidden");
+    } else {
+      noMap.classList.add("hidden");
+      container.classList.remove("hidden");
+      img.src = fileUrl("sets", set.id, set.map_image);
+      pinLabel.textContent = obj ? obj.sort_order : "";
+    }
+  } else {
+    $("#floorSelectRow").classList.add("hidden");
+    $("#objectFloorButtons").dataset.selectedFloor = "";
+
+    if (!set || !set.map_image) {
+      container.classList.add("hidden");
+      noMap.classList.remove("hidden");
+      return;
+    }
+
+    noMap.classList.add("hidden");
+    container.classList.remove("hidden");
+    img.src = fileUrl("sets", set.id, set.map_image);
+    pinLabel.textContent = obj ? obj.sort_order : "";
+  }
 
   // Place pin if coordinates exist
   function updatePinPosition() {
@@ -686,6 +759,116 @@ function setupMapPicker(obj) {
   // Also update pin when inputs change manually
   $("#objectMapX").oninput = updatePinPosition;
   $("#objectMapY").oninput = updatePinPosition;
+}
+
+// ===== FLOORS =====
+async function loadFloors(setId) {
+  try {
+    const resp = await api(`collections/floors/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=50`);
+    currentFloors = resp.items || [];
+    renderFloorsList();
+    updateDefaultFloorDropdown();
+  } catch (e) {
+    currentFloors = [];
+  }
+}
+
+function renderFloorsList() {
+  const container = $("#floorsList");
+  container.innerHTML = "";
+  for (const floor of currentFloors) {
+    const card = document.createElement("div");
+    card.className = "floor-card";
+    card.innerHTML = `
+      <div class="form-row form-row--inline">
+        <div style="max-width:80px">
+          <label class="form-label">Label</label>
+          <input type="text" class="form-input floor-label" value="${esc(floor.label)}" maxlength="10" placeholder="G">
+        </div>
+        <div>
+          <label class="form-label">Name (EN)</label>
+          <input type="text" class="form-input floor-name-en" value="${esc(floor.name_en || "")}" placeholder="Ground Floor">
+        </div>
+        <div>
+          <label class="form-label">Namn (SV)</label>
+          <input type="text" class="form-input floor-name-sv" value="${esc(floor.name_sv || "")}" placeholder="Bottenplan">
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Map image</label>
+        <input type="file" class="form-input floor-map-file" accept="image/png,image/jpeg,image/webp">
+        <div class="current-file ${floor.map_image ? "" : "hidden"}" data-floor-file>
+          Current: ${esc(floor.map_image || "")}
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-xs)">
+        <button type="button" class="btn btn--primary btn--small floor-save" data-id="${floor.id}" style="color:var(--color-primary-text)">Save</button>
+        <button type="button" class="btn btn--danger btn--small floor-delete" data-id="${floor.id}" style="color:var(--color-danger)">Delete</button>
+      </div>
+    `;
+    container.appendChild(card);
+  }
+
+  // Wire save buttons
+  container.querySelectorAll(".floor-save").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const card = btn.closest(".floor-card");
+      const formData = new FormData();
+      formData.append("label", card.querySelector(".floor-label").value.trim());
+      formData.append("name_en", card.querySelector(".floor-name-en").value.trim());
+      formData.append("name_sv", card.querySelector(".floor-name-sv").value.trim());
+      const file = card.querySelector(".floor-map-file").files[0];
+      if (file) formData.append("map_image", file);
+      try {
+        await api(`collections/floors/records/${btn.dataset.id}`, { method: "PATCH", body: formData });
+        showToast("Floor saved!");
+        loadFloors(editingSet.id);
+      } catch (e) {
+        showToast("Could not save floor. Please check all fields are filled in.");
+      }
+    });
+  });
+
+  // Wire delete buttons
+  container.querySelectorAll(".floor-delete").forEach(btn => {
+    confirmAction(btn, async () => {
+      try {
+        await api(`collections/floors/records/${btn.dataset.id}`, { method: "DELETE" });
+        showToast("Floor deleted");
+        loadFloors(editingSet.id);
+      } catch (e) {
+        showToast("Could not delete floor.");
+      }
+    });
+  });
+}
+
+async function addFloor() {
+  if (!editingSet) return;
+  const formData = new FormData();
+  formData.append("set", editingSet.id);
+  formData.append("label", String(currentFloors.length + 1));
+  formData.append("sort_order", currentFloors.length);
+  try {
+    await api("collections/floors/records", { method: "POST", body: formData });
+    showToast("Floor added — fill in the details below");
+    loadFloors(editingSet.id);
+  } catch (e) {
+    showToast("Could not add floor.");
+  }
+}
+
+function updateDefaultFloorDropdown() {
+  const select = $("#setDefaultFloor");
+  select.innerHTML = '<option value="">First floor</option>';
+  for (const floor of currentFloors) {
+    const opt = document.createElement("option");
+    opt.value = floor.id;
+    opt.textContent = floor.label + (floor.name_en ? ` — ${floor.name_en}` : "");
+    select.appendChild(opt);
+  }
+  select.value = editingSet.default_floor || "";
+  $("#defaultFloorRow").style.display = currentFloors.length > 0 ? "" : "none";
 }
 
 // ===== IMAGES =====
@@ -1055,6 +1238,9 @@ function setupEvents() {
   });
   $("#setForm").addEventListener("submit", saveSet);
   $("#btnDeleteSet").addEventListener("click", deleteSet);
+
+  // Floors
+  $("#btnAddFloor").addEventListener("click", addFloor);
 
   // Objects
   $("#objectSetFilter").addEventListener("change", (e) => loadObjects(e.target.value));
