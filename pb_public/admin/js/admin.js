@@ -32,7 +32,12 @@ async function api(path, options = {}) {
   }
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}));
-    throw new Error(err.message || `API error: ${resp.status}`);
+    let msg = err.message || `API error: ${resp.status}`;
+    if (err.data) {
+      const fields = Object.entries(err.data).map(([k, v]) => `${k}: ${v.message || JSON.stringify(v)}`).join("; ");
+      if (fields) msg += " — " + fields;
+    }
+    throw new Error(msg);
   }
   if (resp.status === 204) return null;
   return resp.json();
