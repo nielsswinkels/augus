@@ -255,7 +255,7 @@ async function saveSet(e) {
   const accentVal = $("#setColorAccentText").value;
   formData.append("color_primary", /^#[0-9a-fA-F]{6}$/.test(primaryVal) ? primaryVal : $("#setColorPrimary").value);
   formData.append("color_accent", /^#[0-9a-fA-F]{6}$/.test(accentVal) ? accentVal : $("#setColorAccent").value);
-  formData.append("published", $("#setPublished").checked);
+  formData.append("published", $("#setPublished").checked ? "1" : "0");
   formData.append("sequential_navigation", $("#setSequentialNav").checked);
   formData.append("default_floor", $("#setDefaultFloor").value);
 
@@ -394,7 +394,7 @@ function renderObjectsList() {
       <span class="drag-handle" title="Drag to reorder" aria-hidden="true">⠿</span>
       <span class="object-card__number">${obj.sort_order}</span>
       <div class="object-card__info">
-        <div class="object-card__name">${esc(obj.name_en)}${obj.published === false || obj.published === "false" ? ' <span class="set-card__draft">Draft</span>' : ""}</div>
+        <div class="object-card__name">${esc(obj.name_en)}${obj.published ? "" : ' <span class="set-card__draft">Draft</span>'}</div>
         <div class="object-card__slug">/${esc(obj.slug)}</div>
       </div>
     `;
@@ -551,7 +551,7 @@ async function saveObject(e) {
   const mapY = $("#objectMapY").value;
   formData.append("map_x", mapX !== "" ? parseFloat(mapX) : -1);
   formData.append("map_y", mapY !== "" ? parseFloat(mapY) : -1);
-  formData.append("published", $("#objectPublished").checked ? "true" : "false");
+  formData.append("published", $("#objectPublished").checked ? "1" : "0");
 
   const floorBtns = $("#objectFloorButtons");
   formData.append("floor", floorBtns.dataset.selectedFloor || "");
