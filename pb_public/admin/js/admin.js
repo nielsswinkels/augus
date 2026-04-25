@@ -320,17 +320,17 @@ async function loadObjects(setId) {
   try {
     const resp = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
     currentObjects = resp.items || [];
-    // Auto-fix: set published=true for objects missing the field (pre-migration)
-    const unpublishedFixes = currentObjects
-      .filter(obj => obj.published !== true && obj.published !== false)
-      .map(obj => api(`collections/objects/records/${obj.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ published: true }),
-      }));
-    if (unpublishedFixes.length > 0) {
+    // Auto-fix: publish objects that were created before the published field existed
+    const needsPublish = currentObjects.filter(obj => !obj.published);
+    if (needsPublish.length > 0) {
       try {
-        await Promise.all(unpublishedFixes);
+        await Promise.all(needsPublish.map(obj =>
+          api(`collections/objects/records/${obj.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ published: true }),
+          })
+        ));
         const resp0 = await api(`collections/objects/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=200`);
         currentObjects = resp0.items || [];
       } catch (e) { /* best effort */ }
@@ -567,18 +567,27 @@ async function saveObject(e) {
   if (subSv) formData.append("subtitles_sv", subSv);
 
   try {
+    let savedId;
     if (id) {
       const result = await api(`collections/objects/records/${id}`, { method: "PATCH", body: formData });
       editingObject = result;
+      savedId = id;
     } else {
       const result = await api("collections/objects/records", { method: "POST", body: formData });
       editingObject = result;
+      savedId = result.id;
       $("#objectFormId").value = result.id;
       // Show buttons now that object exists
       $("#btnDeleteObject").classList.remove("hidden");
       $("#btnPreviewObject").classList.remove("hidden");
       $("#btnQRCode").classList.remove("hidden");
     }
+    // Separate JSON PATCH for boolean published field (FormData doesn't reliably send booleans)
+    await api(`collections/objects/records/${savedId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ published: $("#objectPublished").checked }),
+    });
     showToast("Object saved!");
     formDirty = false;
   } catch (e) {
