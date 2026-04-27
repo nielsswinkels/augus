@@ -166,14 +166,6 @@ function editSet(set) {
     }
     $("#setLogo").value = "";
 
-    if (set.map_image) {
-      const url = fileUrl("sets", set.id, set.map_image);
-      $("#setMapImageCurrent").innerHTML = `Current: ${esc(set.map_image)} <button class="current-file__remove" data-field="map_image" title="Remove">&times;</button>`;
-      $("#setMapImageCurrent").classList.remove("hidden");
-    } else {
-      $("#setMapImageCurrent").classList.add("hidden");
-    }
-
     $("#setAboutEn").value = set.about_en || "";
     $("#setAboutSv").value = set.about_sv || "";
 
@@ -207,8 +199,6 @@ function editSet(set) {
     $("#setDescSv").value = "";
     $("#setLogo").value = "";
     $("#setLogoCurrent").classList.add("hidden");
-    $("#setMapImage").value = "";
-    $("#setMapImageCurrent").classList.add("hidden");
     $("#setAboutEn").value = "";
     $("#setAboutSv").value = "";
     $("#setCustomFont").value = "";
@@ -245,9 +235,6 @@ async function saveSet(e) {
 
   const logoFile = $("#setLogo").files[0];
   if (logoFile) formData.append("logo", logoFile);
-
-  const mapFile = $("#setMapImage").files[0];
-  if (mapFile) formData.append("map_image", mapFile);
 
   formData.append("about_en", $("#setAboutEn").value.trim());
   formData.append("about_sv", $("#setAboutSv").value.trim());
@@ -789,6 +776,22 @@ async function loadFloors(setId) {
   try {
     const resp = await api(`collections/floors/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=50`);
     currentFloors = resp.items || [];
+    // Auto-create first floor if none exist
+    if (currentFloors.length === 0) {
+      const formData = new FormData();
+      formData.append("set", setId);
+      formData.append("label", "1");
+      formData.append("sort_order", "1");
+      try {
+        await api("collections/floors/records", { method: "POST", body: formData });
+        const resp2 = await api(`collections/floors/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=50`);
+        currentFloors = resp2.items || [];
+      } catch (e) { /* best effort */ }
+    }
+    // Update hint text based on floor count
+    $("#floorsHint").textContent = currentFloors.length > 1
+      ? "Manage map images for each floor. Visitors can switch between floors."
+      : "Upload a map image for the exhibition.";
     renderFloorsList();
     updateDefaultFloorDropdown();
   } catch (e) {
@@ -803,21 +806,26 @@ function renderFloorsList() {
     const floor = currentFloors[i];
     const card = document.createElement("div");
     card.className = "floor-card";
+    const isMulti = currentFloors.length > 1;
     card.innerHTML = `
-      <div class="form-row form-row--inline">
+      ${isMulti ? `<div class="form-row form-row--inline">
         <div style="max-width:80px">
-          <label class="form-label">Label</label>
-          <input type="text" class="form-input floor-label" value="${esc(floor.label)}" maxlength="10" placeholder="G">
+          <label class="form-label">Label <span class="required">*</span></label>
+          <input type="text" class="form-input floor-label" value="${esc(floor.label)}" maxlength="10" placeholder="G" required>
         </div>
         <div>
-          <label class="form-label">Name (EN)</label>
-          <input type="text" class="form-input floor-name-en" value="${esc(floor.name_en || "")}" placeholder="Ground Floor">
+          <label class="form-label">Name (EN) <span class="required">*</span></label>
+          <input type="text" class="form-input floor-name-en" value="${esc(floor.name_en || "")}" placeholder="Ground Floor" required>
         </div>
         <div>
           <label class="form-label">Namn (SV)</label>
           <input type="text" class="form-input floor-name-sv" value="${esc(floor.name_sv || "")}" placeholder="Bottenplan">
         </div>
-      </div>
+      </div>` : `
+        <input type="hidden" class="floor-label" value="${esc(floor.label)}">
+        <input type="hidden" class="floor-name-en" value="${esc(floor.name_en || "")}">
+        <input type="hidden" class="floor-name-sv" value="${esc(floor.name_sv || "")}">
+      `}
       <div class="form-row">
         <label class="form-label">Map image</label>
         <input type="file" class="form-input floor-map-file" accept="image/png,image/jpeg,image/webp">
@@ -826,10 +834,10 @@ function renderFloorsList() {
         </div>
       </div>
       <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-xs);align-items:center">
-        <button type="button" class="btn btn--small floor-move-up" data-index="${i}" ${i === 0 ? "disabled" : ""} title="Move up">&#9650;</button>
-        <button type="button" class="btn btn--small floor-move-down" data-index="${i}" ${i === currentFloors.length - 1 ? "disabled" : ""} title="Move down">&#9660;</button>
+        ${isMulti ? `<button type="button" class="btn btn--small floor-move-up" data-index="${i}" ${i === 0 ? "disabled" : ""} title="Move up">&#9650;</button>
+        <button type="button" class="btn btn--small floor-move-down" data-index="${i}" ${i === currentFloors.length - 1 ? "disabled" : ""} title="Move down">&#9660;</button>` : ""}
         <button type="button" class="btn btn--primary btn--small floor-save" data-id="${floor.id}">Save</button>
-        <button type="button" class="btn btn--danger btn--small floor-delete" data-id="${floor.id}">Delete</button>
+        ${isMulti ? `<button type="button" class="btn btn--danger btn--small floor-delete" data-id="${floor.id}">Delete</button>` : ""}
       </div>
     `;
     container.appendChild(card);
