@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Augus — Admin</title>
-  <link rel="stylesheet" href="/admin/css/admin.css?v=20260329b">
+  <link rel="stylesheet" href="/admin/css/admin.css?v=20260329c">
 </head>
 <body>
   <!-- ===== LOGIN ===== -->
@@ -93,15 +93,9 @@
           <p class="form-hint">Shown in the header. Recommended height: 32px</p>
         </div>
 
-        <div class="form-row">
-          <label for="setMapImage" class="form-label">Map image (optional)</label>
-          <input type="file" id="setMapImage" class="form-input" accept="image/png,image/jpeg,image/webp">
-          <div class="current-file hidden" id="setMapImageCurrent"></div>
-        </div>
-
         <fieldset class="form-fieldset" id="floorsFieldset" style="display:none">
-          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Floors</legend>
-          <p class="form-hint" style="margin-bottom:var(--spacing-sm)">Add floors for separate map images per level. If no floors are added, the single map image above is used.</p>
+          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Map</legend>
+          <p class="form-hint" style="margin-bottom:var(--spacing-sm)" id="floorsHint">Upload a map image for the exhibition.</p>
           <div id="floorsList"></div>
           <button type="button" class="btn" id="btnAddFloor" style="margin-top:var(--spacing-sm)">+ Add Floor</button>
           <div class="form-row" style="margin-top:var(--spacing-sm)" id="defaultFloorRow">
@@ -343,6 +337,6 @@
   <div class="toast" id="adminToast" role="alert"></div>
 
   <script src="/admin/js/lib/qrcode-generator.min.js"></script>
-  <script src="/admin/js/admin.js?v=20260329b" type="module"></script>
+  <script src="/admin/js/admin.js?v=20260329c" type="module"></script>
 </body>
 </html>

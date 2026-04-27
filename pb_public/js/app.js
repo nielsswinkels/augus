@@ -1186,8 +1186,10 @@ function renderMapView() {
   const lang = state.settings.language;
   const hasFloors = state.floors.length > 0;
 
-  // Floor selector
-  if (hasFloors) {
+  if (!hasFloors) return;
+
+  // Floor selector — only show buttons when multiple floors
+  if (state.floors.length > 1) {
     dom.mapFloorSelector.innerHTML = "";
     for (const floor of state.floors) {
       const btn = document.createElement("button");
@@ -1202,16 +1204,13 @@ function renderMapView() {
       dom.mapFloorSelector.appendChild(btn);
     }
     dom.mapFloorSelector.classList.remove("hidden");
-
-    const currentFloor = state.floors.find(f => f.id === state.currentFloorId);
-    if (currentFloor && currentFloor.map_image) {
-      dom.mapImage.src = fileUrl("floors", currentFloor.id, currentFloor.map_image);
-    } else {
-      return; // no map image for this floor
-    }
-  } else if (state.currentSet.map_image) {
+  } else {
     dom.mapFloorSelector.classList.add("hidden");
-    dom.mapImage.src = fileUrl("sets", state.currentSet.id, state.currentSet.map_image);
+  }
+
+  const currentFloor = state.floors.find(f => f.id === state.currentFloorId);
+  if (currentFloor && currentFloor.map_image) {
+    dom.mapImage.src = fileUrl("floors", currentFloor.id, currentFloor.map_image);
   } else {
     return;
   }
@@ -1652,7 +1651,7 @@ function showView(name) {
   }
 
   // Map button: visible only when the set has a map
-  const hasMap = !!(state.currentSet && (state.currentSet.map_image || state.floors.length > 0));
+  const hasMap = !!(state.currentSet && state.floors.length > 0 && state.floors.some(f => f.map_image));
   dom.btnMapView.classList.toggle("hidden", !hasMap);
   // Desktop: show map button in list sidebar nav
   dom.listViewNav.classList.toggle("hidden", !hasMap);
