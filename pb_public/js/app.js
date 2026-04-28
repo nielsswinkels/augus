@@ -1660,7 +1660,7 @@ function showView(name) {
     const aboutTitle = `${aboutLabel} ${setName}`;
     dom.headerTitle.textContent = aboutTitle;
     document.title = `${aboutTitle} — Augus`;
-  } else if ((name === "list" || name === "map") && state.currentSet) {
+  } else if ((name === "list" || name === "map" || name === "scanner") && state.currentSet) {
     const lang = state.settings.language;
     const setName = state.currentSet[`name_${lang}`] || state.currentSet.name_en;
     dom.headerTitle.textContent = setName;
