@@ -399,6 +399,10 @@ function renderObjectsList() {
     card.dataset.index = i;
     card.innerHTML = `
       <span class="drag-handle" title="Drag to reorder" aria-hidden="true">⠿</span>
+      <div class="object-card__move">
+        <button class="btn btn--small object-move-up" data-index="${i}" ${i === 0 ? "disabled" : ""} title="Move up" aria-label="Move up">&#9650;</button>
+        <button class="btn btn--small object-move-down" data-index="${i}" ${i === currentObjects.length - 1 ? "disabled" : ""} title="Move down" aria-label="Move down">&#9660;</button>
+      </div>
       <span class="object-card__number">${obj.sort_order}</span>
       <div class="object-card__info">
         <div class="object-card__name">${esc(obj.name_en)}${obj.published ? "" : ' <span class="set-card__draft">Draft</span>'}</div>
@@ -467,6 +471,36 @@ function renderObjectsList() {
 
     container.appendChild(card);
   }
+
+  // Wire move up/down buttons
+  container.querySelectorAll(".object-move-up, .object-move-down").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index);
+      const isUp = btn.classList.contains("object-move-up");
+      const swapIdx = isUp ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= currentObjects.length) return;
+      const a = currentObjects[idx];
+      const b = currentObjects[swapIdx];
+      try {
+        await Promise.all([
+          api(`collections/objects/records/${a.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sort_order: b.sort_order }),
+          }),
+          api(`collections/objects/records/${b.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sort_order: a.sort_order }),
+          }),
+        ]);
+        loadObjects(selectedSetId);
+      } catch (e) {
+        showToast("Could not reorder objects.");
+      }
+    });
+  });
 }
 
 async function editObject(obj) {

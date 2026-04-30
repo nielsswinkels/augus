@@ -544,6 +544,35 @@ body {
   line-height: 1;
 }
 
+.object-card__move {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-right: var(--spacing-sm);
+}
+
+.object-card__move .btn {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+/* Touch: show move buttons, hide drag handle */
+@media (pointer: coarse) {
+  .drag-handle {
+    display: none;
+  }
+}
+
+/* Mouse: show drag handle, hide move buttons */
+@media (pointer: fine) {
+  .object-card__move {
+    display: none;
+  }
+}
+
 .object-card__number {
   font-weight: 700;
   font-size: 1.2rem;
