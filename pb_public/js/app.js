@@ -1712,6 +1712,15 @@ let scannerCanvas = null;
 let scannerCtx = null;
 
 async function startScanner() {
+  // Check if camera permission is already granted
+  try {
+    const result = await navigator.permissions.query({ name: "camera" });
+    if (result.state === "granted") {
+      activateCamera();
+      return;
+    }
+  } catch (e) { /* Permissions API not supported, show prompt */ }
+
   // Show prompt screen first, hide video container
   dom.scannerPrompt.classList.remove("hidden");
   dom.scannerVideoContainer.classList.add("hidden");
