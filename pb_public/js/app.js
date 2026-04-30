@@ -53,6 +53,12 @@ const i18n = {
     errorLoadFailed: "Something went wrong while loading. Please check your internet connection and try again.",
     errorUnrecognizedQR: "This QR code isn't recognized. Make sure you're scanning a code from this guide.",
     errorCameraDenied: "Camera access was denied. To scan QR codes, please allow camera access in your browser settings.",
+    gpsAutoPlay: "GPS auto-play",
+    hintGpsAutoPlay: "Automatically play audio when you walk near an object",
+    gpsPromptTitle: "Enable GPS navigation?",
+    gpsPromptText: "This exhibition has outdoor areas. Enable GPS to see your position on the map and auto-play audio as you explore.",
+    gpsPromptEnable: "Enable GPS",
+    gpsPromptDismiss: "Not now",
   },
   sv: {
     objectList: "Objekt",
@@ -101,6 +107,12 @@ const i18n = {
     errorLoadFailed: "Något gick fel vid laddningen. Kontrollera din internetanslutning och försök igen.",
     errorUnrecognizedQR: "Den här QR-koden känns inte igen. Se till att du skannar en kod från den här guiden.",
     errorCameraDenied: "Kameraåtkomst nekades. För att skanna QR-koder, tillåt kameraåtkomst i webbläsarens inställningar.",
+    gpsAutoPlay: "GPS-autospelning",
+    hintGpsAutoPlay: "Spela ljud automatiskt när du går nära ett objekt",
+    gpsPromptTitle: "Aktivera GPS-navigering?",
+    gpsPromptText: "Den här utställningen har utomhusområden. Aktivera GPS för att se din position på kartan och spela ljud automatiskt medan du utforskar.",
+    gpsPromptEnable: "Aktivera GPS",
+    gpsPromptDismiss: "Inte nu",
   },
 };
 
@@ -111,6 +123,7 @@ const state = {
     language: "sv",
     fontSize: "normal",
     captionsAloud: false,
+    gpsAutoPlay: false,
   },
   currentSet: null,
   currentObject: null,
@@ -126,6 +139,13 @@ const state = {
   audioPausedByGallery: false,
   floors: [],
   currentFloorId: null,
+  leafletMap: null,
+  gpsWatchId: null,
+  gpsPosition: null,
+  gpsDot: null,
+  gpsAccuracyCircle: null,
+  gpsCooldowns: {},
+  gpsPromptDismissed: false,
 };
 
 // ===== DOM References =====
@@ -254,6 +274,13 @@ function applySettings() {
   dom.settingAutoplay.checked = state.settings.autoplay;
   dom.settingCaptionsAloud.checked = state.settings.captionsAloud;
 
+  // GPS auto-play toggle visibility and state
+  const hasOutdoor = state.floors.some(f => f.type === "outdoor");
+  const gpsRow = document.getElementById("settingRowGpsAutoPlay");
+  if (gpsRow) gpsRow.classList.toggle("hidden", !hasOutdoor);
+  const gpsToggle = document.getElementById("settingGpsAutoPlay");
+  if (gpsToggle) gpsToggle.checked = state.settings.gpsAutoPlay;
+
   // Language segmented
   $$("[data-lang]").forEach((btn) => {
     const isActive = btn.dataset.lang === state.settings.language;
@@ -281,6 +308,10 @@ function updateUILanguage() {
   const hintCaptions = $("#hintCaptionsAloud");
   if (hintAutoplay) hintAutoplay.textContent = t.hintAutoplay;
   if (hintCaptions) hintCaptions.textContent = t.hintCaptionsAloud;
+  const labelGps = $("#labelGpsAutoPlay");
+  const hintGps = $("#hintGpsAutoPlay");
+  if (labelGps) labelGps.textContent = t.gpsAutoPlay;
+  if (hintGps) hintGps.textContent = t.hintGpsAutoPlay;
   dom.btnList.setAttribute("aria-label", t.objectListLabel);
   dom.btnList.setAttribute("title", t.objectListLabel);
   dom.btnScan.setAttribute("aria-label", t.scanQR);
@@ -371,6 +402,7 @@ function navigateTo(setSlug, objectSlug) {
 async function loadRoute() {
   const route = parseRoute();
   if (!route.setSlug) {
+    stopGpsTracking();
     // Show welcome page with list of published sets
     try {
       const resp = await api('sets/records?filter=(published=true)&sort=name_en');
@@ -465,6 +497,12 @@ async function loadRoute() {
         : state.floors[0].id;
     } else {
       state.currentFloorId = null;
+    }
+
+    // Start GPS tracking if set has outdoor floors
+    const hasOutdoorFloors = state.floors.some(f => f.type === "outdoor");
+    if (hasOutdoorFloors) {
+      startGpsTracking();
     }
 
     if (route.objectSlug) {
@@ -1166,6 +1204,189 @@ async function loadListThumbnails() {
   }));
 }
 
+// ===== Leaflet Lazy Loader =====
+function loadLeaflet() {
+  if (window._leafletPromise) return window._leafletPromise;
+  window._leafletPromise = new Promise((resolve) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/js/lib/leaflet/leaflet.css";
+    document.head.appendChild(link);
+    const script = document.createElement("script");
+    script.src = "/js/lib/leaflet/leaflet.js";
+    script.onload = () => resolve(window.L);
+    document.head.appendChild(script);
+  });
+  return window._leafletPromise;
+}
+
+// ===== GPS Tracking =====
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function startGpsTracking() {
+  if (state.gpsWatchId !== null) return;
+  if (!navigator.geolocation) return;
+
+  if (!state.gpsPromptDismissed && !state.settings.gpsAutoPlay) {
+    showGpsPrompt();
+  }
+
+  state.gpsWatchId = navigator.geolocation.watchPosition(
+    (pos) => {
+      state.gpsPosition = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+      };
+      updateGpsDot();
+      if (state.settings.gpsAutoPlay) {
+        checkGpsTriggers();
+      }
+    },
+    (err) => {
+      console.warn("GPS error:", err.message);
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+  );
+}
+
+function stopGpsTracking() {
+  if (state.gpsWatchId !== null) {
+    navigator.geolocation.clearWatch(state.gpsWatchId);
+    state.gpsWatchId = null;
+  }
+  state.gpsPosition = null;
+  state.gpsDot = null;
+  state.gpsAccuracyCircle = null;
+  state.gpsCooldowns = {};
+}
+
+function updateGpsDot() {
+  if (!state.leafletMap || !state.gpsPosition) return;
+  const L = window.L;
+  const { lat, lng, accuracy } = state.gpsPosition;
+
+  if (state.gpsDot) {
+    state.gpsDot.setLatLng([lat, lng]);
+    if (state.gpsAccuracyCircle) {
+      state.gpsAccuracyCircle.setLatLng([lat, lng]);
+      state.gpsAccuracyCircle.setRadius(accuracy);
+    }
+  } else {
+    state.gpsDot = L.circleMarker([lat, lng], {
+      radius: 8,
+      fillColor: "#4285F4",
+      fillOpacity: 1,
+      color: "#ffffff",
+      weight: 3,
+    }).addTo(state.leafletMap);
+
+    state.gpsAccuracyCircle = L.circle([lat, lng], {
+      radius: accuracy,
+      fillColor: "#4285F4",
+      fillOpacity: 0.15,
+      color: "#4285F4",
+      weight: 1,
+    }).addTo(state.leafletMap);
+  }
+}
+
+function checkGpsTriggers() {
+  if (!state.gpsPosition || !state.objects.length) return;
+
+  const now = Date.now();
+  const COOLDOWN_MS = 5 * 60 * 1000;
+
+  for (const obj of state.objects) {
+    if (!obj.latitude || !obj.longitude) continue;
+    if (state.gpsCooldowns[obj.id] && (now - state.gpsCooldowns[obj.id]) < COOLDOWN_MS) continue;
+
+    const dist = haversineDistance(
+      state.gpsPosition.lat, state.gpsPosition.lng,
+      obj.latitude, obj.longitude
+    );
+    const radius = obj.trigger_radius || 15;
+
+    if (dist <= radius) {
+      if (state.currentObject && state.currentObject.id === obj.id) continue;
+      state.gpsCooldowns[obj.id] = now;
+      if (navigator.vibrate) navigator.vibrate(200);
+      navigateTo(state.currentSet.slug, obj.slug);
+      return;
+    }
+  }
+}
+
+function showGpsPrompt() {
+  const overlay = document.getElementById("gpsPromptOverlay");
+  overlay.classList.remove("hidden");
+  // Update i18n
+  const tt = i18n[state.settings.language] || i18n.en;
+  document.getElementById("gpsPromptTitle").textContent = tt.gpsPromptTitle;
+  document.getElementById("gpsPromptText").textContent = tt.gpsPromptText;
+  document.getElementById("btnGpsEnable").textContent = tt.gpsPromptEnable;
+  document.getElementById("btnGpsDismiss").textContent = tt.gpsPromptDismiss;
+}
+
+// ===== Outdoor Map Rendering =====
+async function renderOutdoorMap(floor) {
+  const L = await loadLeaflet();
+
+  document.getElementById("leafletMapContainer").classList.remove("hidden");
+  dom.mapContainer.classList.add("hidden");
+  document.getElementById("mapControls").classList.add("hidden");
+
+  if (state.leafletMap) {
+    state.leafletMap.remove();
+    state.leafletMap = null;
+    state.gpsDot = null;
+    state.gpsAccuracyCircle = null;
+  }
+
+  const lat = floor.center_lat || 59.329;
+  const lng = floor.center_lng || 18.069;
+  const zoom = floor.zoom_level || 16;
+
+  state.leafletMap = L.map("leafletMapContainer").setView([lat, lng], zoom);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OSM",
+    maxZoom: 19,
+  }).addTo(state.leafletMap);
+
+  const lang = state.settings.language;
+  for (let idx = 0; idx < state.objects.length; idx++) {
+    const obj = state.objects[idx];
+    if (obj.floor !== state.currentFloorId) continue;
+    if (!obj.latitude || !obj.longitude) continue;
+
+    const displayNum = idx + 1;
+    const name = obj[`name_${lang}`] || obj.name_en || "Object";
+
+    const icon = L.divIcon({
+      className: "leaflet-numbered-pin",
+      html: `<div class="map-pin-leaflet">${displayNum}</div>`,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+    });
+
+    const marker = L.marker([obj.latitude, obj.longitude], { icon }).addTo(state.leafletMap);
+    marker.bindPopup(`<b>${displayNum}. ${escapeHtml(name)}</b>`);
+    marker.on("click", () => navigateTo(state.currentSet.slug, obj.slug));
+  }
+
+  if (state.gpsPosition) {
+    updateGpsDot();
+  }
+}
+
 // ===== Map View =====
 function renderMapView() {
   if (!state.currentSet) return;
@@ -1196,6 +1417,25 @@ function renderMapView() {
   }
 
   const currentFloor = state.floors.find(f => f.id === state.currentFloorId);
+
+  // Branch on floor type
+  if (currentFloor && currentFloor.type === "outdoor") {
+    renderOutdoorMap(currentFloor);
+    return;
+  }
+
+  // Indoor floor: clean up Leaflet if switching from outdoor
+  if (state.leafletMap) {
+    state.leafletMap.remove();
+    state.leafletMap = null;
+    state.gpsDot = null;
+    state.gpsAccuracyCircle = null;
+  }
+  const leafletEl = document.getElementById("leafletMapContainer");
+  if (leafletEl) leafletEl.classList.add("hidden");
+  dom.mapContainer.classList.remove("hidden");
+  document.getElementById("mapControls").classList.remove("hidden");
+
   if (currentFloor && currentFloor.map_image) {
     dom.mapImage.src = fileUrl("floors", currentFloor.id, currentFloor.map_image);
   } else {
@@ -1638,7 +1878,7 @@ function showView(name) {
   }
 
   // Map button: visible only when the set has a map
-  const hasMap = !!(state.currentSet && state.floors.length > 0 && state.floors.some(f => f.map_image));
+  const hasMap = !!(state.currentSet && state.floors.length > 0 && state.floors.some(f => f.map_image || f.type === "outdoor"));
   dom.btnMapView.classList.toggle("hidden", !hasMap);
   // Desktop: show map button in list sidebar nav
   dom.listViewNav.classList.toggle("hidden", !hasMap);
@@ -1750,6 +1990,18 @@ function setupSettingsEvents() {
     state.settings.captionsAloud = dom.settingCaptionsAloud.checked;
     saveSettings();
   });
+
+  // GPS auto-play toggle
+  const gpsToggle = document.getElementById("settingGpsAutoPlay");
+  if (gpsToggle) {
+    gpsToggle.addEventListener("change", () => {
+      state.settings.gpsAutoPlay = gpsToggle.checked;
+      saveSettings();
+      if (state.settings.gpsAutoPlay && state.gpsWatchId === null) {
+        startGpsTracking();
+      }
+    });
+  }
 
   // Language buttons
   $$("[data-lang]").forEach((btn) => {
@@ -1985,6 +2237,18 @@ function init() {
 
   // Camera pre-prompt: allow button triggers actual camera access
   dom.btnAllowCamera.addEventListener("click", () => activateCamera());
+
+  // GPS prompt buttons
+  document.getElementById("btnGpsEnable").addEventListener("click", () => {
+    state.settings.gpsAutoPlay = true;
+    saveSettings();
+    document.getElementById("gpsPromptOverlay").classList.add("hidden");
+    state.gpsPromptDismissed = true;
+  });
+  document.getElementById("btnGpsDismiss").addEventListener("click", () => {
+    document.getElementById("gpsPromptOverlay").classList.add("hidden");
+    state.gpsPromptDismissed = true;
+  });
 
   // Document-level Escape key handler for modals
   document.addEventListener("keydown", (e) => {

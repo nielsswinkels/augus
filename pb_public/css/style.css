@@ -1431,3 +1431,86 @@ body {
     padding: var(--spacing-md) var(--spacing-md) var(--spacing-lg);
   }
 }
+
+/* ===== Leaflet Outdoor Map ===== */
+.leaflet-map-container {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.leaflet-numbered-pin {
+  background: none !important;
+  border: none !important;
+}
+
+.map-pin-leaflet {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.map-pin-leaflet:hover {
+  transform: scale(1.15);
+}
+
+/* ===== GPS Prompt Overlay ===== */
+.gps-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: var(--color-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+}
+
+.gps-prompt-overlay.hidden {
+  display: none;
+}
+
+.gps-prompt {
+  background: var(--color-bg);
+  border-radius: 16px;
+  padding: var(--spacing-xl);
+  max-width: 360px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-md);
+  color: var(--color-text);
+}
+
+.gps-prompt h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.gps-prompt p {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+.gps-prompt__actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  width: 100%;
+}
+
+.gps-prompt__actions .btn {
+  flex: 1;
+}

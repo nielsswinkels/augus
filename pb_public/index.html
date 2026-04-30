@@ -112,10 +112,11 @@
         <img class="map-container__image" id="mapImage" src="" alt="Exhibition map" draggable="false">
         <!-- Map pins rendered by JS -->
       </div>
+      <div class="leaflet-map-container hidden" id="leafletMapContainer"></div>
       <div class="map-floor-selector hidden" id="mapFloorSelector">
         <!-- Floor buttons rendered by JS -->
       </div>
-      <div class="map-controls">
+      <div class="map-controls" id="mapControls">
         <button class="btn" id="btnMapHome" aria-label="Reset map view">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         </button>
@@ -187,6 +188,17 @@
         </label>
       </div>
 
+      <div class="setting-row hidden" id="settingRowGpsAutoPlay">
+        <div class="setting-row__text">
+          <span class="setting-row__label" id="labelGpsAutoPlay">GPS auto-play</span>
+          <span class="setting-row__hint" id="hintGpsAutoPlay">Automatically play audio when you walk near an object</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="settingGpsAutoPlay" aria-labelledby="labelGpsAutoPlay">
+          <span class="toggle__slider"></span>
+        </label>
+      </div>
+
       <div class="setting-row">
         <span class="setting-row__label" id="labelLanguage">Language</span>
         <div class="setting-row__control segmented" role="radiogroup" aria-labelledby="labelLanguage">
@@ -242,6 +254,22 @@
       <span class="bottom-nav__label" id="labelNavSettings">Settings</span>
     </button>
   </nav>
+
+  <!-- ===== GPS PROMPT ===== -->
+  <div class="gps-prompt-overlay hidden" id="gpsPromptOverlay">
+    <div class="gps-prompt">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+        <circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/>
+        <circle cx="12" cy="12" r="9" stroke-dasharray="4 2"/>
+      </svg>
+      <h3 id="gpsPromptTitle">Enable GPS navigation?</h3>
+      <p id="gpsPromptText">This exhibition has outdoor areas. Enable GPS to see your position on the map and auto-play audio as you explore.</p>
+      <div class="gps-prompt__actions">
+        <button class="btn btn--primary" id="btnGpsEnable">Enable GPS</button>
+        <button class="btn" id="btnGpsDismiss">Not now</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ===== TOAST ===== -->
   <div class="toast" id="toast" role="alert" aria-live="assertive"></div>

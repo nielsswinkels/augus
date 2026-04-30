@@ -13,6 +13,26 @@ let editingSet = null;
 let editingObject = null;
 let selectedSetId = "";
 let formDirty = false;
+let adminMapInstance = null;
+let adminMapMarker = null;
+let adminRadiusCircle = null;
+let objectPickerFloors = [];
+
+// ===== Leaflet Lazy Loader =====
+function loadLeaflet() {
+  if (window._leafletPromise) return window._leafletPromise;
+  window._leafletPromise = new Promise((resolve) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/js/lib/leaflet/leaflet.css";
+    document.head.appendChild(link);
+    const script = document.createElement("script");
+    script.src = "/js/lib/leaflet/leaflet.js";
+    script.onload = () => resolve(window.L);
+    document.head.appendChild(script);
+  });
+  return window._leafletPromise;
+}
 
 // ===== DOM =====
 const $ = (sel) => document.querySelector(sel);
@@ -540,7 +560,16 @@ async function saveObject(e) {
   formData.append("map_y", mapY !== "" ? parseFloat(mapY) : -1);
 
   const floorBtns = $("#objectFloorButtons");
-  formData.append("floor", floorBtns.dataset.selectedFloor || "");
+  const selectedFloorId = floorBtns.dataset.selectedFloor || "";
+  formData.append("floor", selectedFloorId);
+
+  // Outdoor coordinates
+  const selFloor = objectPickerFloors.find(f => f.id === selectedFloorId);
+  if (selFloor && selFloor.type === "outdoor") {
+    formData.append("latitude", $("#objectLatitude").value || "");
+    formData.append("longitude", $("#objectLongitude").value || "");
+    formData.append("trigger_radius", $("#objectTriggerRadius").value || "15");
+  }
 
   // File uploads
   const audioEn = $("#objectAudioEn").files[0];
@@ -638,6 +667,9 @@ function duplicateObject() {
   $("#objectNameSv").value = editingObject.name_sv || "";
   $("#objectMapX").value = editingObject.map_x ?? "";
   $("#objectMapY").value = editingObject.map_y ?? "";
+  $("#objectLatitude").value = editingObject.latitude ?? "";
+  $("#objectLongitude").value = editingObject.longitude ?? "";
+  $("#objectTriggerRadius").value = editingObject.trigger_radius || 15;
 
   // Clear file inputs (files can't be duplicated)
   ["objectAudioEn", "objectAudioSv", "objectSubtitlesEn", "objectSubtitlesSv"].forEach((id) => {
@@ -658,14 +690,145 @@ function duplicateObject() {
 }
 
 // ===== MAP PICKER =====
+function destroyAdminMap() {
+  if (adminMapInstance) {
+    adminMapInstance.remove();
+    adminMapInstance = null;
+    adminMapMarker = null;
+    adminRadiusCircle = null;
+  }
+}
+
+function showPickerForFloor(floor, obj) {
+  const container = $("#mapPickerContainer");
+  const outdoorContainer = $("#outdoorMapPickerContainer");
+  const noMap = $("#mapPickerNoMap");
+  const indoorRow = $("#indoorCoordsRow");
+  const outdoorRow = $("#outdoorCoordsRow");
+
+  destroyAdminMap();
+
+  if (floor && floor.type === "outdoor") {
+    // Outdoor mode
+    container.classList.add("hidden");
+    noMap.classList.add("hidden");
+    outdoorContainer.classList.remove("hidden");
+    indoorRow.classList.add("hidden");
+    outdoorRow.classList.remove("hidden");
+
+    // Populate outdoor fields
+    $("#objectLatitude").value = obj ? (obj.latitude || "") : "";
+    $("#objectLongitude").value = obj ? (obj.longitude || "") : "";
+    $("#objectTriggerRadius").value = obj ? (obj.trigger_radius || 15) : 15;
+
+    initOutdoorObjectPicker(floor, obj);
+  } else if (floor && floor.map_image) {
+    // Indoor mode
+    outdoorContainer.classList.add("hidden");
+    noMap.classList.add("hidden");
+    container.classList.remove("hidden");
+    indoorRow.classList.remove("hidden");
+    outdoorRow.classList.add("hidden");
+
+    const img = $("#mapPickerImage");
+    img.src = fileUrl("floors", floor.id, floor.map_image);
+    $("#mapPickerPinLabel").textContent = obj ? obj.sort_order : "";
+  } else {
+    // No map
+    container.classList.add("hidden");
+    outdoorContainer.classList.add("hidden");
+    noMap.classList.remove("hidden");
+    indoorRow.classList.remove("hidden");
+    outdoorRow.classList.add("hidden");
+  }
+}
+
+async function initOutdoorObjectPicker(floor, obj) {
+  const L = await loadLeaflet();
+  const pickerEl = $("#outdoorMapPicker");
+  const lat = floor.center_lat || 59.329;
+  const lng = floor.center_lng || 18.069;
+  const zoom = floor.zoom_level || 16;
+
+  adminMapInstance = L.map(pickerEl).setView([lat, lng], zoom);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap",
+    maxZoom: 19,
+  }).addTo(adminMapInstance);
+
+  // Place marker if coordinates exist
+  if (obj && obj.latitude && obj.longitude) {
+    placeAdminMarker(obj.latitude, obj.longitude);
+    adminMapInstance.setView([obj.latitude, obj.longitude], zoom);
+  }
+
+  // Click to place pin
+  adminMapInstance.on("click", (e) => {
+    const { lat, lng } = e.latlng;
+    $("#objectLatitude").value = lat.toFixed(6);
+    $("#objectLongitude").value = lng.toFixed(6);
+    placeAdminMarker(lat, lng);
+  });
+
+  // Manual input changes update the marker
+  $("#objectLatitude").oninput = updateAdminMarkerFromInputs;
+  $("#objectLongitude").oninput = updateAdminMarkerFromInputs;
+  $("#objectTriggerRadius").oninput = updateAdminRadius;
+}
+
+function placeAdminMarker(lat, lng) {
+  if (!adminMapInstance) return;
+  const L = window.L;
+  if (adminMapMarker) {
+    adminMapMarker.setLatLng([lat, lng]);
+  } else {
+    adminMapMarker = L.marker([lat, lng]).addTo(adminMapInstance);
+  }
+  // Trigger radius circle
+  const radius = parseInt($("#objectTriggerRadius").value) || 15;
+  if (adminRadiusCircle) {
+    adminRadiusCircle.setLatLng([lat, lng]);
+    adminRadiusCircle.setRadius(radius);
+  } else {
+    adminRadiusCircle = L.circle([lat, lng], {
+      radius: radius,
+      fillColor: "#0057b8",
+      fillOpacity: 0.15,
+      color: "#0057b8",
+      weight: 2,
+      dashArray: "6 4",
+    }).addTo(adminMapInstance);
+  }
+}
+
+function updateAdminMarkerFromInputs() {
+  const lat = parseFloat($("#objectLatitude").value);
+  const lng = parseFloat($("#objectLongitude").value);
+  if (!isNaN(lat) && !isNaN(lng)) {
+    placeAdminMarker(lat, lng);
+  }
+}
+
+function updateAdminRadius() {
+  if (!adminRadiusCircle) return;
+  const radius = parseInt($("#objectTriggerRadius").value) || 15;
+  adminRadiusCircle.setRadius(radius);
+}
+
 async function setupMapPicker(obj) {
   const set = currentSets.find((s) => s.id === (obj ? obj.set : selectedSetId));
   const container = $("#mapPickerContainer");
+  const outdoorContainer = $("#outdoorMapPickerContainer");
   const noMap = $("#mapPickerNoMap");
   const picker = $("#mapPicker");
   const img = $("#mapPickerImage");
   const pin = $("#mapPickerPin");
   const pinLabel = $("#mapPickerPinLabel");
+
+  destroyAdminMap();
+  outdoorContainer.classList.add("hidden");
+  $("#outdoorCoordsRow").classList.add("hidden");
+  $("#indoorCoordsRow").classList.remove("hidden");
 
   // Load floors for this set
   let floors = [];
@@ -677,6 +840,7 @@ async function setupMapPicker(obj) {
       floors = [];
     }
   }
+  objectPickerFloors = floors;
 
   // Floor buttons
   if (floors.length > 0) {
@@ -691,31 +855,19 @@ async function setupMapPicker(obj) {
       btn.textContent = floor.label;
       btn.title = floor.name_en || floor.label;
       btn.addEventListener("click", () => {
-        // Update active state
         btnContainer.querySelectorAll(".btn").forEach(b => b.classList.remove("btn--primary"));
         btn.classList.add("btn--primary");
-        // Store selected floor
         btnContainer.dataset.selectedFloor = floor.id;
-        // Swap map picker image
-        if (floor.map_image) {
-          const url = fileUrl("floors", floor.id, floor.map_image);
-          img.src = url;
-          container.classList.remove("hidden");
-          noMap.classList.add("hidden");
-        }
+        showPickerForFloor(floor, obj);
       });
       btnContainer.appendChild(btn);
     });
-    // Set initial value
     btnContainer.dataset.selectedFloor = selectedFloor;
 
-    // Show map for selected floor or first floor with a map image
-    const activeFloor = floors.find(f => f.id === selectedFloor) || floors.find(f => f.map_image) || null;
-    if (activeFloor && activeFloor.map_image) {
-      noMap.classList.add("hidden");
-      container.classList.remove("hidden");
-      img.src = fileUrl("floors", activeFloor.id, activeFloor.map_image);
-      pinLabel.textContent = obj ? obj.sort_order : "";
+    // Show map for selected floor or first floor with content
+    const activeFloor = floors.find(f => f.id === selectedFloor) || floors.find(f => f.map_image || f.type === "outdoor") || null;
+    if (activeFloor) {
+      showPickerForFloor(activeFloor, obj);
     } else if (!set || !set.map_image) {
       container.classList.add("hidden");
       noMap.classList.remove("hidden");
@@ -789,8 +941,9 @@ async function loadFloors(setId) {
       } catch (e) { /* best effort */ }
     }
     // Update hint text based on floor count
+    const hasOutdoor = currentFloors.some(f => f.type === "outdoor");
     $("#floorsHint").textContent = currentFloors.length > 1
-      ? "Manage map images for each floor. Visitors can switch between floors."
+      ? (hasOutdoor ? "Manage floors and outdoor areas. Visitors can switch between them." : "Manage map images for each floor. Visitors can switch between floors.")
       : "Upload a map image for the exhibition.";
     renderFloorsList();
     updateDefaultFloorDropdown();
@@ -807,25 +960,46 @@ function renderFloorsList() {
     const card = document.createElement("div");
     card.className = "floor-card";
     const isMulti = currentFloors.length > 1;
+    const isOutdoor = floor.type === "outdoor";
     card.innerHTML = `
       ${isMulti ? `<div class="form-row form-row--inline">
         <div style="max-width:80px">
           <label class="form-label">Label <span class="required">*</span></label>
-          <input type="text" class="form-input floor-label" value="${esc(floor.label)}" maxlength="10" placeholder="G" required>
+          <input type="text" class="form-input floor-label" value="${esc(floor.label)}" maxlength="10" placeholder="${isOutdoor ? "Out" : "G"}" required>
         </div>
         <div>
           <label class="form-label">Name (EN) <span class="required">*</span></label>
-          <input type="text" class="form-input floor-name-en" value="${esc(floor.name_en || "")}" placeholder="Ground Floor" required>
+          <input type="text" class="form-input floor-name-en" value="${esc(floor.name_en || "")}" placeholder="${isOutdoor ? "Outdoor Area" : "Ground Floor"}" required>
         </div>
         <div>
           <label class="form-label">Namn (SV)</label>
-          <input type="text" class="form-input floor-name-sv" value="${esc(floor.name_sv || "")}" placeholder="Bottenplan">
+          <input type="text" class="form-input floor-name-sv" value="${esc(floor.name_sv || "")}" placeholder="${isOutdoor ? "Utomhusområde" : "Bottenplan"}">
         </div>
       </div>` : `
         <input type="hidden" class="floor-label" value="${esc(floor.label)}">
         <input type="hidden" class="floor-name-en" value="${esc(floor.name_en || "")}">
         <input type="hidden" class="floor-name-sv" value="${esc(floor.name_sv || "")}">
       `}
+      ${isOutdoor ? `
+      <div class="form-row">
+        <label class="form-label">Map center &amp; zoom</label>
+        <div class="leaflet-preview" data-floor-id="${floor.id}" style="height:300px;border-radius:8px;border:2px solid var(--color-border)"></div>
+        <div class="form-row form-row--inline" style="margin-top:var(--spacing-sm)">
+          <div>
+            <label class="form-label form-label--small">Latitude</label>
+            <input type="number" class="form-input floor-center-lat" value="${floor.center_lat || ""}" step="0.000001" placeholder="59.329">
+          </div>
+          <div>
+            <label class="form-label form-label--small">Longitude</label>
+            <input type="number" class="form-input floor-center-lng" value="${floor.center_lng || ""}" step="0.000001" placeholder="18.069">
+          </div>
+          <div>
+            <label class="form-label form-label--small">Zoom</label>
+            <input type="number" class="form-input floor-zoom-level" value="${floor.zoom_level || 16}" min="1" max="20" step="1">
+          </div>
+        </div>
+      </div>
+      ` : `
       <div class="form-row">
         <label class="form-label">Map image</label>
         <input type="file" class="form-input floor-map-file" accept="image/png,image/jpeg,image/webp">
@@ -833,6 +1007,7 @@ function renderFloorsList() {
           Current: ${esc(floor.map_image || "")}
         </div>
       </div>
+      `}
       <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-xs);align-items:center">
         ${isMulti ? `<button type="button" class="btn btn--small floor-move-up" data-index="${i}" ${i === 0 ? "disabled" : ""} title="Move up">&#9650;</button>
         <button type="button" class="btn btn--small floor-move-down" data-index="${i}" ${i === currentFloors.length - 1 ? "disabled" : ""} title="Move down">&#9660;</button>` : ""}
@@ -843,18 +1018,30 @@ function renderFloorsList() {
     container.appendChild(card);
   }
 
+  // Initialize Leaflet maps for outdoor floor cards
+  initOutdoorFloorPreviews();
+
   // Wire save buttons
   container.querySelectorAll(".floor-save").forEach(btn => {
     btn.addEventListener("click", async () => {
       const card = btn.closest(".floor-card");
+      const floorId = btn.dataset.id;
+      const floor = currentFloors.find(f => f.id === floorId);
+      const isOutdoor = floor && floor.type === "outdoor";
       const formData = new FormData();
       formData.append("label", card.querySelector(".floor-label").value.trim());
       formData.append("name_en", card.querySelector(".floor-name-en").value.trim());
       formData.append("name_sv", card.querySelector(".floor-name-sv").value.trim());
-      const file = card.querySelector(".floor-map-file").files[0];
-      if (file) formData.append("map_image", file);
+      if (isOutdoor) {
+        formData.append("center_lat", card.querySelector(".floor-center-lat").value || "");
+        formData.append("center_lng", card.querySelector(".floor-center-lng").value || "");
+        formData.append("zoom_level", card.querySelector(".floor-zoom-level").value || "16");
+      } else {
+        const file = card.querySelector(".floor-map-file")?.files[0];
+        if (file) formData.append("map_image", file);
+      }
       try {
-        await api(`collections/floors/records/${btn.dataset.id}`, { method: "PATCH", body: formData });
+        await api(`collections/floors/records/${floorId}`, { method: "PATCH", body: formData });
         showToast("Floor saved!");
         loadFloors(editingSet.id);
       } catch (e) {
@@ -914,12 +1101,72 @@ async function addFloor() {
   formData.append("set", editingSet.id);
   formData.append("label", String(currentFloors.length + 1));
   formData.append("sort_order", String(currentFloors.length + 1));
+  formData.append("type", "indoor");
   try {
     await api("collections/floors/records", { method: "POST", body: formData });
     showToast("Floor added — fill in the details below");
     loadFloors(editingSet.id);
   } catch (e) {
     showToast("Could not add floor: " + e.message);
+  }
+}
+
+async function addOutdoor() {
+  if (!editingSet) return;
+  const formData = new FormData();
+  formData.append("set", editingSet.id);
+  formData.append("label", "Out");
+  formData.append("sort_order", String(currentFloors.length + 1));
+  formData.append("type", "outdoor");
+  formData.append("center_lat", "59.329");
+  formData.append("center_lng", "18.069");
+  formData.append("zoom_level", "16");
+  try {
+    await api("collections/floors/records", { method: "POST", body: formData });
+    showToast("Outdoor area added");
+    loadFloors(editingSet.id);
+  } catch (e) {
+    showToast("Could not add outdoor area: " + e.message);
+  }
+}
+
+async function initOutdoorFloorPreviews() {
+  const previews = document.querySelectorAll(".leaflet-preview[data-floor-id]");
+  if (previews.length === 0) return;
+  const L = await loadLeaflet();
+  for (const container of previews) {
+    const floorId = container.dataset.floorId;
+    const floor = currentFloors.find(f => f.id === floorId);
+    if (!floor) continue;
+    const lat = floor.center_lat || 59.329;
+    const lng = floor.center_lng || 18.069;
+    const zoom = floor.zoom_level || 16;
+    const map = L.map(container).setView([lat, lng], zoom);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap",
+      maxZoom: 19,
+    }).addTo(map);
+    map.on("moveend", () => {
+      const card = container.closest(".floor-card");
+      const c = map.getCenter();
+      card.querySelector(".floor-center-lat").value = c.lat.toFixed(6);
+      card.querySelector(".floor-center-lng").value = c.lng.toFixed(6);
+      card.querySelector(".floor-zoom-level").value = map.getZoom();
+    });
+    // Sync inputs → map
+    const card = container.closest(".floor-card");
+    const latInput = card.querySelector(".floor-center-lat");
+    const lngInput = card.querySelector(".floor-center-lng");
+    const zoomInput = card.querySelector(".floor-zoom-level");
+    function syncFromInputs() {
+      const la = parseFloat(latInput.value);
+      const ln = parseFloat(lngInput.value);
+      const z = parseInt(zoomInput.value);
+      if (!isNaN(la) && !isNaN(ln)) map.setView([la, ln], isNaN(z) ? map.getZoom() : z);
+    }
+    latInput.addEventListener("change", syncFromInputs);
+    lngInput.addEventListener("change", syncFromInputs);
+    zoomInput.addEventListener("change", syncFromInputs);
   }
 }
 
@@ -1306,6 +1553,7 @@ function setupEvents() {
 
   // Floors
   $("#btnAddFloor").addEventListener("click", addFloor);
+  $("#btnAddOutdoor").addEventListener("click", addOutdoor);
 
   // Objects
   $("#objectSetFilter").addEventListener("change", (e) => loadObjects(e.target.value));
