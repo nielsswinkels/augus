@@ -1355,7 +1355,8 @@ async function renderOutdoorMap(floor) {
   const lng = floor.center_lng || 18.069;
   const zoom = floor.zoom_level || 16;
 
-  state.leafletMap = L.map("leafletMapContainer").setView([lat, lng], zoom);
+  state.leafletMap = L.map("leafletMapContainer", { zoomControl: false }).setView([lat, lng], zoom);
+  L.control.zoom({ position: "bottomright" }).addTo(state.leafletMap);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OSM",
     maxZoom: 19,
