@@ -1604,7 +1604,7 @@ function setupMapEvents() {
   let doubleTapAnchor = { mx: 0, my: 0, sx: 0, sy: 0 }; // map-space and screen-space anchor
 
   dom.mapViewContainer.addEventListener("pointerdown", (e) => {
-    if (e.target.closest(".map-controls") || e.target.closest(".map-pin")) return;
+    if (e.target.closest(".map-controls") || e.target.closest(".map-pin") || e.target.closest(".map-floor-selector")) return;
     const now = Date.now();
     if (now - lastTapTime < 300 && activePointers.size === 0) {
       // Second tap — start double-tap-drag zoom
@@ -1659,6 +1659,7 @@ function setupMapEvents() {
   dom.mapViewContainer.addEventListener("pointerdown", (e) => {
     if (doubleTapDragging) return;
     if (e.target.closest(".map-controls")) return;
+    if (e.target.closest(".map-floor-selector")) return;
     // Don't start a single-finger drag from a pin (preserves tap-to-navigate)
     if (e.target.closest(".map-pin") && activePointers.size === 0) return;
     activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
