@@ -135,3 +135,7 @@ Settings are saved automatically and remembered between visits.
 ## Future Plans
 
 - **WYSIWYG editor for About page** — Replace the raw HTML textarea in the admin set form with a rich text editor supporting paragraphs, bold/italic/underline, and links.
+
+## Known Issues
+
+- **GPS auto-trigger is confusing** — Automatically jumping to an object when the visitor walks near it is disorienting, especially if they're already listening to something. Needs rethinking — options include: only trigger while on the map or list view, show a confirmation prompt before navigating, or use a non-intrusive notification the user can tap to go there.
