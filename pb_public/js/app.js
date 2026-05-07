@@ -1358,9 +1358,9 @@ function showGpsCard(obj) {
   card.dataset.setSlug = state.currentSet.slug;
   card.dataset.objectSlug = obj.slug;
 
-  // Auto-dismiss after 8 seconds
+  // Auto-dismiss after 15 seconds
   if (gpsCardTimeout) clearTimeout(gpsCardTimeout);
-  gpsCardTimeout = setTimeout(() => dismissGpsCard(), 8000);
+  gpsCardTimeout = setTimeout(() => dismissGpsCard(), 15000);
 }
 
 function dismissGpsCard() {
