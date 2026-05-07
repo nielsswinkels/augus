@@ -1464,6 +1464,94 @@ body {
   transform: scale(1.15);
 }
 
+/* ===== GPS Nearby Card ===== */
+.gps-card {
+  position: fixed;
+  bottom: calc(var(--bottom-nav-height) + var(--spacing-md));
+  left: var(--spacing-md);
+  right: var(--spacing-md);
+  z-index: 300;
+  background: var(--color-bg);
+  border: 2px solid var(--color-primary);
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-sm) var(--spacing-md);
+  gap: var(--spacing-sm);
+  animation: gps-card-slide-up 0.3s ease-out;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.gps-card.hidden {
+  display: none;
+}
+
+@keyframes gps-card-slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.gps-card__body {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.gps-card__number {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--color-primary-text);
+  background: var(--color-primary);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.gps-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.gps-card__name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gps-card__hint {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.gps-card__go {
+  flex-shrink: 0;
+  min-width: auto;
+  min-height: 36px;
+  padding: var(--spacing-xs) var(--spacing-md);
+  font-size: 0.9rem;
+}
+
+.gps-card__dismiss {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  line-height: 1;
+}
+
 /* ===== GPS Prompt Overlay ===== */
 .gps-prompt-overlay {
   position: fixed;

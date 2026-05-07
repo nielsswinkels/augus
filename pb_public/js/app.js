@@ -59,6 +59,8 @@ const i18n = {
     gpsPromptText: "This exhibition has outdoor areas. Enable GPS to see your position on the map and auto-play audio as you explore.",
     gpsPromptEnable: "Enable GPS",
     gpsPromptDismiss: "Not now",
+    gpsCardHint: "Nearby",
+    gpsCardGo: "Listen",
   },
   sv: {
     objectList: "Objekt",
@@ -113,6 +115,8 @@ const i18n = {
     gpsPromptText: "Den här utställningen har utomhusområden. Aktivera GPS för att se din position på kartan och spela ljud automatiskt medan du utforskar.",
     gpsPromptEnable: "Aktivera GPS",
     gpsPromptDismiss: "Inte nu",
+    gpsCardHint: "I närheten",
+    gpsCardGo: "Lyssna",
   },
 };
 
@@ -1318,11 +1322,50 @@ function checkGpsTriggers() {
     if (dist <= radius) {
       if (state.currentObject && state.currentObject.id === obj.id) continue;
       state.gpsCooldowns[obj.id] = now;
-      if (navigator.vibrate) navigator.vibrate(200);
-      navigateTo(state.currentSet.slug, obj.slug);
+
+      const view = getCurrentView();
+      if (view === "list" || view === "map") {
+        if (navigator.vibrate) navigator.vibrate(200);
+        navigateTo(state.currentSet.slug, obj.slug);
+      } else {
+        showGpsCard(obj);
+      }
       return;
     }
   }
+}
+
+let gpsCardTimeout = null;
+
+function showGpsCard(obj) {
+  const lang = state.settings.language;
+  const name = obj[`name_${lang}`] || obj.name_en || "Object";
+  const idx = state.objects.indexOf(obj);
+  const displayNum = idx >= 0 ? idx + 1 : "?";
+
+  const card = document.getElementById("gpsCard");
+  document.getElementById("gpsCardNumber").textContent = displayNum;
+  document.getElementById("gpsCardName").textContent = name;
+
+  const tt = i18n[lang] || i18n.en;
+  document.getElementById("gpsCardHint").textContent = tt.gpsCardHint || "Nearby";
+  document.getElementById("btnGpsCardGo").textContent = tt.gpsCardGo || "Listen";
+
+  card.classList.remove("hidden");
+  if (navigator.vibrate) navigator.vibrate(100);
+
+  // Store which object the card points to
+  card.dataset.setSlug = state.currentSet.slug;
+  card.dataset.objectSlug = obj.slug;
+
+  // Auto-dismiss after 8 seconds
+  if (gpsCardTimeout) clearTimeout(gpsCardTimeout);
+  gpsCardTimeout = setTimeout(() => dismissGpsCard(), 8000);
+}
+
+function dismissGpsCard() {
+  document.getElementById("gpsCard").classList.add("hidden");
+  if (gpsCardTimeout) { clearTimeout(gpsCardTimeout); gpsCardTimeout = null; }
 }
 
 function showGpsPrompt() {
@@ -1878,6 +1921,9 @@ function showView(name) {
     if (currentView !== "scanner") state.previousView = currentView;
   }
 
+  // Dismiss GPS card on view change
+  dismissGpsCard();
+
   // Hide all views
   $$(".view").forEach((v) => v.classList.remove("active"));
 
@@ -2260,6 +2306,16 @@ function init() {
     document.getElementById("gpsPromptOverlay").classList.add("hidden");
     state.gpsPromptDismissed = true;
   });
+
+  // GPS nearby card
+  document.getElementById("btnGpsCardGo").addEventListener("click", () => {
+    const card = document.getElementById("gpsCard");
+    const setSlug = card.dataset.setSlug;
+    const objectSlug = card.dataset.objectSlug;
+    dismissGpsCard();
+    if (setSlug && objectSlug) navigateTo(setSlug, objectSlug);
+  });
+  document.getElementById("btnGpsCardDismiss").addEventListener("click", dismissGpsCard);
 
   // Document-level Escape key handler for modals
   document.addEventListener("keydown", (e) => {

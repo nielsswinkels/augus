@@ -255,6 +255,19 @@
     </button>
   </nav>
 
+  <!-- ===== GPS NEARBY CARD ===== -->
+  <div class="gps-card hidden" id="gpsCard">
+    <div class="gps-card__body">
+      <span class="gps-card__number" id="gpsCardNumber">1</span>
+      <div class="gps-card__info">
+        <div class="gps-card__name" id="gpsCardName">Object name</div>
+        <div class="gps-card__hint" id="gpsCardHint">Nearby</div>
+      </div>
+      <button class="btn btn--primary gps-card__go" id="btnGpsCardGo">Listen</button>
+    </div>
+    <button class="gps-card__dismiss" id="btnGpsCardDismiss" aria-label="Dismiss">&times;</button>
+  </div>
+
   <!-- ===== GPS PROMPT ===== -->
   <div class="gps-prompt-overlay hidden" id="gpsPromptOverlay">
     <div class="gps-prompt">
