@@ -648,6 +648,18 @@ body {
   white-space: nowrap;
 }
 
+.image-card__360-badge {
+  position: absolute;
+  top: var(--spacing-xs);
+  right: var(--spacing-xs);
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 .image-card__actions {
   display: flex;
   gap: var(--spacing-xs);

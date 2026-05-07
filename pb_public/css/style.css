@@ -253,6 +253,7 @@ body {
 }
 
 .carousel__slide {
+  position: relative;
   flex: 0 0 85%;
   flex-shrink: 0;
   min-width: 0;
@@ -281,6 +282,21 @@ body {
 
 .carousel__slide img:hover {
   border-color: var(--color-primary);
+}
+
+.carousel__360-icon {
+  position: absolute;
+  bottom: calc(var(--spacing-sm) + 6px);
+  right: calc(var(--spacing-xs) + 6px);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }
 
 .carousel__arrow {
@@ -497,6 +513,26 @@ body {
   border-radius: 4px;
   transform-origin: center center;
   transition: transform 0.1s ease-out;
+}
+
+.gallery-body__image.hidden {
+  display: none;
+}
+
+.gallery-360-container {
+  width: 100%;
+  height: 70vh;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.gallery-360-container.hidden {
+  display: none;
+}
+
+.gallery-360-container .pnlm-about-msg,
+.gallery-360-container .pnlm-orientation-button {
+  display: none !important;
 }
 
 .gallery-nav {

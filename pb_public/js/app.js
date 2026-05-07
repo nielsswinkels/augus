@@ -714,6 +714,12 @@ function renderCarousel() {
     imgEl.loading = i === 0 ? "eager" : "lazy";
     imgEl.addEventListener("click", () => openGallery(i));
     slide.appendChild(imgEl);
+    if (img.is_360) {
+      const icon = document.createElement("span");
+      icon.className = "carousel__360-icon";
+      icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><ellipse cx="12" cy="12" rx="4" ry="10"/><path d="M2 12h20"/></svg>';
+      slide.appendChild(icon);
+    }
     dom.carouselTrack.appendChild(slide);
 
     if (!isSingle) {
@@ -957,6 +963,8 @@ function openGallery(index = 0) {
 }
 
 function closeGallery() {
+  destroyPannellum();
+  dom.galleryImage.classList.remove("hidden");
   dom.galleryOverlay.classList.remove("active");
   if (galleryFocusTrapCleanup) { galleryFocusTrapCleanup(); galleryFocusTrapCleanup = null; }
   if (galleryPreviousFocus) { galleryPreviousFocus.focus(); galleryPreviousFocus = null; }
@@ -969,16 +977,27 @@ function closeGallery() {
   }
 }
 
-function renderGalleryImage() {
+let pannellumViewer = null;
+
+function destroyPannellum() {
+  if (pannellumViewer) {
+    pannellumViewer.destroy();
+    pannellumViewer = null;
+  }
+  const container = document.getElementById("gallery360Container");
+  if (container) {
+    container.classList.add("hidden");
+    container.innerHTML = "";
+  }
+}
+
+async function renderGalleryImage() {
   const img = state.images[state.galleryIndex];
   if (!img) return;
 
   const url = fileUrl("object_images", img.id, img.image);
-  dom.galleryImage.src = url;
-
   const lang = state.settings.language;
   const caption = img[`caption_${lang}`] || img.caption_en || "";
-  dom.galleryImage.alt = caption || `Image ${state.galleryIndex + 1}`;
   dom.galleryCaption.textContent = caption;
   dom.galleryCounter.textContent = `${state.galleryIndex + 1} / ${state.images.length}`;
 
@@ -987,14 +1006,48 @@ function renderGalleryImage() {
   dom.btnGalleryNext.style.visibility =
     state.galleryIndex < state.images.length - 1 ? "visible" : "hidden";
 
+  if (img.is_360) {
+    // 360 image: use Pannellum viewer
+    destroyPannellum();
+    dom.galleryImage.classList.add("hidden");
+    const container = document.getElementById("gallery360Container");
+    container.classList.remove("hidden");
+
+    const pano = await loadPannellum();
+    pannellumViewer = pano.viewer(container, {
+      type: "equirectangular",
+      panorama: url,
+      autoLoad: true,
+      compass: false,
+      showZoomCtrl: true,
+      showFullscreenCtrl: true,
+      orientationOnByDefault: false,
+      hfov: 100,
+      minHfov: 50,
+      maxHfov: 120,
+      friction: 0.15,
+      mouseZoom: true,
+      disableKeyboardCtrl: true,
+      showControls: true,
+    });
+    // Try enabling gyroscope after load (requires user gesture on iOS)
+    pannellumViewer.on("load", () => {
+      try { pannellumViewer.startOrientation(); } catch (e) { /* not available */ }
+    });
+  } else {
+    // Regular image
+    destroyPannellum();
+    dom.galleryImage.classList.remove("hidden");
+    dom.galleryImage.src = url;
+    dom.galleryImage.alt = caption || `Image ${state.galleryIndex + 1}`;
+  }
+
   // Read caption aloud
   if (state.settings.captionsAloud && caption && typeof speechSynthesis !== "undefined") {
     speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(caption);
     const targetLang = state.settings.language === "sv" ? "sv-SE" : "en-US";
     utterance.lang = targetLang;
-    // Explicitly pick the best available voice for the target language so
-    // browsers don't fall back to the default voice regardless of .lang
     const voices = speechSynthesis.getVoices();
     const voice =
       voices.find((v) => v.lang === targetLang) ||
@@ -1068,6 +1121,7 @@ function setupGalleryEvents() {
   };
 
   dom.galleryBody.addEventListener("pointerdown", (e) => {
+    if (pannellumViewer) return;
     if (e.target.closest(".gallery-nav")) return;
     galleryPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     dom.galleryBody.setPointerCapture(e.pointerId);
@@ -1206,6 +1260,22 @@ async function loadListThumbnails() {
       }
     } catch (e) { /* ignore */ }
   }));
+}
+
+// ===== Pannellum Lazy Loader =====
+function loadPannellum() {
+  if (window._pannellumPromise) return window._pannellumPromise;
+  window._pannellumPromise = new Promise((resolve) => {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/js/lib/pannellum/pannellum.css";
+    document.head.appendChild(link);
+    const script = document.createElement("script");
+    script.src = "/js/lib/pannellum/pannellum.js";
+    script.onload = () => resolve(window.pannellum);
+    document.head.appendChild(script);
+  });
+  return window._pannellumPromise;
 }
 
 // ===== Leaflet Lazy Loader =====

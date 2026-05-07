@@ -1242,13 +1242,19 @@ function renderImagesGrid(images) {
         <span class="image-card__order-num">${i + 1}</span>
         <button class="btn image-card__move" data-move="1" data-index="${i}" title="Move down" ${i === images.length - 1 ? "disabled" : ""}>▼</button>
       </div>
-      <img src="${url}" alt="${esc(img.caption_en || '')}" loading="lazy">
+      <div style="position:relative">
+        <img src="${url}" alt="${esc(img.caption_en || '')}" loading="lazy">
+        ${img.is_360 ? '<span class="image-card__360-badge">360°</span>' : ''}
+      </div>
       <div class="image-card__caption image-card__caption--display">${esc(img.caption_en || img.caption_sv || "No caption")}</div>
       <div class="image-card__edit-fields" style="display:none">
         <label class="form-label" style="font-size:0.8rem">Caption (English)</label>
         <input type="text" class="form-input image-caption-en" value="${esc(img.caption_en || '')}" placeholder="English caption">
         <label class="form-label" style="font-size:0.8rem;margin-top:0.25rem">Caption (Svenska)</label>
         <input type="text" class="form-input image-caption-sv" value="${esc(img.caption_sv || '')}" placeholder="Swedish caption">
+        <label class="form-label" style="font-size:0.8rem;margin-top:0.25rem;display:flex;align-items:center;gap:var(--spacing-xs)">
+          <input type="checkbox" class="image-is-360" ${img.is_360 ? "checked" : ""}> 360° photo
+        </label>
       </div>
       <div class="image-card__actions">
         <button class="btn btn--edit" data-edit-image="${img.id}" title="Edit captions">Edit</button>
@@ -1306,11 +1312,12 @@ function renderImagesGrid(images) {
       const card = btn.closest(".image-card");
       const captionEn = card.querySelector(".image-caption-en").value.trim();
       const captionSv = card.querySelector(".image-caption-sv").value.trim();
+      const is360 = card.querySelector(".image-is-360")?.checked || false;
       try {
         await api(`collections/object_images/records/${btn.dataset.saveImage}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ caption_en: captionEn, caption_sv: captionSv }),
+          body: JSON.stringify({ caption_en: captionEn, caption_sv: captionSv, is_360: is360 }),
         });
         showToast("Caption saved!");
         loadObjectImages(editingObject.id);
@@ -1354,12 +1361,23 @@ async function uploadImage(e) {
   const currentImages = $("#imagesGrid").children.length;
   formData.append("sort_order", currentImages + 1);
 
+  // Send is_360 as a separate JSON PATCH after creation (booleans unreliable in FormData)
+  const is360 = $("#imageIs360").checked;
+
   try {
-    await api("collections/object_images/records", { method: "POST", body: formData });
+    const result = await api("collections/object_images/records", { method: "POST", body: formData });
+    if (is360) {
+      await api(`collections/object_images/records/${result.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_360: true }),
+      });
+    }
     showToast("Image uploaded!");
     $("#imageFile").value = "";
     $("#imageCaptionEn").value = "";
     $("#imageCaptionSv").value = "";
+    $("#imageIs360").checked = false;
     loadObjectImages(objectId);
   } catch (e) {
     showToast("Could not upload the image. Please check the file size and format and try again.");
