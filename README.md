@@ -130,12 +130,6 @@ Tap the **gear icon** to open settings:
 
 Settings are saved automatically and remembered between visits.
 
----
-
-## Future Plans
-
-- **WYSIWYG editor for About page** — Replace the raw HTML textarea in the admin set form with a rich text editor supporting paragraphs, bold/italic/underline, and links.
-
 ## Known Issues
 
 (none currently)
