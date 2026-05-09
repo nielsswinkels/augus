@@ -57,4 +57,4 @@ Replace the raw HTML textarea in the admin set form with a rich text editor supp
 - **Offline/PWA support:** Service worker for caching audio and content for offline use in museums with poor WiFi
 - **QR code batch printing:** Admin tool to generate a printable PDF of all QR codes for a set
 - **Analytics:** Simple view/play counts per object (privacy-friendly, no tracking)
-- **Multi-set navigation:** Allow visitors to browse between sets if a museum has multiple exhibitions
+- **Multi-set navigation:** Allow visitors to browse between sets if a museum has multiple exhibitions. Add an exit button (exit-door icon) in the top-right header, only visible in list and map views. Tapping it shows a confirmation dialog ("Are you sure you want to leave this exhibition?" with a "Leave exhibition" confirm button) before navigating to the welcome/exhibition list page. Hidden entirely when only one exhibition exists. Use the existing `btn btn--icon` style to keep it subtle. Consider header space at large font sizes with long exhibition names. After confirming, move focus to the welcome page heading for screen reader accessibility.
