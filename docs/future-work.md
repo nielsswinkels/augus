@@ -24,6 +24,15 @@ Group multiple objects together within a set. Groups have a title and sort order
 
 ## Ideas (need design work)
 
+### 3D Model Support in Gallery & Carousel
+Add 3D models (GLB/glTF format) alongside photos in the image carousel and gallery using Google's **model-viewer** web component (~150KB, MIT, lazy-loaded).
+- **Carousel:** Show a 3D icon overlay (similar to the globe icon on 360 photos) to indicate an interactive 3D model. Admin toggle per model: static fixed angle or auto-rotate.
+- **Gallery:** Full interactive model-viewer — drag to rotate, pinch/scroll to zoom. Disable gallery swipe gestures while the user is interacting with the model (same pattern as 360 photos with Pannellum).
+- **Admin:** File upload accepting `.glb`/`.gltf` files, media type indicator, auto-rotate toggle.
+- **AR (optional):** model-viewer has built-in "View in your space" AR support on compatible devices — could be enabled with minimal effort.
+- **Challenges:** GLB files can be large (500KB-2MB+ for detailed models), load time on museum WiFi, higher content creation barrier than photos (requires photogrammetry, Blender, etc.).
+- **Scope:** 1-2 sessions (follows the same pattern as 360 photo support)
+
 ### Video Support in Gallery & Carousel
 Add video clips alongside photos in the image carousel and gallery. Start with self-hosted short video files (uploaded like images) using a `<video>` tag with a play button overlay — avoids privacy/GDPR issues, ads, and UX hijacking from third-party embeds like YouTube.
 - **Carousel:** Show a thumbnail with a play icon overlay. Tapping opens the gallery at that video.
