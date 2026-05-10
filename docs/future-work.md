@@ -24,6 +24,15 @@ Group multiple objects together within a set. Groups have a title and sort order
 
 ## Ideas (need design work)
 
+### Video Support in Gallery & Carousel
+Add video clips alongside photos in the image carousel and gallery. Start with self-hosted short video files (uploaded like images) using a `<video>` tag with a play button overlay — avoids privacy/GDPR issues, ads, and UX hijacking from third-party embeds like YouTube.
+- **Carousel:** Show a thumbnail with a play icon overlay. Tapping opens the gallery at that video.
+- **Gallery:** Full video player replaces the static image, similar to how 360 photos use Pannellum. Pause the audio guide while video is playing, resume on close/navigate.
+- **Admin:** Accept video file uploads (mp4, webm) alongside images. Videos would need a poster/thumbnail — either auto-generated or manually uploaded.
+- **Phase 2 (optional):** Add YouTube/Vimeo embed support as an alternative to self-hosted files, with a URL field instead of file upload. Consider privacy implications (Google trackers, GDPR) and that embeds bring their own controls, ads, and "watch on YouTube" links.
+- **Challenges:** Video file sizes (storage/bandwidth), mobile data usage on poor museum WiFi, managing two audio sources (video + audio guide), autoplay restrictions on mobile.
+- **Scope:** 2-3 sessions
+
 ### Easy Audio Recording (#3)
 Record audio directly in the admin interface. Save as MP3, auto-send to Whisper API for subtitle/transcription generation.
 - **Open questions:** Which Whisper API (OpenAI hosted vs self-hosted)? Where to store API key? In-browser MP3 encoding library?
