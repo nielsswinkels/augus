@@ -978,8 +978,13 @@ function closeGallery() {
 }
 
 let pannellumViewer = null;
+let pannellumGyroInterval = null;
 
 function destroyPannellum() {
+  if (pannellumGyroInterval) {
+    clearInterval(pannellumGyroInterval);
+    pannellumGyroInterval = null;
+  }
   if (pannellumViewer) {
     pannellumViewer.destroy();
     pannellumViewer = null;
@@ -1030,9 +1035,36 @@ async function renderGalleryImage() {
       disableKeyboardCtrl: true,
       showControls: true,
     });
-    // Try enabling gyroscope after load (requires user gesture on iOS)
     pannellumViewer.on("load", () => {
-      try { pannellumViewer.startOrientation(); } catch (e) { /* not available */ }
+      // Auto-enable gyroscope if supported
+      if (pannellumViewer.isOrientationSupported()) {
+        try { pannellumViewer.startOrientation(); } catch (e) { /* not available */ }
+        // Add gyroscope toggle button below Pannellum controls
+        const ctrlContainer = container.querySelector(".pnlm-controls-container");
+        if (ctrlContainer) {
+          const gyroBtn = document.createElement("button");
+          gyroBtn.className = "gallery-360-gyro-btn pnlm-controls active";
+          gyroBtn.setAttribute("aria-label", "Toggle gyroscope");
+          gyroBtn.title = "Toggle gyroscope";
+          gyroBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>';
+          gyroBtn.addEventListener("click", () => {
+            if (pannellumViewer.isOrientationActive()) {
+              pannellumViewer.stopOrientation();
+              gyroBtn.classList.remove("active");
+            } else {
+              pannellumViewer.startOrientation();
+              gyroBtn.classList.add("active");
+            }
+          });
+          ctrlContainer.appendChild(gyroBtn);
+          // Sync button state when Pannellum disables orientation on touch-drag
+          pannellumGyroInterval = setInterval(() => {
+            if (!pannellumViewer) { clearInterval(pannellumGyroInterval); return; }
+            const active = pannellumViewer.isOrientationActive();
+            gyroBtn.classList.toggle("active", active);
+          }, 500);
+        }
+      }
     });
   } else {
     // Regular image
