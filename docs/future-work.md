@@ -24,6 +24,24 @@ Group multiple objects together within a set. Groups have a title and sort order
 
 ## Ideas (need design work)
 
+### 3D Model Support in Gallery & Carousel
+Add 3D models (GLB/glTF format) alongside photos in the image carousel and gallery using Google's **model-viewer** web component (~150KB, MIT, lazy-loaded).
+- **Carousel:** Show a 3D icon overlay (similar to the globe icon on 360 photos) to indicate an interactive 3D model. Admin toggle per model: static fixed angle or auto-rotate.
+- **Gallery:** Full interactive model-viewer — drag to rotate, pinch/scroll to zoom. Disable gallery swipe gestures while the user is interacting with the model (same pattern as 360 photos with Pannellum).
+- **Admin:** File upload accepting `.glb`/`.gltf` files, media type indicator, auto-rotate toggle.
+- **AR (optional):** model-viewer has built-in "View in your space" AR support on compatible devices — could be enabled with minimal effort.
+- **Challenges:** GLB files can be large (500KB-2MB+ for detailed models), load time on museum WiFi, higher content creation barrier than photos (requires photogrammetry, Blender, etc.).
+- **Scope:** 1-2 sessions (follows the same pattern as 360 photo support)
+
+### Video Support in Gallery & Carousel
+Add video clips alongside photos in the image carousel and gallery. Start with self-hosted short video files (uploaded like images) using a `<video>` tag with a play button overlay — avoids privacy/GDPR issues, ads, and UX hijacking from third-party embeds like YouTube.
+- **Carousel:** Show a thumbnail with a play icon overlay. Tapping opens the gallery at that video.
+- **Gallery:** Full video player replaces the static image, similar to how 360 photos use Pannellum. Pause the audio guide while video is playing, resume on close/navigate.
+- **Admin:** Accept video file uploads (mp4, webm) alongside images. Videos would need a poster/thumbnail — either auto-generated or manually uploaded.
+- **Phase 2 (optional):** Add YouTube/Vimeo embed support as an alternative to self-hosted files, with a URL field instead of file upload. Consider privacy implications (Google trackers, GDPR) and that embeds bring their own controls, ads, and "watch on YouTube" links.
+- **Challenges:** Video file sizes (storage/bandwidth), mobile data usage on poor museum WiFi, managing two audio sources (video + audio guide), autoplay restrictions on mobile.
+- **Scope:** 2-3 sessions
+
 ### Easy Audio Recording (#3)
 Record audio directly in the admin interface. Save as MP3, auto-send to Whisper API for subtitle/transcription generation.
 - **Open questions:** Which Whisper API (OpenAI hosted vs self-hosted)? Where to store API key? In-browser MP3 encoding library?
@@ -42,25 +60,9 @@ Comprehensive documentation for self-hosting. README with setup guide, deploymen
 - **Should cover:** Docker setup, PocketBase admin, creating first set/objects, QR code printing, custom domain, Caddy configuration
 - **Scope:** 1 session
 
-### ~~Multi-Floor Map Support~~ ✅ Done
-Implemented: floors collection, floor selector buttons, per-floor pin filtering, default floor setting, admin CRUD.
-- **Scope:** 2-3 sessions
-
-### Outdoor Exhibitions with GPS
-Replace the static map image with a real map (OpenStreetMap via Leaflet.js) for outdoor exhibitions. Objects are placed at GPS coordinates instead of percentage positions. Visitors can see their live position on the map and get auto-triggered audio when they approach an object.
-- **Data model:** Objects get `latitude` and `longitude` fields (in addition to or instead of `map_x`/`map_y`). A set gets a toggle for outdoor/indoor mode.
-- **Visitor UI:** Embedded OpenStreetMap with object pins. GPS tracking via `navigator.geolocation.watchPosition()`. When the visitor walks within a configurable radius (e.g., 10-20 meters) of an object, auto-play its audio. Show a "you are here" dot on the map.
-- **Admin UI:** Click-to-place on a real map instead of an image. Or enter GPS coordinates directly.
-- **Challenges:** GPS accuracy varies (5-15m outdoors), battery drain from continuous tracking, permission handling, offline map tiles for areas with poor connectivity.
-- **Library:** Leaflet.js (~40KB) is the standard open-source choice, uses OpenStreetMap tiles (free).
-- **Scope:** 3-4 sessions
-
-### Hybrid Indoor/Outdoor Exhibitions
-Combine multi-floor indoor maps with outdoor GPS maps in a single exhibition. The floor selector buttons would include an "Outdoor" option that switches from a static floor map to a live OpenStreetMap view. Visitors could walk through an outdoor area, enter a building, and seamlessly switch between GPS-tracked outdoor navigation and floor-based indoor maps.
-- **Builds on:** Multi-floor maps (done) + Outdoor GPS exhibitions (above)
-- **UI idea:** Floor buttons like "Outdoor", "G", "1", "2" — tapping "Outdoor" switches to Leaflet map with GPS, tapping a floor switches to that floor's static map image
-- **Challenge:** Indoor/outdoor transition detection (GPS signal loss could auto-suggest switching to indoor mode)
-- **Scope:** 1-2 sessions (after both prerequisites are built)
+### WYSIWYG Editor for About Page
+Replace the raw HTML textarea in the admin set form with a rich text editor supporting paragraphs, bold/italic/underline, and links.
+- **Scope:** 1 session
 
 ---
 
@@ -73,4 +75,4 @@ Combine multi-floor indoor maps with outdoor GPS maps in a single exhibition. Th
 - **Offline/PWA support:** Service worker for caching audio and content for offline use in museums with poor WiFi
 - **QR code batch printing:** Admin tool to generate a printable PDF of all QR codes for a set
 - **Analytics:** Simple view/play counts per object (privacy-friendly, no tracking)
-- **Multi-set navigation:** Allow visitors to browse between sets if a museum has multiple exhibitions
+- **Multi-set navigation:** Allow visitors to browse between sets if a museum has multiple exhibitions. Add an exit button (exit-door icon) in the top-right header, only visible in list and map views. Tapping it shows a confirmation dialog ("Are you sure you want to leave this exhibition?" with a "Leave exhibition" confirm button) before navigating to the welcome/exhibition list page. Hidden entirely when only one exhibition exists. Use the existing `btn btn--icon` style to keep it subtle. Consider header space at large font sizes with long exhibition names. After confirming, move focus to the welcome page heading for screen reader accessibility.

@@ -186,7 +186,7 @@ migrate((app) => {
         type: "file",
         required: true,
         maxSelect: 1,
-        maxSize: 10485760,
+        maxSize: 26214400,
         mimeTypes: ["image/png", "image/jpeg", "image/webp", "image/gif"],
       },
       {

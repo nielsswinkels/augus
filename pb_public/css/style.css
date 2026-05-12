@@ -530,8 +530,7 @@ body {
   display: none;
 }
 
-.gallery-360-container .pnlm-about-msg,
-.gallery-360-container .pnlm-orientation-button {
+.gallery-360-container .pnlm-about-msg {
   display: none !important;
 }
 

@@ -1030,7 +1030,6 @@ async function renderGalleryImage() {
       disableKeyboardCtrl: true,
       showControls: true,
     });
-    // Try enabling gyroscope after load (requires user gesture on iOS)
     pannellumViewer.on("load", () => {
       try { pannellumViewer.startOrientation(); } catch (e) { /* not available */ }
     });
