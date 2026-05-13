@@ -1,42 +1,33 @@
 migrate((app) => {
-  // Remove old hardcoded language fields from sets
-  const sets = app.findCollectionByNameOrId("sets");
-  const setFields = ["name_sv", "description_en", "description_sv", "about_en", "about_sv"];
-  for (const name of setFields) {
-    const f = sets.fields.getByName(name);
-    if (f) sets.fields.remove(f.id);
+  function removeFields(collectionName, fieldNames) {
+    const collection = app.findCollectionByNameOrId(collectionName);
+    for (const name of fieldNames) {
+      try {
+        const f = collection.fields.getByName(name);
+        if (f) collection.fields.remove(f.id);
+      } catch (e) {
+        // Field may already be removed or method unavailable
+      }
+    }
+    app.save(collection);
   }
-  // Keep name_en for sorting/backward compatibility (used as display fallback)
-  app.save(sets);
 
-  // Remove old hardcoded language fields from objects
+  removeFields("sets", ["name_sv", "description_en", "description_sv", "about_en", "about_sv"]);
+  removeFields("objects", ["name_sv", "description_en", "description_sv", "audio_en", "audio_sv", "subtitles_en", "subtitles_sv"]);
+  removeFields("object_images", ["caption_en", "caption_sv"]);
+
+  // Update default_language select to allow any value
   const objects = app.findCollectionByNameOrId("objects");
-  const objFields = ["name_sv", "description_en", "description_sv", "audio_en", "audio_sv", "subtitles_en", "subtitles_sv"];
-  for (const name of objFields) {
-    const f = objects.fields.getByName(name);
-    if (f) objects.fields.remove(f.id);
-  }
-  app.save(objects);
-
-  // Remove old hardcoded caption fields from object_images
-  const images = app.findCollectionByNameOrId("object_images");
-  const imgFields = ["caption_en", "caption_sv"];
-  for (const name of imgFields) {
-    const f = images.fields.getByName(name);
-    if (f) images.fields.remove(f.id);
-  }
-  app.save(images);
-
-  // Update objects.default_language select to allow any value
   const defaultLang = objects.fields.getByName("default_language");
   if (defaultLang) {
-    defaultLang.values = [];
-    defaultLang.required = false;
+    try {
+      defaultLang.values = [];
+      defaultLang.required = false;
+      app.save(objects);
+    } catch (e) { /* skip if not applicable */ }
   }
-  app.save(objects);
 
 }, (app) => {
-  // Revert: re-add the old fields
   const sets = app.findCollectionByNameOrId("sets");
   sets.fields.add(new TextField({ name: "name_sv", required: false, maxLength: 200 }));
   sets.fields.add(new EditorField({ name: "description_en", required: false }));
