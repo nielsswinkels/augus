@@ -841,6 +841,9 @@ function renderCarousel() {
     const caption = img[`caption_${lang}`] || img.caption_en || "";
     const slide = document.createElement("div");
     slide.className = "carousel__slide";
+    slide.setAttribute("role", "tabpanel");
+    slide.setAttribute("id", `carousel-slide-${i}`);
+    slide.setAttribute("aria-label", caption || `Image ${i + 1}`);
 
     if (img.media_type === "3d" && img.model_file) {
       const modelUrl = fileUrl("object_images", img.id, img.model_file);
@@ -873,6 +876,9 @@ function renderCarousel() {
     if (!isSingle) {
       const dot = document.createElement("button");
       dot.className = "carousel__dot" + (i === 0 ? " active" : "");
+      dot.setAttribute("role", "tab");
+      dot.setAttribute("aria-selected", i === 0 ? "true" : "false");
+      dot.setAttribute("aria-controls", `carousel-slide-${i}`);
       dot.setAttribute("aria-label", `Image ${i + 1}`);
       dot.addEventListener("click", () => scrollCarouselTo(i));
       dom.carouselDots.appendChild(dot);
@@ -904,7 +910,11 @@ function updateCarouselArrows() {
 
 function updateCarouselDots() {
   const dots = dom.carouselDots.querySelectorAll(".carousel__dot");
-  dots.forEach((dot, i) => dot.classList.toggle("active", i === state.carouselIndex));
+  dots.forEach((dot, i) => {
+    const isActive = i === state.carouselIndex;
+    dot.classList.toggle("active", isActive);
+    dot.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
 }
 
 function setupCarouselEvents() {
