@@ -140,6 +140,7 @@ const state = {
     fontSize: "normal",
     captionsAloud: false,
     gpsAutoPlay: false,
+    playbackSpeed: 1,
   },
   currentSet: null,
   currentObject: null,
@@ -1028,20 +1029,21 @@ function setupAudioEvents() {
 
   // Playback speed control
   const speeds = [1, 1.25, 1.5, 2, 0.75];
-  let speedIndex = 0;
 
   dom.btnPlaybackSpeed.addEventListener("click", () => {
+    let speedIndex = speeds.indexOf(state.settings.playbackSpeed);
     speedIndex = (speedIndex + 1) % speeds.length;
     const speed = speeds[speedIndex];
+    state.settings.playbackSpeed = speed;
+    saveSettings();
     audio.playbackRate = speed;
     dom.btnPlaybackSpeed.textContent = speed + "x";
   });
 
-  // Reset speed when loading new audio
+  // Apply saved speed when loading new audio
   audio.addEventListener("loadedmetadata", () => {
-    speedIndex = 0;
-    audio.playbackRate = 1;
-    dom.btnPlaybackSpeed.textContent = "1x";
+    audio.playbackRate = state.settings.playbackSpeed;
+    dom.btnPlaybackSpeed.textContent = state.settings.playbackSpeed + "x";
   });
 }
 
