@@ -140,6 +140,7 @@ const state = {
     fontSize: "normal",
     captionsAloud: false,
     gpsAutoPlay: false,
+    playbackSpeed: 1,
   },
   currentSet: null,
   currentObject: null,
@@ -375,11 +376,15 @@ function t(key) {
 }
 
 // ===== API helpers =====
-async function api(path) {
+let routeLoadGeneration = 0;
+let routeAbortController = null;
+
+async function api(path, options = {}) {
   let resp;
   try {
-    resp = await fetch(`${PB_URL}/api/collections/${path}`);
+    resp = await fetch(`${PB_URL}/api/collections/${path}`, { signal: options.signal });
   } catch (e) {
+    if (e.name === "AbortError") throw e;
     throw new Error(t("errorLoadFailed"));
   }
   if (!resp.ok) throw new Error(t("errorLoadFailed"));
@@ -500,10 +505,15 @@ async function loadRoute() {
   }
 
   document.getElementById('loadingIndicator').style.display = 'flex';
+  const generation = ++routeLoadGeneration;
+  if (routeAbortController) routeAbortController.abort();
+  routeAbortController = new AbortController();
+  const signal = routeAbortController.signal;
 
   try {
     // Load set
-    const setsResp = await api(`sets/records?filter=(slug='${encodeURIComponent(route.setSlug)}'%26%26published=true)`);
+    const setsResp = await api(`sets/records?filter=(slug='${encodeURIComponent(route.setSlug)}'%26%26published=true)`, { signal });
+    if (generation !== routeLoadGeneration) return;
     if (!setsResp.items || setsResp.items.length === 0) {
       showToast(t("errorSetNotFound"), true);
       return;
@@ -512,7 +522,7 @@ async function loadRoute() {
 
     // Load set content from content table and enrich the set object
     try {
-      const setContentResp = await api(`set_content/records?filter=(set='${state.currentSet.id}')&perPage=50`);
+      const setContentResp = await api(`set_content/records?filter=(set='${state.currentSet.id}')&perPage=50`, { signal });
       for (const c of (setContentResp.items || [])) {
         state.currentSet[`name_${c.language}`] = c.name || "";
         state.currentSet[`description_${c.language}`] = c.description || "";
@@ -543,14 +553,15 @@ async function loadRoute() {
     }
 
     // Load all objects in this set
-    const objResp = await api(`objects/records?filter=(set='${state.currentSet.id}'%26%26published=true)&sort=sort_order&perPage=200`);
+    const objResp = await api(`objects/records?filter=(set='${state.currentSet.id}'%26%26published=true)&sort=sort_order&perPage=200`, { signal });
+    if (generation !== routeLoadGeneration) return;
     state.objects = objResp.items || [];
 
     // Load object content and enrich objects with per-language fields
     if (state.objects.length > 0) {
       try {
         const objIds = state.objects.map(o => o.id);
-        const objContentResp = await api(`object_content/records?filter=(object='${objIds.join("'||object='")}')&perPage=500`);
+        const objContentResp = await api(`object_content/records?filter=(object='${objIds.join("'||object='")}')&perPage=500`, { signal });
         for (const c of (objContentResp.items || [])) {
           const obj = state.objects.find(o => o.id === c.object);
           if (obj) {
@@ -565,13 +576,13 @@ async function loadRoute() {
 
     // Load floors
     try {
-      const floorResp = await api(`floors/records?filter=(set='${state.currentSet.id}')&sort=sort_order&perPage=50`);
+      const floorResp = await api(`floors/records?filter=(set='${state.currentSet.id}')&sort=sort_order&perPage=50`, { signal });
       state.floors = floorResp.items || [];
       // Load floor_content for per-language labels/names
       if (state.floors.length > 0) {
         try {
           const floorIds = state.floors.map(f => f.id);
-          const fcResp = await api(`floor_content/records?filter=(floor='${floorIds.join("'||floor='")}')&perPage=200`);
+          const fcResp = await api(`floor_content/records?filter=(floor='${floorIds.join("'||floor='")}')&perPage=200`, { signal });
           for (const fc of (fcResp.items || [])) {
             const floor = state.floors.find(f => f.id === fc.floor);
             if (floor) {
@@ -594,16 +605,21 @@ async function loadRoute() {
       state.currentFloorId = null;
     }
 
-    // Start GPS tracking if set has outdoor floors
+    // Start or stop GPS tracking based on outdoor floors
     const hasOutdoorFloors = state.floors.some(f => f.type === "outdoor");
     if (hasOutdoorFloors) {
       startGpsTracking();
+    } else {
+      stopGpsTracking();
     }
+
+    if (generation !== routeLoadGeneration) return;
 
     if (route.objectSlug) {
       const obj = state.objects.find((o) => o.slug === route.objectSlug);
       if (obj) {
         await loadObject(obj);
+        if (generation !== routeLoadGeneration) return;
         updateSequentialNav();
         showView("object");
       } else {
@@ -614,6 +630,7 @@ async function loadRoute() {
       showView("list");
     }
   } catch (err) {
+    if (err.name === "AbortError") return;
     console.error("Failed to load route:", err);
     showToast(t("errorLoadFailed"), true);
   } finally {
@@ -827,6 +844,9 @@ function renderCarousel() {
     const caption = img[`caption_${lang}`] || img.caption_en || "";
     const slide = document.createElement("div");
     slide.className = "carousel__slide";
+    slide.setAttribute("role", "tabpanel");
+    slide.setAttribute("id", `carousel-slide-${i}`);
+    slide.setAttribute("aria-label", caption || `Image ${i + 1}`);
 
     if (img.media_type === "3d" && img.model_file) {
       const modelUrl = fileUrl("object_images", img.id, img.model_file);
@@ -859,6 +879,9 @@ function renderCarousel() {
     if (!isSingle) {
       const dot = document.createElement("button");
       dot.className = "carousel__dot" + (i === 0 ? " active" : "");
+      dot.setAttribute("role", "tab");
+      dot.setAttribute("aria-selected", i === 0 ? "true" : "false");
+      dot.setAttribute("aria-controls", `carousel-slide-${i}`);
       dot.setAttribute("aria-label", `Image ${i + 1}`);
       dot.addEventListener("click", () => scrollCarouselTo(i));
       dom.carouselDots.appendChild(dot);
@@ -890,7 +913,11 @@ function updateCarouselArrows() {
 
 function updateCarouselDots() {
   const dots = dom.carouselDots.querySelectorAll(".carousel__dot");
-  dots.forEach((dot, i) => dot.classList.toggle("active", i === state.carouselIndex));
+  dots.forEach((dot, i) => {
+    const isActive = i === state.carouselIndex;
+    dot.classList.toggle("active", isActive);
+    dot.setAttribute("aria-selected", isActive ? "true" : "false");
+  });
 }
 
 function setupCarouselEvents() {
@@ -1004,20 +1031,21 @@ function setupAudioEvents() {
 
   // Playback speed control
   const speeds = [1, 1.25, 1.5, 2, 0.75];
-  let speedIndex = 0;
 
   dom.btnPlaybackSpeed.addEventListener("click", () => {
+    let speedIndex = speeds.indexOf(state.settings.playbackSpeed);
     speedIndex = (speedIndex + 1) % speeds.length;
     const speed = speeds[speedIndex];
+    state.settings.playbackSpeed = speed;
+    saveSettings();
     audio.playbackRate = speed;
     dom.btnPlaybackSpeed.textContent = speed + "x";
   });
 
-  // Reset speed when loading new audio
+  // Apply saved speed when loading new audio
   audio.addEventListener("loadedmetadata", () => {
-    speedIndex = 0;
-    audio.playbackRate = 1;
-    dom.btnPlaybackSpeed.textContent = "1x";
+    audio.playbackRate = state.settings.playbackSpeed;
+    dom.btnPlaybackSpeed.textContent = state.settings.playbackSpeed + "x";
   });
 }
 

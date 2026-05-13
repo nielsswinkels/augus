@@ -232,14 +232,14 @@ When a gallery image has no caption, the alt text falls back to "Image N" which 
 | Priority | Item | Effort | Section | Status |
 |----------|------|--------|---------|--------|
 | **P0** | Sanitize About page innerHTML with DOMPurify | 30 min | Critical #1 | Open |
-| **P0** | Verify PocketBase self-registration is disabled | 5 min | Critical #2 | ✅ Done — only `_superusers` used, `users` collection empty |
+| **P0** | Verify PocketBase self-registration is disabled | 5 min | Critical #2 | ✅ Done |
 | **P1** | Batch thumbnail loading into single API call | 1 hour | Performance | ✅ Done |
-| **P1** | Add missing database indexes (floor, published) | 30 min | Data Model | Open |
-| **P1** | Fix default_floor to be a proper relation | 30 min | Data Model | Open |
-| **P2** | Add route-load cancellation (AbortController) | 1 hour | Minor Issues | Open |
+| **P1** | Add missing database indexes (floor, published) | 30 min | Data Model | ✅ Done |
+| **P1** | Fix default_floor to be a proper relation | 30 min | Data Model | ✅ Done |
+| **P2** | Add route-load cancellation (AbortController) | 1 hour | Minor Issues | ✅ Done |
 | **P2** | Split app.js into ES modules | 2-3 hours | Architecture | Open |
-| **P2** | Add field validation (colors, lat/lng, lengths) | 1 hour | Data Model | Open |
-| **P3** | Carousel ARIA tab semantics | 30 min | Accessibility | Open |
-| **P3** | Add skip-to-content link | 15 min | Accessibility | Open |
-| **P3** | Persist playback speed preference | 15 min | Minor Issues | Open |
-| **P3** | Stop GPS watch on indoor set switch | 15 min | Minor Issues | Open |
+| **P2** | Add field validation (colors, lat/lng, lengths) | 1 hour | Data Model | ✅ Done |
+| **P3** | Carousel ARIA tab semantics | 30 min | Accessibility | ✅ Done |
+| **P3** | Add skip-to-content link | 15 min | Accessibility | ✅ Done |
+| **P3** | Persist playback speed preference | 15 min | Minor Issues | ✅ Done |
+| **P3** | Stop GPS watch on indoor set switch | 15 min | Minor Issues | ✅ Done |
