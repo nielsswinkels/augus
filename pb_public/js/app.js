@@ -819,28 +819,40 @@ function renderCarousel() {
   const isSingle = state.images.length === 1;
   dom.carouselContainer.classList.toggle("carousel--single", isSingle);
 
+  const has3d = state.images.some(img => img.media_type === "3d" && img.model_file);
+  if (has3d) loadModelViewer();
+
   for (let i = 0; i < state.images.length; i++) {
     const img = state.images[i];
-    const url = fileUrl("object_images", img.id, img.image, "600x400");
     const caption = img[`caption_${lang}`] || img.caption_en || "";
     const slide = document.createElement("div");
     slide.className = "carousel__slide";
-    const imgEl = document.createElement("img");
-    imgEl.src = url;
-    imgEl.alt = caption || `Image ${i + 1}`;
-    imgEl.loading = i === 0 ? "eager" : "lazy";
-    imgEl.addEventListener("click", () => openGallery(i));
-    slide.appendChild(imgEl);
-    if (img.media_type === "360") {
-      const icon = document.createElement("span");
-      icon.className = "carousel__360-icon";
-      icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><ellipse cx="12" cy="12" rx="4" ry="10"/><path d="M2 12h20"/></svg>';
-      slide.appendChild(icon);
-    } else if (img.media_type === "3d") {
+
+    if (img.media_type === "3d" && img.model_file) {
+      const modelUrl = fileUrl("object_images", img.id, img.model_file);
+      const wrapper = document.createElement("div");
+      wrapper.className = "carousel__3d-wrapper";
+      wrapper.innerHTML = `<model-viewer src="${modelUrl}" auto-rotate rotation-per-second="15deg" interaction-prompt="none" shadow-intensity="0.5" disable-zoom disable-pan disable-tap></model-viewer>`;
+      wrapper.addEventListener("click", () => openGallery(i));
+      slide.appendChild(wrapper);
       const icon = document.createElement("span");
       icon.className = "carousel__360-icon";
       icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>';
       slide.appendChild(icon);
+    } else {
+      const url = fileUrl("object_images", img.id, img.image, "600x400");
+      const imgEl = document.createElement("img");
+      imgEl.src = url;
+      imgEl.alt = caption || `Image ${i + 1}`;
+      imgEl.loading = i === 0 ? "eager" : "lazy";
+      imgEl.addEventListener("click", () => openGallery(i));
+      slide.appendChild(imgEl);
+      if (img.media_type === "360") {
+        const icon = document.createElement("span");
+        icon.className = "carousel__360-icon";
+        icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><ellipse cx="12" cy="12" rx="4" ry="10"/><path d="M2 12h20"/></svg>';
+        slide.appendChild(icon);
+      }
     }
     dom.carouselTrack.appendChild(slide);
 
@@ -1394,9 +1406,8 @@ async function loadListThumbnails() {
   try {
     const objIds = state.objects.map(o => o.id);
     const resp = await api(
-      `object_images/records?filter=(object='${objIds.join("'||object='")}')&sort=sort_order&perPage=500&fields=id,object,image`
+      `object_images/records?filter=(object='${objIds.join("'||object='")}')&sort=sort_order&perPage=500&fields=id,object,image,media_type`
     );
-    // Pick the first image per object
     const firstByObject = {};
     for (const img of (resp.items || [])) {
       if (!firstByObject[img.object]) firstByObject[img.object] = img;
@@ -1404,9 +1415,15 @@ async function loadListThumbnails() {
     for (const obj of state.objects) {
       const imgRecord = firstByObject[obj.id];
       if (!imgRecord) continue;
-      const url = fileUrl("object_images", imgRecord.id, imgRecord.image, "128x128");
       const listItem = dom.objectList.querySelector(`a[href="#/${state.currentSet.slug}/${obj.slug}"]`);
-      if (listItem && !listItem.querySelector(".object-list__thumb")) {
+      if (!listItem || listItem.querySelector(".object-list__thumb, .object-list__thumb-icon")) continue;
+      if (imgRecord.media_type === "3d" && !imgRecord.image) {
+        const icon = document.createElement("div");
+        icon.className = "object-list__thumb-icon";
+        icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>';
+        listItem.insertBefore(icon, listItem.querySelector(".object-list__info"));
+      } else if (imgRecord.image) {
+        const url = fileUrl("object_images", imgRecord.id, imgRecord.image, "128x128");
         const img = document.createElement("img");
         img.className = "object-list__thumb";
         img.src = url;

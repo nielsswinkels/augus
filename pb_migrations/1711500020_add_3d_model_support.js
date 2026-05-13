@@ -16,6 +16,10 @@ migrate((app) => {
     mimeTypes: ["model/gltf-binary", "model/gltf+json", "application/octet-stream"],
   }));
 
+  // Make image field optional (3D models may not have a poster image)
+  const imageField = images.fields.getByName("image");
+  if (imageField) imageField.required = false;
+
   app.save(images);
 
   // Migrate is_360 to media_type

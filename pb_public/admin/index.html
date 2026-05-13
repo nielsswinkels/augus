@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Augus — Admin</title>
-  <link rel="stylesheet" href="/admin/css/admin.css?v=20260513c">
+  <link rel="stylesheet" href="/admin/css/admin.css?v=20260513d">
 </head>
 <body>
   <!-- ===== LOGIN ===== -->
@@ -296,6 +296,7 @@
           <!-- Rendered by JS -->
         </div>
         <form id="imageUploadForm" class="image-upload-form">
+          <label class="form-label" id="imageFileLabel">Image file</label>
           <input type="file" id="imageFile" class="form-input" accept="image/png,image/jpeg,image/webp,image/gif" required>
           <div class="form-row form-row--inline" id="imageCaptionFields">
             <!-- Dynamic caption fields rendered by JS per language -->
@@ -337,6 +338,6 @@
   <div class="toast" id="adminToast" role="alert"></div>
 
   <script src="/admin/js/lib/qrcode-generator.min.js"></script>
-  <script src="/admin/js/admin.js?v=20260513c" type="module"></script>
+  <script src="/admin/js/admin.js?v=20260513d" type="module"></script>
 </body>
 </html>

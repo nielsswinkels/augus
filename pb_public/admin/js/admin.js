@@ -1704,34 +1704,34 @@ async function uploadImage(e) {
   }
 
   const objectId = $("#objectFormId").value;
+  const mediaType = $("#imageMediaType").value;
+  const imageFile = $("#imageFile").files[0];
+  const modelFile = mediaType === "3d" ? $("#imageModelFile").files[0] : null;
+
+  if (!imageFile && mediaType !== "3d") {
+    showToast("Please select an image file.");
+    return;
+  }
+  if (mediaType === "3d" && !modelFile) {
+    showToast("Please select a 3D model file (.glb).");
+    return;
+  }
+
   const formData = new FormData();
   formData.append("object", objectId);
-  formData.append("image", $("#imageFile").files[0]);
+  if (imageFile) formData.append("image", imageFile);
 
   // Determine sort order (next available)
   const currentImages = $("#imagesGrid").children.length;
   formData.append("sort_order", currentImages + 1);
 
-  const mediaType = $("#imageMediaType").value;
-
   try {
     const result = await api("collections/object_images/records", { method: "POST", body: formData });
-    // Set media_type and upload model file if 3D
-    const patchData = { media_type: mediaType };
-    if (mediaType === "3d") {
-      const modelFile = $("#imageModelFile").files[0];
-      if (modelFile) {
-        const modelForm = new FormData();
-        modelForm.append("model_file", modelFile);
-        modelForm.append("media_type", "3d");
-        await api(`collections/object_images/records/${result.id}`, { method: "PATCH", body: modelForm });
-      } else {
-        await api(`collections/object_images/records/${result.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(patchData),
-        });
-      }
+    if (mediaType === "3d" && modelFile) {
+      const modelForm = new FormData();
+      modelForm.append("model_file", modelFile);
+      modelForm.append("media_type", "3d");
+      await api(`collections/object_images/records/${result.id}`, { method: "PATCH", body: modelForm });
     } else if (mediaType !== "image") {
       await api(`collections/object_images/records/${result.id}`, {
         method: "PATCH",
@@ -2000,7 +2000,10 @@ function setupEvents() {
   // Images
   $("#imageUploadForm").addEventListener("submit", uploadImage);
   $("#imageMediaType").addEventListener("change", () => {
-    $("#modelFileRow").classList.toggle("hidden", $("#imageMediaType").value !== "3d");
+    const is3d = $("#imageMediaType").value === "3d";
+    $("#modelFileRow").classList.toggle("hidden", !is3d);
+    $("#imageFile").required = !is3d;
+    $("#imageFileLabel").textContent = is3d ? "Poster image (optional)" : "Image file";
   });
 
   // QR
