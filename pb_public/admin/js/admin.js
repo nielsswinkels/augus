@@ -311,6 +311,9 @@ function removeSetLanguage(code) {
     showToast("At least one language is required.");
     return;
   }
+  if (editingSetContent[code] && (editingSetContent[code].name || editingSetContent[code].description || editingSetContent[code].about)) {
+    if (!confirm(`"${langName(code)}" has content. Removing it will delete that content when you save. Continue?`)) return;
+  }
   editingSetLanguages = editingSetLanguages.filter(l => l !== code);
   renderSetLanguages();
   formDirty = true;
