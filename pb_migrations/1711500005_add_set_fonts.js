@@ -16,7 +16,7 @@ migrate((app) => {
   const collection = app.findCollectionByNameOrId("sets");
   ["custom_font", "subtitle_font"].forEach(name => {
     const f = collection.fields.getByName(name);
-    if (f) collection.fields.remove(f.id);
+    if (f) collection.fields.removeById(f.id);
   });
   app.save(collection);
 });

@@ -76,12 +76,12 @@ migrate((app) => {
 }, (app) => {
   const sets = app.findCollectionByNameOrId("sets");
   const df = sets.fields.getByName("default_floor");
-  if (df) sets.fields.remove(df.id);
+  if (df) sets.fields.removeById(df.id);
   app.save(sets);
 
   const objects = app.findCollectionByNameOrId("objects");
   const f = objects.fields.getByName("floor");
-  if (f) objects.fields.remove(f.id);
+  if (f) objects.fields.removeById(f.id);
   app.save(objects);
 
   const floors = app.findCollectionByNameOrId("floors");

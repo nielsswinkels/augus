@@ -67,9 +67,9 @@ migrate((app) => {
   // Remove old name_en, name_sv from floors (keep label as fallback)
   try {
     const nameEn = floors.fields.getByName("name_en");
-    if (nameEn) floors.fields.remove(nameEn.id);
+    if (nameEn) floors.fields.removeById(nameEn.id);
     const nameSv = floors.fields.getByName("name_sv");
-    if (nameSv) floors.fields.remove(nameSv.id);
+    if (nameSv) floors.fields.removeById(nameSv.id);
     app.save(floors);
   } catch (e) { /* field removal may not work in all PB versions */ }
 

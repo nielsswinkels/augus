@@ -36,7 +36,7 @@ migrate((app) => {
   // Remove is_360 field
   try {
     const f = images.fields.getByName("is_360");
-    if (f) images.fields.remove(f.id);
+    if (f) images.fields.removeById(f.id);
     app.save(images);
   } catch (e) { /* PB version compat */ }
 
@@ -61,9 +61,9 @@ migrate((app) => {
 
   try {
     const mt = images.fields.getByName("media_type");
-    if (mt) images.fields.remove(mt.id);
+    if (mt) images.fields.removeById(mt.id);
     const mf = images.fields.getByName("model_file");
-    if (mf) images.fields.remove(mf.id);
+    if (mf) images.fields.removeById(mf.id);
     app.save(images);
   } catch (e) {}
 });

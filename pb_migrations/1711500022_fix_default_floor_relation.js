@@ -12,7 +12,7 @@ migrate((app) => {
   // Remove old text field
   try {
     const old = sets.fields.getByName("default_floor");
-    if (old) sets.fields.remove(old.id);
+    if (old) sets.fields.removeById(old.id);
     app.save(sets);
   } catch (e) {}
 
@@ -45,7 +45,7 @@ migrate((app) => {
 
   try {
     const old = sets.fields.getByName("default_floor");
-    if (old) sets.fields.remove(old.id);
+    if (old) sets.fields.removeById(old.id);
     app.save(sets);
   } catch (e) {}
 

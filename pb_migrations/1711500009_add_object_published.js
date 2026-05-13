@@ -10,6 +10,6 @@ migrate((app) => {
 }, (app) => {
   const collection = app.findCollectionByNameOrId("objects");
   const field = collection.fields.getByName("published");
-  if (field) collection.fields.remove(field.id);
+  if (field) collection.fields.removeById(field.id);
   app.save(collection);
 });

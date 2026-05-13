@@ -52,14 +52,14 @@ migrate((app) => {
   const floors = app.findCollectionByNameOrId("floors");
   ["type", "center_lat", "center_lng", "zoom_level"].forEach(name => {
     const f = floors.fields.getByName(name);
-    if (f) floors.fields.remove(f.id);
+    if (f) floors.fields.removeById(f.id);
   });
   app.save(floors);
 
   const objects = app.findCollectionByNameOrId("objects");
   ["latitude", "longitude", "trigger_radius"].forEach(name => {
     const f = objects.fields.getByName(name);
-    if (f) objects.fields.remove(f.id);
+    if (f) objects.fields.removeById(f.id);
   });
   app.save(objects);
 });
