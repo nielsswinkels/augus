@@ -4,6 +4,18 @@
 
 const PB_URL = window.location.origin;
 
+// ===== Language Names =====
+const LANGUAGE_NAMES = {
+  en: "English", sv: "Svenska", de: "Deutsch",
+  fr: "Français", es: "Español", it: "Italiano",
+  nl: "Nederlands", da: "Dansk", no: "Norsk",
+  fi: "Suomi", pt: "Português", zh: "中文",
+  ja: "日本語", ko: "한국어", ar: "العربية",
+  pl: "Polski", cs: "Čeština", ru: "Русский",
+  uk: "Українська", tr: "Türkçe", el: "Ελληνικά",
+  he: "עברית", hi: "हिन्दी", th: "ไทย",
+};
+
 // ===== i18n =====
 const i18n = {
   en: {
@@ -402,6 +414,28 @@ function navigateTo(setSlug, objectSlug) {
   }
 }
 
+// ===== Language Selector =====
+function renderLanguageSelector() {
+  const container = document.getElementById("languageSelector");
+  const langs = (state.currentSet && state.currentSet.available_languages) || ["en", "sv"];
+  const settingRow = container.closest(".setting-row");
+  if (langs.length <= 1) {
+    if (settingRow) settingRow.style.display = "none";
+    return;
+  }
+  if (settingRow) settingRow.style.display = "";
+  container.innerHTML = "";
+  for (const lang of langs) {
+    const btn = document.createElement("button");
+    btn.className = "segmented__option" + (state.settings.language === lang ? " active" : "");
+    btn.dataset.lang = lang;
+    btn.setAttribute("role", "radio");
+    btn.setAttribute("aria-checked", state.settings.language === lang ? "true" : "false");
+    btn.textContent = LANGUAGE_NAMES[lang] || lang.toUpperCase();
+    container.appendChild(btn);
+  }
+}
+
 // ===== Data Loading =====
 async function loadRoute() {
   const route = parseRoute();
@@ -410,6 +444,18 @@ async function loadRoute() {
     // Show welcome page with list of published sets
     try {
       const resp = await api('sets/records?filter=(published=true)&sort=name_en');
+      // Enrich sets with content from set_content table
+      try {
+        const setContentResp = await api('set_content/records?perPage=500');
+        for (const c of (setContentResp.items || [])) {
+          const set = resp.items?.find(s => s.id === c.set);
+          if (set) {
+            set[`name_${c.language}`] = c.name || "";
+            set[`description_${c.language}`] = c.description || "";
+          }
+        }
+      } catch (e) { /* content table may not exist yet */ }
+
       const lang = state.settings.language;
       dom.welcomeSetsList.innerHTML = '';
       if (resp.items && resp.items.length > 0) {
@@ -462,8 +508,20 @@ async function loadRoute() {
       return;
     }
     state.currentSet = setsResp.items[0];
+
+    // Load set content from content table and enrich the set object
+    try {
+      const setContentResp = await api(`set_content/records?filter=(set='${state.currentSet.id}')&perPage=50`);
+      for (const c of (setContentResp.items || [])) {
+        state.currentSet[`name_${c.language}`] = c.name || "";
+        state.currentSet[`description_${c.language}`] = c.description || "";
+        state.currentSet[`about_${c.language}`] = c.about || "";
+      }
+    } catch (e) { /* content table may not exist yet */ }
+
     applySetColors(state.currentSet);
     applySetFonts(state.currentSet);
+    renderLanguageSelector();
 
     // Logo
     if (state.currentSet.logo) {
@@ -474,7 +532,8 @@ async function loadRoute() {
     }
 
     // About link: only show if set has about content
-    const hasAbout = !!(state.currentSet.about_en || state.currentSet.about_sv);
+    const setLangs = state.currentSet.available_languages || ["en", "sv"];
+    const hasAbout = setLangs.some(l => state.currentSet[`about_${l}`]);
     dom.listAboutLink.classList.toggle("hidden", !hasAbout);
     if (hasAbout) {
       const aboutLabel = (i18n[state.settings.language] || i18n.en).aboutTitle;
@@ -485,6 +544,23 @@ async function loadRoute() {
     // Load all objects in this set
     const objResp = await api(`objects/records?filter=(set='${state.currentSet.id}'%26%26published=true)&sort=sort_order&perPage=200`);
     state.objects = objResp.items || [];
+
+    // Load object content and enrich objects with per-language fields
+    if (state.objects.length > 0) {
+      try {
+        const objIds = state.objects.map(o => o.id);
+        const objContentResp = await api(`object_content/records?filter=(object='${objIds.join("'||object='")}')&perPage=500`);
+        for (const c of (objContentResp.items || [])) {
+          const obj = state.objects.find(o => o.id === c.object);
+          if (obj) {
+            obj[`name_${c.language}`] = c.name || "";
+            obj[`description_${c.language}`] = c.description || "";
+            obj._content = obj._content || {};
+            obj._content[c.language] = c;
+          }
+        }
+      } catch (e) { /* content table may not exist yet */ }
+    }
 
     // Load floors
     try {
@@ -546,6 +622,17 @@ async function loadObject(obj) {
   try {
     const imgResp = await api(`object_images/records?filter=(object='${obj.id}')&sort=sort_order&perPage=100`);
     state.images = imgResp.items || [];
+    // Load captions from image_content and enrich images
+    if (state.images.length > 0) {
+      try {
+        const imgIds = state.images.map(i => i.id);
+        const capResp = await api(`image_content/records?filter=(image='${imgIds.join("'||image='")}')&perPage=500`);
+        for (const c of (capResp.items || [])) {
+          const img = state.images.find(i => i.id === c.image);
+          if (img) img[`caption_${c.language}`] = c.caption || "";
+        }
+      } catch (e) { /* content table may not exist yet */ }
+    }
   } catch (e) {
     state.images = [];
   }
@@ -560,20 +647,35 @@ async function loadObject(obj) {
     dom.carouselContainer.classList.add("hidden");
   }
 
-  // Determine audio track
-  const audioField = `audio_${lang}`;
-  const subtitleField = `subtitles_${lang}`;
-  let audioFile = obj[audioField];
-  let subtitleFile = obj[subtitleField];
+  // Determine audio track from content table
+  const content = obj._content || {};
+  let audioContent = content[lang];
+  let audioFile = audioContent?.audio;
+  let subtitleFile = audioContent?.subtitles;
+  let audioContentId = audioContent?.id;
 
   // Fallback to default language
   if (!audioFile && obj.default_language && obj.default_language !== lang) {
-    audioFile = obj[`audio_${obj.default_language}`];
-    subtitleFile = obj[`subtitles_${obj.default_language}`];
+    audioContent = content[obj.default_language];
+    audioFile = audioContent?.audio;
+    subtitleFile = audioContent?.subtitles;
+    audioContentId = audioContent?.id;
+  }
+
+  // Fallback to any available language
+  if (!audioFile) {
+    for (const c of Object.values(content)) {
+      if (c.audio) {
+        audioFile = c.audio;
+        subtitleFile = c.subtitles;
+        audioContentId = c.id;
+        break;
+      }
+    }
   }
 
   if (audioFile) {
-    const audioUrl = fileUrl("objects", obj.id, audioFile);
+    const audioUrl = fileUrl("object_content", audioContentId, audioFile);
     dom.audioElement.src = audioUrl;
     dom.audioPlayer.classList.remove("hidden");
     dom.subtitlesArea.classList.remove("hidden");
@@ -581,7 +683,7 @@ async function loadObject(obj) {
 
     // Load subtitles
     if (subtitleFile) {
-      const subtitleUrl = fileUrl("objects", obj.id, subtitleFile);
+      const subtitleUrl = fileUrl("object_content", audioContentId, subtitleFile);
       await loadSubtitles(subtitleUrl);
     } else {
       state.subtitleCues = [];
@@ -2129,27 +2231,27 @@ function setupSettingsEvents() {
     });
   }
 
-  // Language buttons
-  $$("[data-lang]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const oldLang = state.settings.language;
-      state.settings.language = btn.dataset.lang;
-      saveSettings();
-      // Reload current object with new language (only if viewing it)
-      if (state.currentObject && oldLang !== state.settings.language && dom.viewObject.classList.contains("active")) {
-        loadObject(state.currentObject);
-      }
-      if (dom.viewList.classList.contains("active")) renderObjectList();
-      if (dom.viewMap.classList.contains("active")) renderMapView();
-      if (dom.viewAbout.classList.contains("active")) {
-        renderAboutContent();
-        const aboutLabel = (i18n[state.settings.language] || i18n.en).aboutTitle;
-        const setName = state.currentSet[`name_${state.settings.language}`] || state.currentSet.name_en || "";
-        const aboutTitle = `${aboutLabel} ${setName}`;
-        dom.headerTitle.textContent = aboutTitle;
-        document.title = `${aboutTitle} — Augus`;
-      }
-    });
+  // Language buttons — rendered dynamically by renderLanguageSelector()
+  document.getElementById("languageSelector").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-lang]");
+    if (!btn) return;
+    const oldLang = state.settings.language;
+    state.settings.language = btn.dataset.lang;
+    saveSettings();
+    renderLanguageSelector();
+    if (state.currentObject && oldLang !== state.settings.language && dom.viewObject.classList.contains("active")) {
+      loadObject(state.currentObject);
+    }
+    if (dom.viewList.classList.contains("active")) renderObjectList();
+    if (dom.viewMap.classList.contains("active")) renderMapView();
+    if (dom.viewAbout.classList.contains("active")) {
+      renderAboutContent();
+      const aboutLabel = (i18n[state.settings.language] || i18n.en).aboutTitle;
+      const setName = state.currentSet[`name_${state.settings.language}`] || state.currentSet.name_en || "";
+      const aboutTitle = `${aboutLabel} ${setName}`;
+      dom.headerTitle.textContent = aboutTitle;
+      document.title = `${aboutTitle} — Augus`;
+    }
   });
 
   // Font size buttons
