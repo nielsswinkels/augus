@@ -376,12 +376,14 @@ function t(key) {
 
 // ===== API helpers =====
 let routeLoadGeneration = 0;
+let routeAbortController = null;
 
-async function api(path) {
+async function api(path, options = {}) {
   let resp;
   try {
-    resp = await fetch(`${PB_URL}/api/collections/${path}`);
+    resp = await fetch(`${PB_URL}/api/collections/${path}`, { signal: options.signal });
   } catch (e) {
+    if (e.name === "AbortError") throw e;
     throw new Error(t("errorLoadFailed"));
   }
   if (!resp.ok) throw new Error(t("errorLoadFailed"));
@@ -503,10 +505,13 @@ async function loadRoute() {
 
   document.getElementById('loadingIndicator').style.display = 'flex';
   const generation = ++routeLoadGeneration;
+  if (routeAbortController) routeAbortController.abort();
+  routeAbortController = new AbortController();
+  const signal = routeAbortController.signal;
 
   try {
     // Load set
-    const setsResp = await api(`sets/records?filter=(slug='${encodeURIComponent(route.setSlug)}'%26%26published=true)`);
+    const setsResp = await api(`sets/records?filter=(slug='${encodeURIComponent(route.setSlug)}'%26%26published=true)`, { signal });
     if (generation !== routeLoadGeneration) return;
     if (!setsResp.items || setsResp.items.length === 0) {
       showToast(t("errorSetNotFound"), true);
@@ -516,7 +521,7 @@ async function loadRoute() {
 
     // Load set content from content table and enrich the set object
     try {
-      const setContentResp = await api(`set_content/records?filter=(set='${state.currentSet.id}')&perPage=50`);
+      const setContentResp = await api(`set_content/records?filter=(set='${state.currentSet.id}')&perPage=50`, { signal });
       for (const c of (setContentResp.items || [])) {
         state.currentSet[`name_${c.language}`] = c.name || "";
         state.currentSet[`description_${c.language}`] = c.description || "";
@@ -547,7 +552,7 @@ async function loadRoute() {
     }
 
     // Load all objects in this set
-    const objResp = await api(`objects/records?filter=(set='${state.currentSet.id}'%26%26published=true)&sort=sort_order&perPage=200`);
+    const objResp = await api(`objects/records?filter=(set='${state.currentSet.id}'%26%26published=true)&sort=sort_order&perPage=200`, { signal });
     if (generation !== routeLoadGeneration) return;
     state.objects = objResp.items || [];
 
@@ -555,7 +560,7 @@ async function loadRoute() {
     if (state.objects.length > 0) {
       try {
         const objIds = state.objects.map(o => o.id);
-        const objContentResp = await api(`object_content/records?filter=(object='${objIds.join("'||object='")}')&perPage=500`);
+        const objContentResp = await api(`object_content/records?filter=(object='${objIds.join("'||object='")}')&perPage=500`, { signal });
         for (const c of (objContentResp.items || [])) {
           const obj = state.objects.find(o => o.id === c.object);
           if (obj) {
@@ -570,13 +575,13 @@ async function loadRoute() {
 
     // Load floors
     try {
-      const floorResp = await api(`floors/records?filter=(set='${state.currentSet.id}')&sort=sort_order&perPage=50`);
+      const floorResp = await api(`floors/records?filter=(set='${state.currentSet.id}')&sort=sort_order&perPage=50`, { signal });
       state.floors = floorResp.items || [];
       // Load floor_content for per-language labels/names
       if (state.floors.length > 0) {
         try {
           const floorIds = state.floors.map(f => f.id);
-          const fcResp = await api(`floor_content/records?filter=(floor='${floorIds.join("'||floor='")}')&perPage=200`);
+          const fcResp = await api(`floor_content/records?filter=(floor='${floorIds.join("'||floor='")}')&perPage=200`, { signal });
           for (const fc of (fcResp.items || [])) {
             const floor = state.floors.find(f => f.id === fc.floor);
             if (floor) {
@@ -622,6 +627,7 @@ async function loadRoute() {
       showView("list");
     }
   } catch (err) {
+    if (err.name === "AbortError") return;
     console.error("Failed to load route:", err);
     showToast(t("errorLoadFailed"), true);
   } finally {
