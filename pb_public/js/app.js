@@ -567,6 +567,20 @@ async function loadRoute() {
     try {
       const floorResp = await api(`floors/records?filter=(set='${state.currentSet.id}')&sort=sort_order&perPage=50`);
       state.floors = floorResp.items || [];
+      // Load floor_content for per-language labels/names
+      if (state.floors.length > 0) {
+        try {
+          const floorIds = state.floors.map(f => f.id);
+          const fcResp = await api(`floor_content/records?filter=(floor='${floorIds.join("'||floor='")}')&perPage=200`);
+          for (const fc of (fcResp.items || [])) {
+            const floor = state.floors.find(f => f.id === fc.floor);
+            if (floor) {
+              floor._content = floor._content || {};
+              floor._content[fc.language] = fc;
+            }
+          }
+        } catch (e) { /* content table may not exist yet */ }
+      }
     } catch (e) {
       state.floors = [];
     }
@@ -1624,9 +1638,12 @@ function renderMapView() {
     for (const floor of state.floors) {
       const btn = document.createElement("button");
       btn.className = "map-floor-btn" + (floor.id === state.currentFloorId ? " active" : "");
-      btn.textContent = floor.label;
-      btn.title = floor[`name_${lang}`] || floor.name_en || floor.label;
-      btn.setAttribute("aria-label", floor[`name_${lang}`] || floor.name_en || floor.label);
+      const fc = floor._content || {};
+      const floorLabel = fc[lang]?.label || floor.label;
+      const floorName = fc[lang]?.name || Object.values(fc).find(c => c.name)?.name || floor.label;
+      btn.textContent = floorLabel;
+      btn.title = floorName;
+      btn.setAttribute("aria-label", floorName);
       btn.addEventListener("click", () => {
         state.currentFloorId = floor.id;
         renderMapView();
