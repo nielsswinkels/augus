@@ -284,6 +284,21 @@ body {
   border-color: var(--color-primary);
 }
 
+.carousel__3d-wrapper {
+  width: 100%;
+  height: min(180px, 25dvh);
+  border-radius: 8px;
+  border: 2px solid var(--color-border);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.carousel__3d-wrapper model-viewer {
+  width: 100%;
+  height: 100%;
+  --poster-color: transparent;
+}
+
 .carousel__360-icon {
   position: absolute;
   bottom: calc(var(--spacing-sm) + 6px);
@@ -534,6 +549,23 @@ body {
   display: none !important;
 }
 
+.gallery-3d-container {
+  width: 100%;
+  height: 70vh;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.gallery-3d-container.hidden {
+  display: none;
+}
+
+.gallery-3d-container model-viewer {
+  width: 100%;
+  height: 100%;
+  --poster-color: transparent;
+}
+
 .gallery-nav {
   position: absolute;
   top: 50%;
@@ -676,6 +708,19 @@ body {
   border-radius: 6px;
   background: var(--color-border);
   flex-shrink: 0;
+}
+
+.object-list__thumb-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
 }
 
 .object-list__info {

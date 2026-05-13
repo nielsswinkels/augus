@@ -9,10 +9,9 @@ Full accessibility mode for blind and low-vision visitors. Continuous QR scannin
 - **Plan:** `docs/plan-blind-user-mode.md`
 - **Scope:** 4-7 sessions across 3 phases
 
-### Flexible Language System
-Replace hardcoded Swedish/English with dynamic per-set language configuration. Any number of languages per set.
+### ~~Flexible Language System~~ ✅ Done
+Replaced hardcoded Swedish/English with content tables (`set_content`, `object_content`, `image_content`, `floor_content`). Per-set language configuration via `available_languages` JSON field. Dynamic admin forms and visitor language selector.
 - **Plan:** `docs/plan-flexible-languages.md`
-- **Scope:** 5-7 sessions
 
 ### Object Groupings (#2)
 Group multiple objects together within a set. Groups have a title and sort order. In list view, grouped objects are visually enclosed with a border and group title header. No impact on map view, no nested groups.
@@ -24,14 +23,8 @@ Group multiple objects together within a set. Groups have a title and sort order
 
 ## Ideas (need design work)
 
-### 3D Model Support in Gallery & Carousel
-Add 3D models (GLB/glTF format) alongside photos in the image carousel and gallery using Google's **model-viewer** web component (~150KB, MIT, lazy-loaded).
-- **Carousel:** Show a 3D icon overlay (similar to the globe icon on 360 photos) to indicate an interactive 3D model. Admin toggle per model: static fixed angle or auto-rotate.
-- **Gallery:** Full interactive model-viewer — drag to rotate, pinch/scroll to zoom. Disable gallery swipe gestures while the user is interacting with the model (same pattern as 360 photos with Pannellum).
-- **Admin:** File upload accepting `.glb`/`.gltf` files, media type indicator, auto-rotate toggle.
-- **AR (optional):** model-viewer has built-in "View in your space" AR support on compatible devices — could be enabled with minimal effort.
-- **Challenges:** GLB files can be large (500KB-2MB+ for detailed models), load time on museum WiFi, higher content creation barrier than photos (requires photogrammetry, Blender, etc.).
-- **Scope:** 1-2 sessions (follows the same pattern as 360 photo support)
+### ~~3D Model Support in Gallery & Carousel~~ ✅ Done
+Implemented using Google's model-viewer web component (~400KB, MIT, lazy-loaded). Replaced `is_360` boolean with `media_type` select field (image/360/3d). Admin has media type dropdown and .glb file upload. Carousel shows 3D cube icon. Gallery renders interactive model-viewer with camera controls, auto-rotate, shadows, and AR support on compatible devices.
 
 ### Video Support in Gallery & Carousel
 Add video clips alongside photos in the image carousel and gallery. Start with self-hosted short video files (uploaded like images) using a `<video>` tag with a play button overlay — avoids privacy/GDPR issues, ads, and UX hijacking from third-party embeds like YouTube.
@@ -76,7 +69,7 @@ Replace the raw HTML textarea in the admin set form with a rich text editor supp
 - **QR code batch printing:** Admin tool to generate a printable PDF of all QR codes for a set
 - **Analytics:** Simple view/play counts per object (privacy-friendly, no tracking)
 - **Bug: New objects missing from map when floor not explicitly selected.** When creating a new object, if the user sets map coordinates but doesn't click a floor button, the object appears in the list view but not on the map. This is especially confusing when the set has only one floor — the user wouldn't think to select a floor at all. Possible fixes: auto-assign the first (or only) floor when the object is created, or show a validation warning when map coordinates are set but no floor is selected.
-- **Localized floor labels:** Floor short labels (e.g. "G", "1", "2") should support per-language values. For example, ground floor is "G" in English but "E" (entréplan) in Swedish. Currently the label is a single field — needs `label_en`/`label_sv` (or dynamic per the flexible language system) so the floor selector buttons show the correct label for the visitor's language.
+- ~~**Localized floor labels:**~~ ✅ Done — `floor_content` table with per-language label and name.
 - **Translation completeness indicator:** Show in the admin UI which fields are missing translations for each language. Per set: highlight languages that are missing names/descriptions/about. Per object: show which languages lack a name, audio, or subtitles. Per image: indicate which languages are missing captions. Could be a simple color-coded badge or progress bar per language in the set/object/image list views.
 - **Image focus point:** Allow setting a focal point (x%, y%) per image in the admin, used as the `object-position` for CSS `object-fit: cover` cropping in the carousel and thumbnails. Currently images get center-cropped which sometimes cuts off the important part. Admin UI: click on the image to set the focus point. Visitor: apply as inline `object-position` style.
 - ~~**Thumbnail image sizes:**~~ ✅ Done — using PocketBase `?thumb=` params (128x128 for list, 600x400 for carousel).

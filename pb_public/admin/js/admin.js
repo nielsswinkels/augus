@@ -1136,7 +1136,9 @@ async function setupMapPicker(obj) {
       btn.type = "button";
       btn.className = "btn btn--small" + (floor.id === selectedFloor ? " btn--primary" : "");
       btn.textContent = floor.label;
-      btn.title = floor.name_en || floor.label;
+      const floorFc = floor._content || {};
+      const floorName = Object.values(floorFc).find(c => c.name)?.name || floor.label;
+      btn.title = floorName;
       btn.addEventListener("click", () => {
         btnContainer.querySelectorAll(".btn").forEach(b => b.classList.remove("btn--primary"));
         btn.classList.add("btn--primary");
@@ -1223,6 +1225,21 @@ async function loadFloors(setId) {
         currentFloors = resp2.items || [];
       } catch (e) { /* best effort */ }
     }
+    // Load floor_content for per-language labels/names
+    if (currentFloors.length > 0) {
+      try {
+        const floorIds = currentFloors.map(f => f.id);
+        const fcResp = await api(`collections/floor_content/records?filter=(floor='${floorIds.join("'||floor='")}')&perPage=200`);
+        for (const fc of (fcResp.items || [])) {
+          const floor = currentFloors.find(f => f.id === fc.floor);
+          if (floor) {
+            floor._content = floor._content || {};
+            floor._content[fc.language] = fc;
+          }
+        }
+      } catch (e) { /* content table may not exist yet */ }
+    }
+
     // Update hint text based on floor count
     const hasOutdoor = currentFloors.some(f => f.type === "outdoor");
     $("#floorsHint").textContent = currentFloors.length > 1
@@ -1238,31 +1255,34 @@ async function loadFloors(setId) {
 function renderFloorsList() {
   const container = $("#floorsList");
   container.innerHTML = "";
+  const setLangs = editingSetLanguages || ["en"];
   for (let i = 0; i < currentFloors.length; i++) {
     const floor = currentFloors[i];
     const card = document.createElement("div");
     card.className = "floor-card";
     const isMulti = currentFloors.length > 1;
     const isOutdoor = floor.type === "outdoor";
+    const floorContent = floor._content || {};
+
+    let langFieldsHtml = "";
+    if (isMulti) {
+      for (const lang of setLangs) {
+        const fc = floorContent[lang] || {};
+        langFieldsHtml += `
+          <div style="max-width:80px">
+            <label class="form-label">Label (${lang})</label>
+            <input type="text" class="form-input floor-label-lang" data-lang="${lang}" value="${esc(fc.label || floor.label || "")}" maxlength="10" placeholder="${isOutdoor ? "Out" : "G"}">
+          </div>
+          <div>
+            <label class="form-label">Name (${esc(langName(lang))})</label>
+            <input type="text" class="form-input floor-name-lang" data-lang="${lang}" value="${esc(fc.name || "")}" placeholder="${isOutdoor ? "Outdoor" : "Ground Floor"}">
+          </div>
+        `;
+      }
+    }
+
     card.innerHTML = `
-      ${isMulti ? `<div class="form-row form-row--inline">
-        <div style="max-width:80px">
-          <label class="form-label">Label <span class="required">*</span></label>
-          <input type="text" class="form-input floor-label" value="${esc(floor.label)}" maxlength="10" placeholder="${isOutdoor ? "Out" : "G"}" required>
-        </div>
-        <div>
-          <label class="form-label">Name (EN) <span class="required">*</span></label>
-          <input type="text" class="form-input floor-name-en" value="${esc(floor.name_en || "")}" placeholder="${isOutdoor ? "Outdoor Area" : "Ground Floor"}" required>
-        </div>
-        <div>
-          <label class="form-label">Namn (SV)</label>
-          <input type="text" class="form-input floor-name-sv" value="${esc(floor.name_sv || "")}" placeholder="${isOutdoor ? "Utomhusområde" : "Bottenplan"}">
-        </div>
-      </div>` : `
-        <input type="hidden" class="floor-label" value="${esc(floor.label)}">
-        <input type="hidden" class="floor-name-en" value="${esc(floor.name_en || "")}">
-        <input type="hidden" class="floor-name-sv" value="${esc(floor.name_sv || "")}">
-      `}
+      ${isMulti ? `<div class="form-row form-row--inline" style="flex-wrap:wrap">${langFieldsHtml}</div>` : ""}
       ${isOutdoor ? `
       <div class="form-row">
         <label class="form-label">Map center &amp; zoom</label>
@@ -1312,9 +1332,9 @@ function renderFloorsList() {
       const floor = currentFloors.find(f => f.id === floorId);
       const isOutdoor = floor && floor.type === "outdoor";
       const formData = new FormData();
-      formData.append("label", card.querySelector(".floor-label").value.trim());
-      formData.append("name_en", card.querySelector(".floor-name-en").value.trim());
-      formData.append("name_sv", card.querySelector(".floor-name-sv").value.trim());
+      // Use first language's label as the floor's base label
+      const firstLabelInput = card.querySelector(".floor-label-lang");
+      formData.append("label", firstLabelInput ? firstLabelInput.value.trim() : floor.label);
       if (isOutdoor) {
         formData.append("center_lat", card.querySelector(".floor-center-lat").value || "");
         formData.append("center_lng", card.querySelector(".floor-center-lng").value || "");
@@ -1325,6 +1345,30 @@ function renderFloorsList() {
       }
       try {
         await api(`collections/floors/records/${floorId}`, { method: "PATCH", body: formData });
+        // Save per-language labels and names to floor_content
+        const labelInputs = card.querySelectorAll(".floor-label-lang");
+        const nameInputs = card.querySelectorAll(".floor-name-lang");
+        const floorContent = floor._content || {};
+        for (const input of labelInputs) {
+          const lang = input.dataset.lang;
+          const label = input.value.trim();
+          const nameInput = card.querySelector(`.floor-name-lang[data-lang="${lang}"]`);
+          const name = nameInput ? nameInput.value.trim() : "";
+          const existing = floorContent[lang];
+          if (existing && existing.id) {
+            await api(`collections/floor_content/records/${existing.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ label, name }),
+            });
+          } else if (label || name) {
+            await api("collections/floor_content/records", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ floor: floorId, language: lang, label, name }),
+            });
+          }
+        }
         showToast("Floor saved!");
         loadFloors(editingSet.id);
       } catch (e) {
@@ -1459,7 +1503,9 @@ function updateDefaultFloorDropdown() {
   for (const floor of currentFloors) {
     const opt = document.createElement("option");
     opt.value = floor.id;
-    opt.textContent = floor.label + (floor.name_en ? ` — ${floor.name_en}` : "");
+    const fc = floor._content || {};
+    const firstName = Object.values(fc).find(c => c.name)?.name || "";
+    opt.textContent = floor.label + (firstName ? ` — ${firstName}` : "");
     select.appendChild(opt);
   }
   select.value = editingSet.default_floor || (currentFloors.length > 0 ? currentFloors[0].id : "");
@@ -1529,14 +1575,18 @@ function renderImagesGrid(images) {
       </div>
       <div style="position:relative">
         <img src="${url}" alt="${esc(displayCaption)}" loading="lazy">
-        ${img.is_360 ? '<span class="image-card__360-badge">360°</span>' : ''}
+        ${img.media_type === "360" ? '<span class="image-card__360-badge">360°</span>' : ""}
+        ${img.media_type === "3d" ? '<span class="image-card__360-badge">3D</span>' : ""}
       </div>
       <div class="image-card__caption image-card__caption--display">${esc(displayCaption)}</div>
       <div class="image-card__edit-fields" style="display:none">
         ${captionFieldsHtml}
-        <label class="form-label" style="font-size:0.8rem;margin-top:0.25rem;display:flex;align-items:center;gap:var(--spacing-xs)">
-          <input type="checkbox" class="image-is-360" ${img.is_360 ? "checked" : ""}> 360° photo
-        </label>
+        <label class="form-label" style="font-size:0.8rem;margin-top:0.25rem">Media type</label>
+        <select class="form-input form-select image-media-type" style="font-size:0.8rem">
+          <option value="image" ${(img.media_type || "image") === "image" ? "selected" : ""}>Image</option>
+          <option value="360" ${img.media_type === "360" ? "selected" : ""}>360° photo</option>
+          <option value="3d" ${img.media_type === "3d" ? "selected" : ""}>3D model</option>
+        </select>
       </div>
       <div class="image-card__actions">
         <button class="btn btn--edit" data-edit-image="${img.id}" title="Edit captions">Edit</button>
@@ -1593,13 +1643,12 @@ function renderImagesGrid(images) {
     btn.addEventListener("click", async () => {
       const card = btn.closest(".image-card");
       const imageId = btn.dataset.saveImage;
-      const is360 = card.querySelector(".image-is-360")?.checked || false;
+      const mediaType = card.querySelector(".image-media-type")?.value || "image";
       try {
-        // Save is_360 on the image record
         await api(`collections/object_images/records/${imageId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ is_360: is360 }),
+          body: JSON.stringify({ media_type: mediaType }),
         });
         // Save captions per language to image_content
         const captionInputs = card.querySelectorAll(".image-caption");
@@ -1655,23 +1704,39 @@ async function uploadImage(e) {
   }
 
   const objectId = $("#objectFormId").value;
+  const mediaType = $("#imageMediaType").value;
+  const imageFile = $("#imageFile").files[0];
+  const modelFile = mediaType === "3d" ? $("#imageModelFile").files[0] : null;
+
+  if (!imageFile && mediaType !== "3d") {
+    showToast("Please select an image file.");
+    return;
+  }
+  if (mediaType === "3d" && !modelFile) {
+    showToast("Please select a 3D model file (.glb).");
+    return;
+  }
+
   const formData = new FormData();
   formData.append("object", objectId);
-  formData.append("image", $("#imageFile").files[0]);
+  if (imageFile) formData.append("image", imageFile);
 
   // Determine sort order (next available)
   const currentImages = $("#imagesGrid").children.length;
   formData.append("sort_order", currentImages + 1);
 
-  const is360 = $("#imageIs360").checked;
-
   try {
     const result = await api("collections/object_images/records", { method: "POST", body: formData });
-    if (is360) {
+    if (mediaType === "3d" && modelFile) {
+      const modelForm = new FormData();
+      modelForm.append("model_file", modelFile);
+      modelForm.append("media_type", "3d");
+      await api(`collections/object_images/records/${result.id}`, { method: "PATCH", body: modelForm });
+    } else if (mediaType !== "image") {
       await api(`collections/object_images/records/${result.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_360: true }),
+        body: JSON.stringify(patchData),
       });
     }
 
@@ -1692,7 +1757,9 @@ async function uploadImage(e) {
     showToast("Image uploaded!");
     $("#imageFile").value = "";
     document.querySelectorAll("#imageCaptionFields .image-upload-caption").forEach(el => el.value = "");
-    $("#imageIs360").checked = false;
+    $("#imageMediaType").value = "image";
+    $("#imageModelFile").value = "";
+    $("#modelFileRow").classList.add("hidden");
     loadObjectImages(objectId);
   } catch (e) {
     showToast("Could not upload the image. Please check the file size and format and try again.");
@@ -1932,6 +1999,12 @@ function setupEvents() {
 
   // Images
   $("#imageUploadForm").addEventListener("submit", uploadImage);
+  $("#imageMediaType").addEventListener("change", () => {
+    const is3d = $("#imageMediaType").value === "3d";
+    $("#modelFileRow").classList.toggle("hidden", !is3d);
+    $("#imageFile").required = !is3d;
+    $("#imageFileLabel").textContent = is3d ? "Poster image (optional)" : "Image file";
+  });
 
   // QR
   $("#btnQRCode").addEventListener("click", generateQRCode);
