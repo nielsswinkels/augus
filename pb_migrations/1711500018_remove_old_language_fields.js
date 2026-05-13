@@ -4,7 +4,7 @@ migrate((app) => {
     for (const name of fieldNames) {
       try {
         const f = collection.fields.getByName(name);
-        if (f) collection.fields.remove(f.id);
+        if (f) collection.fields.removeById(f.id);
       } catch (e) {
         // Field may already be removed or method unavailable
       }

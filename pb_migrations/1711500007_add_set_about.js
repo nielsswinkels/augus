@@ -16,7 +16,7 @@ migrate((app) => {
   const collection = app.findCollectionByNameOrId("sets");
   const aboutEn = collection.fields.getByName("about_en");
   const aboutSv = collection.fields.getByName("about_sv");
-  if (aboutEn) collection.fields.remove(aboutEn.id);
-  if (aboutSv) collection.fields.remove(aboutSv.id);
+  if (aboutEn) collection.fields.removeById(aboutEn.id);
+  if (aboutSv) collection.fields.removeById(aboutSv.id);
   app.save(collection);
 });

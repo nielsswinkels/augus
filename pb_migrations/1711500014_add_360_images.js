@@ -10,6 +10,6 @@ migrate((app) => {
 }, (app) => {
   const images = app.findCollectionByNameOrId("object_images");
   const f = images.fields.getByName("is_360");
-  if (f) images.fields.remove(f.id);
+  if (f) images.fields.removeById(f.id);
   app.save(images);
 });

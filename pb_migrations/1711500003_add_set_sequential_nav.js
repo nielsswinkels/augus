@@ -10,6 +10,6 @@ migrate((app) => {
 }, (app) => {
   const collection = app.findCollectionByNameOrId("sets");
   const field = collection.fields.getByName("sequential_navigation");
-  if (field) collection.fields.remove(field.id);
+  if (field) collection.fields.removeById(field.id);
   app.save(collection);
 });

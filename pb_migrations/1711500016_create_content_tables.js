@@ -156,7 +156,7 @@ migrate((app) => {
   // Revert: remove available_languages from sets
   const sets = app.findCollectionByNameOrId("sets");
   const f = sets.fields.getByName("available_languages");
-  if (f) sets.fields.remove(f.id);
+  if (f) sets.fields.removeById(f.id);
   app.save(sets);
 
   // Delete content collections

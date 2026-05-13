@@ -16,7 +16,7 @@ migrate((app) => {
   const collection = app.findCollectionByNameOrId("sets");
   const primary = collection.fields.getByName("color_primary");
   const accent = collection.fields.getByName("color_accent");
-  if (primary) collection.fields.remove(primary.id);
-  if (accent) collection.fields.remove(accent.id);
+  if (primary) collection.fields.removeById(primary.id);
+  if (accent) collection.fields.removeById(accent.id);
   app.save(collection);
 });
