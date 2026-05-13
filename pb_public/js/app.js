@@ -605,10 +605,12 @@ async function loadRoute() {
       state.currentFloorId = null;
     }
 
-    // Start GPS tracking if set has outdoor floors
+    // Start or stop GPS tracking based on outdoor floors
     const hasOutdoorFloors = state.floors.some(f => f.type === "outdoor");
     if (hasOutdoorFloors) {
       startGpsTracking();
+    } else {
+      stopGpsTracking();
     }
 
     if (generation !== routeLoadGeneration) return;
