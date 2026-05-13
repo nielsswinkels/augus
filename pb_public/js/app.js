@@ -375,6 +375,8 @@ function t(key) {
 }
 
 // ===== API helpers =====
+let routeLoadGeneration = 0;
+
 async function api(path) {
   let resp;
   try {
@@ -500,10 +502,12 @@ async function loadRoute() {
   }
 
   document.getElementById('loadingIndicator').style.display = 'flex';
+  const generation = ++routeLoadGeneration;
 
   try {
     // Load set
     const setsResp = await api(`sets/records?filter=(slug='${encodeURIComponent(route.setSlug)}'%26%26published=true)`);
+    if (generation !== routeLoadGeneration) return;
     if (!setsResp.items || setsResp.items.length === 0) {
       showToast(t("errorSetNotFound"), true);
       return;
@@ -544,6 +548,7 @@ async function loadRoute() {
 
     // Load all objects in this set
     const objResp = await api(`objects/records?filter=(set='${state.currentSet.id}'%26%26published=true)&sort=sort_order&perPage=200`);
+    if (generation !== routeLoadGeneration) return;
     state.objects = objResp.items || [];
 
     // Load object content and enrich objects with per-language fields
@@ -600,10 +605,13 @@ async function loadRoute() {
       startGpsTracking();
     }
 
+    if (generation !== routeLoadGeneration) return;
+
     if (route.objectSlug) {
       const obj = state.objects.find((o) => o.slug === route.objectSlug);
       if (obj) {
         await loadObject(obj);
+        if (generation !== routeLoadGeneration) return;
         updateSequentialNav();
         showView("object");
       } else {
