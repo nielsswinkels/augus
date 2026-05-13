@@ -1575,14 +1575,18 @@ function renderImagesGrid(images) {
       </div>
       <div style="position:relative">
         <img src="${url}" alt="${esc(displayCaption)}" loading="lazy">
-        ${img.is_360 ? '<span class="image-card__360-badge">360°</span>' : ''}
+        ${img.media_type === "360" ? '<span class="image-card__360-badge">360°</span>' : ""}
+        ${img.media_type === "3d" ? '<span class="image-card__360-badge">3D</span>' : ""}
       </div>
       <div class="image-card__caption image-card__caption--display">${esc(displayCaption)}</div>
       <div class="image-card__edit-fields" style="display:none">
         ${captionFieldsHtml}
-        <label class="form-label" style="font-size:0.8rem;margin-top:0.25rem;display:flex;align-items:center;gap:var(--spacing-xs)">
-          <input type="checkbox" class="image-is-360" ${img.is_360 ? "checked" : ""}> 360° photo
-        </label>
+        <label class="form-label" style="font-size:0.8rem;margin-top:0.25rem">Media type</label>
+        <select class="form-input form-select image-media-type" style="font-size:0.8rem">
+          <option value="image" ${(img.media_type || "image") === "image" ? "selected" : ""}>Image</option>
+          <option value="360" ${img.media_type === "360" ? "selected" : ""}>360° photo</option>
+          <option value="3d" ${img.media_type === "3d" ? "selected" : ""}>3D model</option>
+        </select>
       </div>
       <div class="image-card__actions">
         <button class="btn btn--edit" data-edit-image="${img.id}" title="Edit captions">Edit</button>
@@ -1639,13 +1643,12 @@ function renderImagesGrid(images) {
     btn.addEventListener("click", async () => {
       const card = btn.closest(".image-card");
       const imageId = btn.dataset.saveImage;
-      const is360 = card.querySelector(".image-is-360")?.checked || false;
+      const mediaType = card.querySelector(".image-media-type")?.value || "image";
       try {
-        // Save is_360 on the image record
         await api(`collections/object_images/records/${imageId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ is_360: is360 }),
+          body: JSON.stringify({ media_type: mediaType }),
         });
         // Save captions per language to image_content
         const captionInputs = card.querySelectorAll(".image-caption");
@@ -1709,15 +1712,31 @@ async function uploadImage(e) {
   const currentImages = $("#imagesGrid").children.length;
   formData.append("sort_order", currentImages + 1);
 
-  const is360 = $("#imageIs360").checked;
+  const mediaType = $("#imageMediaType").value;
 
   try {
     const result = await api("collections/object_images/records", { method: "POST", body: formData });
-    if (is360) {
+    // Set media_type and upload model file if 3D
+    const patchData = { media_type: mediaType };
+    if (mediaType === "3d") {
+      const modelFile = $("#imageModelFile").files[0];
+      if (modelFile) {
+        const modelForm = new FormData();
+        modelForm.append("model_file", modelFile);
+        modelForm.append("media_type", "3d");
+        await api(`collections/object_images/records/${result.id}`, { method: "PATCH", body: modelForm });
+      } else {
+        await api(`collections/object_images/records/${result.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patchData),
+        });
+      }
+    } else if (mediaType !== "image") {
       await api(`collections/object_images/records/${result.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_360: true }),
+        body: JSON.stringify(patchData),
       });
     }
 
@@ -1738,7 +1757,9 @@ async function uploadImage(e) {
     showToast("Image uploaded!");
     $("#imageFile").value = "";
     document.querySelectorAll("#imageCaptionFields .image-upload-caption").forEach(el => el.value = "");
-    $("#imageIs360").checked = false;
+    $("#imageMediaType").value = "image";
+    $("#imageModelFile").value = "";
+    $("#modelFileRow").classList.add("hidden");
     loadObjectImages(objectId);
   } catch (e) {
     showToast("Could not upload the image. Please check the file size and format and try again.");
@@ -1978,6 +1999,9 @@ function setupEvents() {
 
   // Images
   $("#imageUploadForm").addEventListener("submit", uploadImage);
+  $("#imageMediaType").addEventListener("change", () => {
+    $("#modelFileRow").classList.toggle("hidden", $("#imageMediaType").value !== "3d");
+  });
 
   // QR
   $("#btnQRCode").addEventListener("click", generateQRCode);

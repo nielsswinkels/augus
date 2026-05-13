@@ -831,10 +831,15 @@ function renderCarousel() {
     imgEl.loading = i === 0 ? "eager" : "lazy";
     imgEl.addEventListener("click", () => openGallery(i));
     slide.appendChild(imgEl);
-    if (img.is_360) {
+    if (img.media_type === "360") {
       const icon = document.createElement("span");
       icon.className = "carousel__360-icon";
       icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><ellipse cx="12" cy="12" rx="4" ry="10"/><path d="M2 12h20"/></svg>';
+      slide.appendChild(icon);
+    } else if (img.media_type === "3d") {
+      const icon = document.createElement("span");
+      icon.className = "carousel__360-icon";
+      icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>';
       slide.appendChild(icon);
     }
     dom.carouselTrack.appendChild(slide);
@@ -1081,6 +1086,7 @@ function openGallery(index = 0) {
 
 function closeGallery() {
   destroyPannellum();
+  destroyModelViewer();
   dom.galleryImage.classList.remove("hidden");
   dom.galleryOverlay.classList.remove("active");
   if (galleryFocusTrapCleanup) { galleryFocusTrapCleanup(); galleryFocusTrapCleanup = null; }
@@ -1095,6 +1101,14 @@ function closeGallery() {
 }
 
 let pannellumViewer = null;
+
+function destroyModelViewer() {
+  const container = document.getElementById("gallery3dContainer");
+  if (container) {
+    container.classList.add("hidden");
+    container.innerHTML = "";
+  }
+}
 
 function destroyPannellum() {
   if (pannellumViewer) {
@@ -1123,9 +1137,9 @@ async function renderGalleryImage() {
   dom.btnGalleryNext.style.visibility =
     state.galleryIndex < state.images.length - 1 ? "visible" : "hidden";
 
-  if (img.is_360) {
-    // 360 image: use Pannellum viewer
+  if (img.media_type === "360") {
     destroyPannellum();
+    destroyModelViewer();
     dom.galleryImage.classList.add("hidden");
     const container = document.getElementById("gallery360Container");
     container.classList.remove("hidden");
@@ -1150,9 +1164,28 @@ async function renderGalleryImage() {
     pannellumViewer.on("load", () => {
       try { pannellumViewer.startOrientation(); } catch (e) { /* not available */ }
     });
-  } else {
-    // Regular image
+  } else if (img.media_type === "3d" && img.model_file) {
     destroyPannellum();
+    destroyModelViewer();
+    dom.galleryImage.classList.add("hidden");
+    const container = document.getElementById("gallery3dContainer");
+    container.classList.remove("hidden");
+
+    await loadModelViewer();
+    const modelUrl = fileUrl("object_images", img.id, img.model_file);
+    const viewer = document.createElement("model-viewer");
+    viewer.setAttribute("src", modelUrl);
+    viewer.setAttribute("alt", caption || "3D model");
+    viewer.setAttribute("camera-controls", "");
+    viewer.setAttribute("touch-action", "pan-y");
+    viewer.setAttribute("auto-rotate", "");
+    viewer.setAttribute("shadow-intensity", "1");
+    viewer.setAttribute("ar", "");
+    if (url) viewer.setAttribute("poster", url);
+    container.appendChild(viewer);
+  } else {
+    destroyPannellum();
+    destroyModelViewer();
     dom.galleryImage.classList.remove("hidden");
     dom.galleryImage.src = url;
     dom.galleryImage.alt = caption || `Image ${state.galleryIndex + 1}`;
@@ -1238,6 +1271,7 @@ function setupGalleryEvents() {
 
   dom.galleryBody.addEventListener("pointerdown", (e) => {
     if (pannellumViewer) return;
+    if (document.getElementById("gallery3dContainer") && !document.getElementById("gallery3dContainer").classList.contains("hidden")) return;
     if (e.target.closest(".gallery-nav")) return;
     galleryPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     dom.galleryBody.setPointerCapture(e.pointerId);
@@ -1382,6 +1416,19 @@ async function loadListThumbnails() {
       }
     }
   } catch (e) { /* ignore */ }
+}
+
+// ===== model-viewer Lazy Loader =====
+function loadModelViewer() {
+  if (window._modelViewerPromise) return window._modelViewerPromise;
+  window._modelViewerPromise = new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.type = "module";
+    script.src = "/js/lib/model-viewer/model-viewer.min.js";
+    script.onload = () => resolve();
+    document.head.appendChild(script);
+  });
+  return window._modelViewerPromise;
 }
 
 // ===== Pannellum Lazy Loader =====

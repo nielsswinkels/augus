@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Augus — Admin</title>
-  <link rel="stylesheet" href="/admin/css/admin.css?v=20260513b">
+  <link rel="stylesheet" href="/admin/css/admin.css?v=20260513c">
 </head>
 <body>
   <!-- ===== LOGIN ===== -->
@@ -300,11 +300,19 @@
           <div class="form-row form-row--inline" id="imageCaptionFields">
             <!-- Dynamic caption fields rendered by JS per language -->
           </div>
-          <label class="form-label" style="display:flex;align-items:center;gap:var(--spacing-sm);margin-top:var(--spacing-xs)">
-            <input type="checkbox" id="imageIs360">
-            360° photo
-          </label>
-          <button type="submit" class="btn btn--primary">Upload Image</button>
+          <div class="form-row" style="margin-top:var(--spacing-xs)">
+            <label class="form-label">Media type</label>
+            <select id="imageMediaType" class="form-input form-select" style="width:auto">
+              <option value="image">Image</option>
+              <option value="360">360° photo</option>
+              <option value="3d">3D model</option>
+            </select>
+          </div>
+          <div id="modelFileRow" class="form-row hidden">
+            <label class="form-label">3D model file (.glb)</label>
+            <input type="file" id="imageModelFile" class="form-input" accept=".glb,.gltf">
+          </div>
+          <button type="submit" class="btn btn--primary">Upload</button>
         </form>
       </div>
     </div>
@@ -329,6 +337,6 @@
   <div class="toast" id="adminToast" role="alert"></div>
 
   <script src="/admin/js/lib/qrcode-generator.min.js"></script>
-  <script src="/admin/js/admin.js?v=20260513b" type="module"></script>
+  <script src="/admin/js/admin.js?v=20260513c" type="module"></script>
 </body>
 </html>
