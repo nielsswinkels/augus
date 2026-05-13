@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Augus — Admin</title>
-  <link rel="stylesheet" href="/admin/css/admin.css?v=20260507a">
+  <link rel="stylesheet" href="/admin/css/admin.css?v=20260513a">
 </head>
 <body>
   <!-- ===== LOGIN ===== -->
@@ -62,29 +62,24 @@
         </div>
 
         <fieldset class="form-fieldset">
-          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">English</legend>
-          <label for="setNameEn" class="form-label">Name <span class="required">*</span></label>
-          <input type="text" id="setNameEn" class="form-input" required>
-          <label for="setDescEn" class="form-label">Description</label>
-          <textarea id="setDescEn" class="form-input form-textarea"></textarea>
+          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Languages</legend>
+          <div class="form-row">
+            <label class="form-label">Available languages</label>
+            <div style="display:flex;gap:var(--spacing-sm);align-items:center;flex-wrap:wrap">
+              <select id="setAddLanguage" class="form-input form-select" style="width:auto;min-width:150px">
+                <!-- Options populated by JS -->
+              </select>
+              <button type="button" class="btn btn--small" id="btnAddLanguage">+ Add</button>
+            </div>
+            <div class="language-tags" id="setLanguageTags" style="display:flex;gap:var(--spacing-xs);flex-wrap:wrap;margin-top:var(--spacing-xs)">
+              <!-- Language tags rendered by JS -->
+            </div>
+          </div>
         </fieldset>
 
-        <fieldset class="form-fieldset">
-          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Svenska</legend>
-          <label for="setNameSv" class="form-label">Namn</label>
-          <input type="text" id="setNameSv" class="form-input">
-          <label for="setDescSv" class="form-label">Beskrivning</label>
-          <textarea id="setDescSv" class="form-input form-textarea"></textarea>
-        </fieldset>
-
-        <fieldset class="form-fieldset">
-          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">About page (optional)</legend>
-          <label for="setAboutEn" class="form-label">About (English)</label>
-          <textarea id="setAboutEn" class="form-input form-textarea" rows="4"></textarea>
-          <label for="setAboutSv" class="form-label">Om (Svenska)</label>
-          <textarea id="setAboutSv" class="form-input form-textarea" rows="4"></textarea>
-          <p class="form-hint">Free text shown on the About page. Supports basic HTML.</p>
-        </fieldset>
+        <div id="setContentFieldsets">
+          <!-- Dynamic language fieldsets rendered by JS (name, description, about per language) -->
+        </div>
 
         <div class="form-row">
           <label for="setLogo" class="form-label">Logo (optional)</label>
@@ -222,35 +217,14 @@
           <div>
             <label for="objectDefaultLang" class="form-label">Default language</label>
             <select id="objectDefaultLang" class="form-input form-select">
-              <option value="en">English</option>
-              <option value="sv">Svenska</option>
+              <!-- Options populated by JS from set's available_languages -->
             </select>
           </div>
         </div>
 
-        <fieldset class="form-fieldset">
-          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">English</legend>
-          <label for="objectNameEn" class="form-label">Name <span class="required">*</span></label>
-          <input type="text" id="objectNameEn" class="form-input" required>
-          <label for="objectAudioEn" class="form-label">Audio (MP3)</label>
-          <input type="file" id="objectAudioEn" class="form-input" accept="audio/mpeg,audio/mp3,audio/ogg">
-          <div class="current-file hidden" id="objectAudioEnCurrent"></div>
-          <label for="objectSubtitlesEn" class="form-label">Subtitles (VTT)</label>
-          <input type="file" id="objectSubtitlesEn" class="form-input" accept=".vtt,text/vtt,text/plain">
-          <div class="current-file hidden" id="objectSubtitlesEnCurrent"></div>
-        </fieldset>
-
-        <fieldset class="form-fieldset">
-          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Svenska</legend>
-          <label for="objectNameSv" class="form-label">Namn</label>
-          <input type="text" id="objectNameSv" class="form-input">
-          <label for="objectAudioSv" class="form-label">Ljud (MP3)</label>
-          <input type="file" id="objectAudioSv" class="form-input" accept="audio/mpeg,audio/mp3,audio/ogg">
-          <div class="current-file hidden" id="objectAudioSvCurrent"></div>
-          <label for="objectSubtitlesSv" class="form-label">Undertexter (VTT)</label>
-          <input type="file" id="objectSubtitlesSv" class="form-input" accept=".vtt,text/vtt,text/plain">
-          <div class="current-file hidden" id="objectSubtitlesSvCurrent"></div>
-        </fieldset>
+        <div id="objectContentFieldsets">
+          <!-- Dynamic language fieldsets rendered by JS (name, audio, subtitles per language) -->
+        </div>
 
         <fieldset class="form-fieldset" id="mapPositionFieldset">
           <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Map position</legend>
@@ -323,15 +297,8 @@
         </div>
         <form id="imageUploadForm" class="image-upload-form">
           <input type="file" id="imageFile" class="form-input" accept="image/png,image/jpeg,image/webp,image/gif" required>
-          <div class="form-row form-row--inline">
-            <div>
-              <label for="imageCaptionEn" class="form-label">Caption (EN)</label>
-              <input type="text" id="imageCaptionEn" class="form-input">
-            </div>
-            <div>
-              <label for="imageCaptionSv" class="form-label">Caption (SV)</label>
-              <input type="text" id="imageCaptionSv" class="form-input">
-            </div>
+          <div class="form-row form-row--inline" id="imageCaptionFields">
+            <!-- Dynamic caption fields rendered by JS per language -->
           </div>
           <label class="form-label" style="display:flex;align-items:center;gap:var(--spacing-sm);margin-top:var(--spacing-xs)">
             <input type="checkbox" id="imageIs360">
@@ -362,6 +329,6 @@
   <div class="toast" id="adminToast" role="alert"></div>
 
   <script src="/admin/js/lib/qrcode-generator.min.js"></script>
-  <script src="/admin/js/admin.js?v=20260507a" type="module"></script>
+  <script src="/admin/js/admin.js?v=20260513a" type="module"></script>
 </body>
 </html>

@@ -17,6 +17,25 @@ let adminMapInstance = null;
 let adminMapMarker = null;
 let adminRadiusCircle = null;
 let objectPickerFloors = [];
+let editingSetContent = {};    // { "en": {id, name, description, about}, "sv": {id, ...} }
+let editingObjectContent = {}; // { "en": {id, name, description, audio, subtitles}, "sv": {id, ...} }
+let editingSetLanguages = [];  // ["en", "sv", ...]
+
+// ===== Language Names =====
+const LANGUAGE_NAMES = {
+  en: "English", sv: "Svenska", de: "Deutsch",
+  fr: "Français", es: "Español", it: "Italiano",
+  nl: "Nederlands", da: "Dansk", no: "Norsk",
+  fi: "Suomi", pt: "Português", zh: "中文",
+  ja: "日本語", ko: "한국어", ar: "العربية",
+  pl: "Polski", cs: "Čeština", ru: "Русский",
+  uk: "Українська", tr: "Türkçe", el: "Ελληνικά",
+  he: "עברית", hi: "हिन्दी", th: "ไทย",
+};
+
+function langName(code) {
+  return LANGUAGE_NAMES[code] || code.toUpperCase();
+}
 
 // ===== Leaflet Lazy Loader =====
 function loadLeaflet() {
@@ -130,10 +149,29 @@ async function loadSets() {
   try {
     const resp = await api("collections/sets/records?sort=name_en&perPage=200");
     currentSets = resp.items || [];
+    // Load content for set names in list
+    const setContentResp = await api("collections/set_content/records?perPage=500");
+    const allSetContent = setContentResp.items || [];
+    for (const s of currentSets) {
+      s._content = {};
+      for (const c of allSetContent) {
+        if (c.set === s.id) s._content[c.language] = c;
+      }
+    }
     renderSetsList();
   } catch (e) {
     showToast("Could not load sets. Please check your connection and try refreshing the page.");
   }
+}
+
+function getSetDisplayName(set) {
+  if (set._content) {
+    const langs = Object.keys(set._content);
+    for (const l of langs) {
+      if (set._content[l].name) return set._content[l].name;
+    }
+  }
+  return set.name_en || set.name_sv || "(Untitled)";
 }
 
 function renderSetsList() {
@@ -150,7 +188,7 @@ function renderSetsList() {
     card.setAttribute("role", "button");
     card.innerHTML = `
       <div class="set-card__info">
-        <div class="set-card__name">${esc(set.name_en)}${set.published ? "" : ' <span class="set-card__draft">Draft</span>'}</div>
+        <div class="set-card__name">${esc(getSetDisplayName(set))}${set.published ? "" : ' <span class="set-card__draft">Draft</span>'}</div>
         <div class="set-card__slug">/${esc(set.slug)}</div>
       </div>
     `;
@@ -160,7 +198,7 @@ function renderSetsList() {
   }
 }
 
-function editSet(set) {
+async function editSet(set) {
   editingSet = set;
   formDirty = false;
   resetConfirmButton($("#btnDeleteSet"));
@@ -171,12 +209,16 @@ function editSet(set) {
   if (set) {
     $("#setFormId").value = set.id;
     $("#setSlug").value = set.slug;
-    $("#setNameEn").value = set.name_en || "";
-    $("#setNameSv").value = set.name_sv || "";
-    $("#setDescEn").value = set.description_en || "";
-    $("#setDescSv").value = set.description_sv || "";
     $("#btnDeleteSet").classList.remove("hidden");
     $("#btnGoToObjects").style.display = "";
+
+    // Load content from content table
+    const contentResp = await api(`collections/set_content/records?filter=(set='${set.id}')&perPage=50`);
+    editingSetContent = {};
+    for (const c of (contentResp.items || [])) {
+      editingSetContent[c.language] = c;
+    }
+    editingSetLanguages = set.available_languages || ["en", "sv"];
 
     if (set.logo) {
       $("#setLogoCurrent").innerHTML = `Current: ${esc(set.logo)} <button class="current-file__remove" data-field="logo" title="Remove">&times;</button>`;
@@ -185,9 +227,6 @@ function editSet(set) {
       $("#setLogoCurrent").classList.add("hidden");
     }
     $("#setLogo").value = "";
-
-    $("#setAboutEn").value = set.about_en || "";
-    $("#setAboutSv").value = set.about_sv || "";
 
     $("#setCustomFont").value = "";
     if (set.custom_font) {
@@ -213,14 +252,8 @@ function editSet(set) {
   } else {
     $("#setFormId").value = "";
     $("#setSlug").value = "";
-    $("#setNameEn").value = "";
-    $("#setNameSv").value = "";
-    $("#setDescEn").value = "";
-    $("#setDescSv").value = "";
     $("#setLogo").value = "";
     $("#setLogoCurrent").classList.add("hidden");
-    $("#setAboutEn").value = "";
-    $("#setAboutSv").value = "";
     $("#setCustomFont").value = "";
     $("#setCustomFontCurrent").classList.add("hidden");
     $("#setSubtitleFont").value = "Atkinson Hyperlegible Next";
@@ -233,6 +266,73 @@ function editSet(set) {
     $("#btnDeleteSet").classList.add("hidden");
     $("#btnGoToObjects").style.display = "none";
     $("#floorsFieldset").style.display = "none";
+    editingSetContent = {};
+    editingSetLanguages = ["en"];
+  }
+  renderSetLanguages();
+}
+
+// ===== Dynamic Language Management for Sets =====
+function renderSetLanguages() {
+  // Render language tags
+  const tagsContainer = $("#setLanguageTags");
+  tagsContainer.innerHTML = "";
+  for (const lang of editingSetLanguages) {
+    const tag = document.createElement("span");
+    tag.className = "language-tag";
+    tag.innerHTML = `${esc(langName(lang))} <button type="button" class="language-tag__remove" data-lang="${esc(lang)}" title="Remove ${esc(langName(lang))}">&times;</button>`;
+    tag.querySelector("button").addEventListener("click", () => removeSetLanguage(lang));
+    tagsContainer.appendChild(tag);
+  }
+
+  // Render add-language dropdown (exclude already added)
+  const select = $("#setAddLanguage");
+  select.innerHTML = "";
+  for (const [code, name] of Object.entries(LANGUAGE_NAMES)) {
+    if (!editingSetLanguages.includes(code)) {
+      select.innerHTML += `<option value="${code}">${esc(name)} (${code})</option>`;
+    }
+  }
+
+  // Render content fieldsets
+  renderSetContentFieldsets();
+}
+
+function addSetLanguage() {
+  const code = $("#setAddLanguage").value;
+  if (!code || editingSetLanguages.includes(code)) return;
+  editingSetLanguages.push(code);
+  renderSetLanguages();
+  formDirty = true;
+}
+
+function removeSetLanguage(code) {
+  if (editingSetLanguages.length <= 1) {
+    showToast("At least one language is required.");
+    return;
+  }
+  editingSetLanguages = editingSetLanguages.filter(l => l !== code);
+  renderSetLanguages();
+  formDirty = true;
+}
+
+function renderSetContentFieldsets() {
+  const container = $("#setContentFieldsets");
+  container.innerHTML = "";
+  for (const lang of editingSetLanguages) {
+    const content = editingSetContent[lang] || {};
+    const fieldset = document.createElement("fieldset");
+    fieldset.className = "form-fieldset";
+    fieldset.innerHTML = `
+      <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">${esc(langName(lang))} (${lang})</legend>
+      <label class="form-label">Name ${editingSetLanguages.indexOf(lang) === 0 ? '<span class="required">*</span>' : ""}</label>
+      <input type="text" class="form-input set-content-name" data-lang="${lang}" value="${esc(content.name || "")}" ${editingSetLanguages.indexOf(lang) === 0 ? "required" : ""}>
+      <label class="form-label">Description</label>
+      <textarea class="form-input form-textarea set-content-desc" data-lang="${lang}">${esc(content.description || "")}</textarea>
+      <label class="form-label">About page</label>
+      <textarea class="form-input form-textarea set-content-about" data-lang="${lang}" rows="4">${esc(content.about || "")}</textarea>
+    `;
+    container.appendChild(fieldset);
   }
 }
 
@@ -248,16 +348,12 @@ async function saveSet(e) {
   }
   const formData = new FormData();
   formData.append("slug", slug);
-  formData.append("name_en", $("#setNameEn").value.trim());
-  formData.append("name_sv", $("#setNameSv").value.trim());
-  formData.append("description_en", $("#setDescEn").value.trim());
-  formData.append("description_sv", $("#setDescSv").value.trim());
+  // Keep name_en for backward compatibility / sorting
+  const firstLangName = document.querySelector(".set-content-name")?.value.trim() || "";
+  formData.append("name_en", firstLangName);
 
   const logoFile = $("#setLogo").files[0];
   if (logoFile) formData.append("logo", logoFile);
-
-  formData.append("about_en", $("#setAboutEn").value.trim());
-  formData.append("about_sv", $("#setAboutSv").value.trim());
 
   const fontFile = $("#setCustomFont").files[0];
   if (fontFile) formData.append("custom_font", fontFile);
@@ -278,15 +374,54 @@ async function saveSet(e) {
       const result = await api("collections/sets/records", { method: "POST", body: formData });
       savedSetId = result.id;
     }
-    // Separate JSON PATCH for boolean fields
+    // Save booleans + available_languages as JSON
     await api(`collections/sets/records/${savedSetId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         published: $("#setPublished").checked,
         sequential_navigation: $("#setSequentialNav").checked,
+        available_languages: editingSetLanguages,
       }),
     });
+
+    // Save content for each language
+    for (const lang of editingSetLanguages) {
+      const nameEl = document.querySelector(`.set-content-name[data-lang="${lang}"]`);
+      const descEl = document.querySelector(`.set-content-desc[data-lang="${lang}"]`);
+      const aboutEl = document.querySelector(`.set-content-about[data-lang="${lang}"]`);
+      const contentData = {
+        set: savedSetId,
+        language: lang,
+        name: nameEl?.value.trim() || "",
+        description: descEl?.value.trim() || "",
+        about: aboutEl?.value.trim() || "",
+      };
+      const existing = editingSetContent[lang];
+      if (existing && existing.id) {
+        await api(`collections/set_content/records/${existing.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(contentData),
+        });
+      } else {
+        const created = await api("collections/set_content/records", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(contentData),
+        });
+        editingSetContent[lang] = created;
+      }
+    }
+
+    // Delete content rows for removed languages
+    for (const lang of Object.keys(editingSetContent)) {
+      if (!editingSetLanguages.includes(lang) && editingSetContent[lang].id) {
+        await api(`collections/set_content/records/${editingSetContent[lang].id}`, { method: "DELETE" });
+        delete editingSetContent[lang];
+      }
+    }
+
     showToast("Set saved!");
     formDirty = false;
     showTab("sets");
@@ -314,12 +449,21 @@ async function loadObjectSetFilter() {
   try {
     const resp = await api("collections/sets/records?sort=name_en&perPage=200");
     currentSets = resp.items || [];
+    // Load content for display names
+    const setContentResp = await api("collections/set_content/records?perPage=500");
+    const allSetContent = setContentResp.items || [];
+    for (const s of currentSets) {
+      s._content = {};
+      for (const c of allSetContent) {
+        if (c.set === s.id) s._content[c.language] = c;
+      }
+    }
     const select = $("#objectSetFilter");
     select.innerHTML = '<option value="">Select a set...</option>';
     for (const set of currentSets) {
       const opt = document.createElement("option");
       opt.value = set.id;
-      opt.textContent = set.name_en;
+      opt.textContent = getSetDisplayName(set);
       select.appendChild(opt);
     }
     if (selectedSetId) {
@@ -372,6 +516,16 @@ async function loadObjects(setId) {
         }
       }
     }
+    // Load display names from object_content
+    const objIds = currentObjects.map(o => o.id);
+    if (objIds.length > 0) {
+      const contentResp = await api(`collections/object_content/records?filter=(object='${objIds.join("'||object='")}')&perPage=500`);
+      const allContent = contentResp.items || [];
+      for (const obj of currentObjects) {
+        const first = allContent.find(c => c.object === obj.id && c.name);
+        obj._displayName = first ? first.name : (obj.name_en || "");
+      }
+    }
     renderObjectsList();
     $("#btnNewObject").classList.remove("hidden");
   } catch (e) {
@@ -405,7 +559,7 @@ function renderObjectsList() {
       </div>
       <span class="object-card__number">${obj.sort_order}</span>
       <div class="object-card__info">
-        <div class="object-card__name">${esc(obj.name_en)}${obj.published ? "" : ' <span class="set-card__draft">Draft</span>'}</div>
+        <div class="object-card__name">${esc(obj._displayName || obj.name_en || "(Untitled)")}${obj.published ? "" : ' <span class="set-card__draft">Draft</span>'}</div>
         <div class="object-card__slug">/${esc(obj.slug)}</div>
       </div>
     `;
@@ -511,14 +665,24 @@ async function editObject(obj) {
   $("#panelObjects").classList.add("hidden");
   $("#panelObjectForm").classList.remove("hidden");
 
+  // Get the set's available languages
+  const setId = obj ? obj.set : selectedSetId;
+  const parentSet = currentSets.find(s => s.id === setId);
+  const setLangs = (parentSet && parentSet.available_languages) || ["en", "sv"];
+
+  // Populate default language dropdown
+  const langSelect = $("#objectDefaultLang");
+  langSelect.innerHTML = "";
+  for (const lang of setLangs) {
+    langSelect.innerHTML += `<option value="${lang}">${esc(langName(lang))}</option>`;
+  }
+
   if (obj) {
     $("#objectFormId").value = obj.id;
     $("#objectFormSetId").value = obj.set;
     $("#objectSlug").value = obj.slug;
     $("#objectSortOrder").value = obj.sort_order;
-    $("#objectDefaultLang").value = obj.default_language || "en";
-    $("#objectNameEn").value = obj.name_en || "";
-    $("#objectNameSv").value = obj.name_sv || "";
+    $("#objectDefaultLang").value = obj.default_language || setLangs[0];
     $("#objectMapX").value = obj.map_x ?? "";
     $("#objectMapY").value = obj.map_y ?? "";
     $("#objectPublished").checked = obj.published !== false;
@@ -527,11 +691,12 @@ async function editObject(obj) {
     $("#btnQRCode").classList.remove("hidden");
     $("#btnDuplicateObject").classList.remove("hidden");
 
-    // Show current files
-    showCurrentFile("objectAudioEnCurrent", obj.audio_en, "objects", obj.id, "audio_en");
-    showCurrentFile("objectAudioSvCurrent", obj.audio_sv, "objects", obj.id, "audio_sv");
-    showCurrentFile("objectSubtitlesEnCurrent", obj.subtitles_en, "objects", obj.id, "subtitles_en");
-    showCurrentFile("objectSubtitlesSvCurrent", obj.subtitles_sv, "objects", obj.id, "subtitles_sv");
+    // Load content from object_content table
+    const contentResp = await api(`collections/object_content/records?filter=(object='${obj.id}')&perPage=50`);
+    editingObjectContent = {};
+    for (const c of (contentResp.items || [])) {
+      editingObjectContent[c.language] = c;
+    }
 
     // Load images
     loadObjectImages(obj.id);
@@ -543,14 +708,11 @@ async function editObject(obj) {
     $("#objectFormSetId").value = selectedSetId;
     $("#objectSlug").value = "";
     $("#objectSortOrder").value = currentObjects.length + 1;
-    $("#objectDefaultLang").value = "en";
-    $("#objectNameEn").value = "";
-    $("#objectNameSv").value = "";
+    $("#objectDefaultLang").value = setLangs[0];
     $("#objectMapX").value = "";
     $("#objectMapY").value = "";
     $("#objectPublished").checked = true;
-    ["objectAudioEnCurrent", "objectAudioSvCurrent", "objectSubtitlesEnCurrent", "objectSubtitlesSvCurrent"]
-      .forEach((id) => $(`#${id}`).classList.add("hidden"));
+    editingObjectContent = {};
     $("#btnDeleteObject").classList.add("hidden");
     $("#btnPreviewObject").classList.add("hidden");
     $("#btnQRCode").classList.add("hidden");
@@ -560,9 +722,65 @@ async function editObject(obj) {
     await setupMapPicker(null);
   }
 
-  // Clear file inputs
-  ["objectAudioEn", "objectAudioSv", "objectSubtitlesEn", "objectSubtitlesSv"].forEach((id) => {
-    $(`#${id}`).value = "";
+  renderObjectContentFieldsets(setLangs);
+  renderImageCaptionFields(setLangs);
+}
+
+function renderImageCaptionFields(langs) {
+  const container = $("#imageCaptionFields");
+  container.innerHTML = "";
+  for (const lang of langs) {
+    const div = document.createElement("div");
+    div.innerHTML = `
+      <label class="form-label">Caption (${esc(langName(lang))})</label>
+      <input type="text" class="form-input image-upload-caption" data-lang="${lang}">
+    `;
+    container.appendChild(div);
+  }
+}
+
+function renderObjectContentFieldsets(langs) {
+  const container = $("#objectContentFieldsets");
+  container.innerHTML = "";
+  for (const lang of langs) {
+    const content = editingObjectContent[lang] || {};
+    const fieldset = document.createElement("fieldset");
+    fieldset.className = "form-fieldset";
+    fieldset.innerHTML = `
+      <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">${esc(langName(lang))} (${lang})</legend>
+      <label class="form-label">Name ${langs.indexOf(lang) === 0 ? '<span class="required">*</span>' : ""}</label>
+      <input type="text" class="form-input obj-content-name" data-lang="${lang}" value="${esc(content.name || "")}" ${langs.indexOf(lang) === 0 ? "required" : ""}>
+      <label class="form-label">Audio (MP3)</label>
+      <input type="file" class="form-input obj-content-audio" data-lang="${lang}" accept="audio/mpeg,audio/mp3,audio/ogg">
+      <div class="current-file ${content.audio ? "" : "hidden"}" data-role="obj-audio-current" data-lang="${lang}">
+        ${content.audio ? `Current: ${esc(content.audio)} <button type="button" class="current-file__remove" data-content-id="${content.id}" data-field="audio" title="Remove">&times;</button>` : ""}
+      </div>
+      <label class="form-label">Subtitles (VTT)</label>
+      <input type="file" class="form-input obj-content-subtitles" data-lang="${lang}" accept=".vtt,text/vtt,text/plain">
+      <div class="current-file ${content.subtitles ? "" : "hidden"}" data-role="obj-subtitles-current" data-lang="${lang}">
+        ${content.subtitles ? `Current: ${esc(content.subtitles)} <button type="button" class="current-file__remove" data-content-id="${content.id}" data-field="subtitles" title="Remove">&times;</button>` : ""}
+      </div>
+    `;
+    container.appendChild(fieldset);
+  }
+
+  // Wire up remove buttons for content files
+  container.querySelectorAll(".current-file__remove[data-content-id]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const contentId = btn.dataset.contentId;
+      const field = btn.dataset.field;
+      try {
+        await api(`collections/object_content/records/${contentId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [field]: null }),
+        });
+        btn.closest(".current-file").classList.add("hidden");
+        showToast("File removed");
+      } catch (e) {
+        showToast("Could not remove the file.");
+      }
+    });
   });
 }
 
@@ -582,11 +800,12 @@ async function saveObject(e) {
   const id = $("#objectFormId").value;
   const formData = new FormData();
   formData.append("set", $("#objectFormSetId").value || selectedSetId);
+  // Keep name_en for backward compatibility / sorting
+  const firstNameEl = document.querySelector(".obj-content-name");
   formData.append("slug", $("#objectSlug").value.trim());
   formData.append("sort_order", parseInt($("#objectSortOrder").value) || 1);
   formData.append("default_language", $("#objectDefaultLang").value);
-  formData.append("name_en", $("#objectNameEn").value.trim());
-  formData.append("name_sv", $("#objectNameSv").value.trim());
+  formData.append("name_en", firstNameEl?.value.trim() || "");
 
   const mapX = $("#objectMapX").value;
   const mapY = $("#objectMapY").value;
@@ -605,16 +824,6 @@ async function saveObject(e) {
     formData.append("trigger_radius", $("#objectTriggerRadius").value || "15");
   }
 
-  // File uploads
-  const audioEn = $("#objectAudioEn").files[0];
-  if (audioEn) formData.append("audio_en", audioEn);
-  const audioSv = $("#objectAudioSv").files[0];
-  if (audioSv) formData.append("audio_sv", audioSv);
-  const subEn = $("#objectSubtitlesEn").files[0];
-  if (subEn) formData.append("subtitles_en", subEn);
-  const subSv = $("#objectSubtitlesSv").files[0];
-  if (subSv) formData.append("subtitles_sv", subSv);
-
   try {
     let savedId;
     if (id) {
@@ -626,17 +835,53 @@ async function saveObject(e) {
       editingObject = result;
       savedId = result.id;
       $("#objectFormId").value = result.id;
-      // Show buttons now that object exists
       $("#btnDeleteObject").classList.remove("hidden");
       $("#btnPreviewObject").classList.remove("hidden");
       $("#btnQRCode").classList.remove("hidden");
     }
-    // Separate JSON PATCH for boolean published field (FormData doesn't reliably send booleans)
+    // Separate JSON PATCH for boolean published field
     await api(`collections/objects/records/${savedId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ published: $("#objectPublished").checked }),
     });
+
+    // Save content for each language
+    const setId = $("#objectFormSetId").value || selectedSetId;
+    const parentSet = currentSets.find(s => s.id === setId);
+    const setLangs = (parentSet && parentSet.available_languages) || ["en", "sv"];
+
+    for (const lang of setLangs) {
+      const nameEl = document.querySelector(`.obj-content-name[data-lang="${lang}"]`);
+      const audioEl = document.querySelector(`.obj-content-audio[data-lang="${lang}"]`);
+      const subtitlesEl = document.querySelector(`.obj-content-subtitles[data-lang="${lang}"]`);
+
+      const existing = editingObjectContent[lang];
+      const contentForm = new FormData();
+      contentForm.append("object", savedId);
+      contentForm.append("language", lang);
+      contentForm.append("name", nameEl?.value.trim() || "");
+
+      const audioFile = audioEl?.files[0];
+      if (audioFile) contentForm.append("audio", audioFile);
+      const subtitlesFile = subtitlesEl?.files[0];
+      if (subtitlesFile) contentForm.append("subtitles", subtitlesFile);
+
+      if (existing && existing.id) {
+        const result = await api(`collections/object_content/records/${existing.id}`, {
+          method: "PATCH",
+          body: contentForm,
+        });
+        editingObjectContent[lang] = result;
+      } else {
+        const result = await api("collections/object_content/records", {
+          method: "POST",
+          body: contentForm,
+        });
+        editingObjectContent[lang] = result;
+      }
+    }
+
     showToast("Object saved!");
     formDirty = false;
   } catch (e) {
@@ -690,29 +935,30 @@ function backToObjects() {
 
 function duplicateObject() {
   if (!editingObject) return;
-  // Open form in "new" mode with duplicated data pre-filled
   $("#objectFormTitle").textContent = "New Object (Duplicate)";
   $("#objectFormId").value = "";
   $("#objectFormSetId").value = editingObject.set;
   $("#objectSlug").value = editingObject.slug + "-copy";
   $("#objectSortOrder").value = currentObjects.length + 1;
   $("#objectDefaultLang").value = editingObject.default_language || "en";
-  $("#objectNameEn").value = editingObject.name_en || "";
-  $("#objectNameSv").value = editingObject.name_sv || "";
   $("#objectMapX").value = editingObject.map_x ?? "";
   $("#objectMapY").value = editingObject.map_y ?? "";
   $("#objectLatitude").value = editingObject.latitude ?? "";
   $("#objectLongitude").value = editingObject.longitude ?? "";
   $("#objectTriggerRadius").value = editingObject.trigger_radius || 15;
 
-  // Clear file inputs (files can't be duplicated)
-  ["objectAudioEn", "objectAudioSv", "objectSubtitlesEn", "objectSubtitlesSv"].forEach((id) => {
-    $(`#${id}`).value = "";
-  });
-  ["objectAudioEnCurrent", "objectAudioSvCurrent", "objectSubtitlesEnCurrent", "objectSubtitlesSvCurrent"]
-    .forEach((id) => $(`#${id}`).classList.add("hidden"));
+  // Copy text content but clear file inputs (files can't be duplicated)
+  const dupContent = {};
+  for (const [lang, content] of Object.entries(editingObjectContent)) {
+    dupContent[lang] = { name: content.name || "" };
+  }
+  editingObjectContent = dupContent;
 
-  // Reset state to new object mode
+  const setId = editingObject.set;
+  const parentSet = currentSets.find(s => s.id === setId);
+  const setLangs = (parentSet && parentSet.available_languages) || ["en", "sv"];
+  renderObjectContentFieldsets(setLangs);
+
   editingObject = null;
   $("#btnDeleteObject").classList.add("hidden");
   $("#btnPreviewObject").classList.add("hidden");
@@ -1221,21 +1467,57 @@ function updateDefaultFloorDropdown() {
 async function loadObjectImages(objectId) {
   try {
     const resp = await api(`collections/object_images/records?filter=(object='${encodeURIComponent(objectId)}')&sort=sort_order&perPage=100`);
-    renderImagesGrid(resp.items || []);
+    const images = resp.items || [];
+    // Load captions from image_content table
+    if (images.length > 0) {
+      const imgIds = images.map(img => img.id);
+      const captionResp = await api(`collections/image_content/records?filter=(image='${imgIds.join("'||image='")}')&perPage=500`);
+      const allCaptions = captionResp.items || [];
+      for (const img of images) {
+        img._captions = {};
+        for (const c of allCaptions) {
+          if (c.image === img.id) img._captions[c.language] = c;
+        }
+      }
+    }
+    renderImagesGrid(images);
   } catch (e) {
     showToast("Could not load images. Please try refreshing the page.");
   }
 }
 
+function getFirstCaption(captions) {
+  for (const lang of Object.keys(captions)) {
+    if (captions[lang]?.caption) return captions[lang].caption;
+  }
+  return "";
+}
+
 function renderImagesGrid(images) {
   const grid = $("#imagesGrid");
   grid.innerHTML = "";
+  const setId = $("#objectFormSetId").value || selectedSetId;
+  const parentSet = currentSets.find(s => s.id === setId);
+  const setLangs = (parentSet && parentSet.available_languages) || ["en", "sv"];
+
   for (let i = 0; i < images.length; i++) {
     const img = images[i];
     const url = fileUrl("object_images", img.id, img.image);
+    const captions = img._captions || {};
+    const displayCaption = getFirstCaption(captions) || "No caption";
     const card = document.createElement("div");
     card.className = "image-card";
     card.dataset.imageId = img.id;
+
+    let captionFieldsHtml = "";
+    for (const lang of setLangs) {
+      const cap = captions[lang]?.caption || "";
+      captionFieldsHtml += `
+        <label class="form-label" style="font-size:0.8rem;${lang !== setLangs[0] ? "margin-top:0.25rem;" : ""}">Caption (${esc(langName(lang))})</label>
+        <input type="text" class="form-input image-caption" data-lang="${lang}" value="${esc(cap)}" placeholder="${esc(langName(lang))} caption">
+      `;
+    }
+
     card.innerHTML = `
       <div class="image-card__order">
         <button class="btn image-card__move" data-move="-1" data-index="${i}" title="Move up" ${i === 0 ? "disabled" : ""}>▲</button>
@@ -1243,15 +1525,12 @@ function renderImagesGrid(images) {
         <button class="btn image-card__move" data-move="1" data-index="${i}" title="Move down" ${i === images.length - 1 ? "disabled" : ""}>▼</button>
       </div>
       <div style="position:relative">
-        <img src="${url}" alt="${esc(img.caption_en || '')}" loading="lazy">
+        <img src="${url}" alt="${esc(displayCaption)}" loading="lazy">
         ${img.is_360 ? '<span class="image-card__360-badge">360°</span>' : ''}
       </div>
-      <div class="image-card__caption image-card__caption--display">${esc(img.caption_en || img.caption_sv || "No caption")}</div>
+      <div class="image-card__caption image-card__caption--display">${esc(displayCaption)}</div>
       <div class="image-card__edit-fields" style="display:none">
-        <label class="form-label" style="font-size:0.8rem">Caption (English)</label>
-        <input type="text" class="form-input image-caption-en" value="${esc(img.caption_en || '')}" placeholder="English caption">
-        <label class="form-label" style="font-size:0.8rem;margin-top:0.25rem">Caption (Svenska)</label>
-        <input type="text" class="form-input image-caption-sv" value="${esc(img.caption_sv || '')}" placeholder="Swedish caption">
+        ${captionFieldsHtml}
         <label class="form-label" style="font-size:0.8rem;margin-top:0.25rem;display:flex;align-items:center;gap:var(--spacing-xs)">
           <input type="checkbox" class="image-is-360" ${img.is_360 ? "checked" : ""}> 360° photo
         </label>
@@ -1310,19 +1589,41 @@ function renderImagesGrid(images) {
   grid.querySelectorAll("[data-save-image]").forEach((btn) => {
     btn.addEventListener("click", async () => {
       const card = btn.closest(".image-card");
-      const captionEn = card.querySelector(".image-caption-en").value.trim();
-      const captionSv = card.querySelector(".image-caption-sv").value.trim();
+      const imageId = btn.dataset.saveImage;
       const is360 = card.querySelector(".image-is-360")?.checked || false;
       try {
-        await api(`collections/object_images/records/${btn.dataset.saveImage}`, {
+        // Save is_360 on the image record
+        await api(`collections/object_images/records/${imageId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ caption_en: captionEn, caption_sv: captionSv, is_360: is360 }),
+          body: JSON.stringify({ is_360: is360 }),
         });
-        showToast("Caption saved!");
+        // Save captions per language to image_content
+        const captionInputs = card.querySelectorAll(".image-caption");
+        const img = images.find(im => im.id === imageId);
+        const captions = img?._captions || {};
+        for (const input of captionInputs) {
+          const lang = input.dataset.lang;
+          const caption = input.value.trim();
+          const existing = captions[lang];
+          if (existing && existing.id) {
+            await api(`collections/image_content/records/${existing.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ caption }),
+            });
+          } else if (caption) {
+            await api("collections/image_content/records", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ image: imageId, language: lang, caption }),
+            });
+          }
+        }
+        showToast("Saved!");
         loadObjectImages(editingObject.id);
       } catch (e) {
-        showToast("Could not save the caption. Please try again.");
+        showToast("Could not save. Please try again.");
       }
     });
   });
@@ -1354,14 +1655,11 @@ async function uploadImage(e) {
   const formData = new FormData();
   formData.append("object", objectId);
   formData.append("image", $("#imageFile").files[0]);
-  formData.append("caption_en", $("#imageCaptionEn").value.trim());
-  formData.append("caption_sv", $("#imageCaptionSv").value.trim());
 
   // Determine sort order (next available)
   const currentImages = $("#imagesGrid").children.length;
   formData.append("sort_order", currentImages + 1);
 
-  // Send is_360 as a separate JSON PATCH after creation (booleans unreliable in FormData)
   const is360 = $("#imageIs360").checked;
 
   try {
@@ -1373,10 +1671,24 @@ async function uploadImage(e) {
         body: JSON.stringify({ is_360: true }),
       });
     }
+
+    // Save captions to image_content
+    const captionInputs = document.querySelectorAll("#imageCaptionFields .image-upload-caption");
+    for (const input of captionInputs) {
+      const lang = input.dataset.lang;
+      const caption = input.value.trim();
+      if (caption) {
+        await api("collections/image_content/records", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: result.id, language: lang, caption }),
+        });
+      }
+    }
+
     showToast("Image uploaded!");
     $("#imageFile").value = "";
-    $("#imageCaptionEn").value = "";
-    $("#imageCaptionSv").value = "";
+    document.querySelectorAll("#imageCaptionFields .image-upload-caption").forEach(el => el.value = "");
     $("#imageIs360").checked = false;
     loadObjectImages(objectId);
   } catch (e) {
@@ -1602,6 +1914,7 @@ function setupEvents() {
   });
   $("#setForm").addEventListener("submit", saveSet);
   $("#btnDeleteSet").addEventListener("click", deleteSet);
+  $("#btnAddLanguage").addEventListener("click", addSetLanguage);
 
   // Floors
   $("#btnAddFloor").addEventListener("click", addFloor);
