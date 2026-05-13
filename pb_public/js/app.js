@@ -386,8 +386,9 @@ async function api(path) {
   return resp.json();
 }
 
-function fileUrl(collectionName, recordId, filename) {
-  return `${PB_URL}/api/files/${collectionName}/${recordId}/${filename}`;
+function fileUrl(collectionName, recordId, filename, thumb) {
+  const base = `${PB_URL}/api/files/${collectionName}/${recordId}/${filename}`;
+  return thumb ? `${base}?thumb=${thumb}` : base;
 }
 
 // ===== Routing (hash-based) =====
@@ -806,7 +807,7 @@ function renderCarousel() {
 
   for (let i = 0; i < state.images.length; i++) {
     const img = state.images[i];
-    const url = fileUrl("object_images", img.id, img.image);
+    const url = fileUrl("object_images", img.id, img.image, "600x400");
     const caption = img[`caption_${lang}`] || img.caption_en || "";
     const slide = document.createElement("div");
     slide.className = "carousel__slide";
@@ -1341,26 +1342,32 @@ function renderObjectList() {
 }
 
 async function loadListThumbnails() {
-  await Promise.all(state.objects.map(async (obj) => {
-    try {
-      const imgResp = await api(
-        `object_images/records?filter=(object='${obj.id}')&sort=sort_order&perPage=1`
-      );
-      if (imgResp.items && imgResp.items.length > 0) {
-        const imgRecord = imgResp.items[0];
-        const url = fileUrl("object_images", imgRecord.id, imgRecord.image);
-        const listItem = dom.objectList.querySelector(`a[href="#/${state.currentSet.slug}/${obj.slug}"]`);
-        if (listItem) {
-          const img = document.createElement("img");
-          img.className = "object-list__thumb";
-          img.src = url;
-          img.alt = "";
-          img.loading = "lazy";
-          listItem.insertBefore(img, listItem.querySelector(".object-list__info"));
-        }
+  if (state.objects.length === 0) return;
+  try {
+    const objIds = state.objects.map(o => o.id);
+    const resp = await api(
+      `object_images/records?filter=(object='${objIds.join("'||object='")}')&sort=sort_order&perPage=500&fields=id,object,image`
+    );
+    // Pick the first image per object
+    const firstByObject = {};
+    for (const img of (resp.items || [])) {
+      if (!firstByObject[img.object]) firstByObject[img.object] = img;
+    }
+    for (const obj of state.objects) {
+      const imgRecord = firstByObject[obj.id];
+      if (!imgRecord) continue;
+      const url = fileUrl("object_images", imgRecord.id, imgRecord.image, "128x128");
+      const listItem = dom.objectList.querySelector(`a[href="#/${state.currentSet.slug}/${obj.slug}"]`);
+      if (listItem && !listItem.querySelector(".object-list__thumb")) {
+        const img = document.createElement("img");
+        img.className = "object-list__thumb";
+        img.src = url;
+        img.alt = "";
+        img.loading = "lazy";
+        listItem.insertBefore(img, listItem.querySelector(".object-list__info"));
       }
-    } catch (e) { /* ignore */ }
-  }));
+    }
+  } catch (e) { /* ignore */ }
 }
 
 // ===== Pannellum Lazy Loader =====
