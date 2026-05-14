@@ -543,6 +543,9 @@ async function loadObjects(setId) {
     const parentSet = currentSets.find(s => s.id === setId);
     editingSetLanguages = (parentSet && parentSet.available_languages) || ["en"];
 
+    // Clean up fractional sort_orders from drag-and-drop
+    await renumberFlatList();
+
     renderObjectsList();
     $("#btnAddGroup").classList.remove("hidden");
     $("#btnNewObject").classList.remove("hidden");
@@ -579,7 +582,6 @@ function renderObjectCard(obj, isGrouped) {
       <button class="btn btn--small item-move-up" title="Move up" aria-label="Move up">&#9650;</button>
       <button class="btn btn--small item-move-down" title="Move down" aria-label="Move down">&#9660;</button>
     </div>
-    <span class="object-card__number">${obj.sort_order}</span>
     <div class="object-card__info">
       <div class="object-card__name">${esc(obj._displayName || obj.name_en || "(Untitled)")}${obj.published ? "" : ' <span class="set-card__draft">Draft</span>'}</div>
       <div class="object-card__slug">/${esc(obj.slug)}</div>
@@ -733,6 +735,50 @@ async function moveItem(flat, flatIndex, direction) {
     }
   }
   loadObjects(selectedSetId);
+}
+
+async function renumberFlatList() {
+  const flat = buildFlatList();
+  const updates = [];
+  let order = 1;
+  for (const entry of flat) {
+    if (entry.type === "group") {
+      if (entry.group.sort_order !== order) {
+        entry.group.sort_order = order;
+        updates.push(api(`collections/groups/records/${entry.group.id}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sort_order: order }),
+        }));
+      }
+      order++;
+    } else if (entry.type === "object") {
+      if (entry.obj.sort_order !== order) {
+        entry.obj.sort_order = order;
+        updates.push(api(`collections/objects/records/${entry.obj.id}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sort_order: order }),
+        }));
+      }
+      order++;
+    }
+  }
+  // Renumber within groups
+  for (const group of currentGroups) {
+    const groupObjs = currentObjects.filter(o => o.group === group.id);
+    groupObjs.sort((a, b) => a.sort_order - b.sort_order);
+    let gOrder = 1;
+    for (const obj of groupObjs) {
+      if (obj.sort_order !== gOrder) {
+        obj.sort_order = gOrder;
+        updates.push(api(`collections/objects/records/${obj.id}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sort_order: gOrder }),
+        }));
+      }
+      gOrder++;
+    }
+  }
+  if (updates.length > 0) await Promise.all(updates);
 }
 
 async function swapSort(col, a, b) {
