@@ -243,6 +243,7 @@ async function editSet(set) {
 
     $("#floorsFieldset").style.display = "";
     loadFloors(set.id);
+    loadGroups(set.id);
 
     const primary = set.color_primary || "#0057b8";
     const accent = set.color_accent || "#ffffff";
@@ -730,6 +731,22 @@ async function editObject(obj) {
 
   renderObjectContentFieldsets(setLangs);
   renderImageCaptionFields(setLangs);
+
+  // Populate group dropdown
+  const groupSelect = $("#objectGroup");
+  groupSelect.innerHTML = '<option value="">No group</option>';
+  if (currentGroups.length > 0) {
+    for (const g of currentGroups) {
+      const opt = document.createElement("option");
+      opt.value = g.id;
+      opt.textContent = getGroupDisplayTitle(g);
+      groupSelect.appendChild(opt);
+    }
+    groupSelect.value = obj ? (obj.group || "") : "";
+    $("#objectGroupRow").style.display = "";
+  } else {
+    $("#objectGroupRow").style.display = "none";
+  }
 }
 
 function renderImageCaptionFields(langs) {
@@ -821,6 +838,7 @@ async function saveObject(e) {
   const floorBtns = $("#objectFloorButtons");
   const selectedFloorId = floorBtns.dataset.selectedFloor || "";
   formData.append("floor", selectedFloorId);
+  formData.append("group", $("#objectGroup").value || "");
 
   // Outdoor coordinates
   const selFloor = objectPickerFloors.find(f => f.id === selectedFloorId);
@@ -1515,6 +1533,170 @@ function updateDefaultFloorDropdown() {
   $("#defaultFloorRow").style.display = currentFloors.length > 0 ? "" : "none";
 }
 
+// ===== GROUPS =====
+let currentGroups = [];
+
+async function loadGroups(setId) {
+  try {
+    const resp = await api(`collections/groups/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=50`);
+    currentGroups = resp.items || [];
+    if (currentGroups.length > 0) {
+      const groupIds = currentGroups.map(g => g.id);
+      const gcResp = await api(`collections/group_content/records?filter=(group='${groupIds.join("'||group='")}')&perPage=200`);
+      for (const gc of (gcResp.items || [])) {
+        const group = currentGroups.find(g => g.id === gc.group);
+        if (group) {
+          group._content = group._content || {};
+          group._content[gc.language] = gc;
+        }
+      }
+    }
+    $("#groupsFieldset").style.display = "";
+    renderGroupsList();
+  } catch (e) {
+    currentGroups = [];
+  }
+}
+
+function renderGroupsList() {
+  const container = $("#groupsList");
+  container.innerHTML = "";
+  const setLangs = editingSetLanguages || ["en"];
+
+  for (let i = 0; i < currentGroups.length; i++) {
+    const group = currentGroups[i];
+    const gc = group._content || {};
+    const card = document.createElement("div");
+    card.className = "floor-card";
+
+    let titleFieldsHtml = "";
+    for (const lang of setLangs) {
+      const title = gc[lang]?.title || "";
+      titleFieldsHtml += `
+        <div>
+          <label class="form-label">Title (${esc(langName(lang))})</label>
+          <input type="text" class="form-input group-title-lang" data-lang="${lang}" value="${esc(title)}" placeholder="e.g. Room A">
+        </div>
+      `;
+    }
+
+    card.innerHTML = `
+      <div class="form-row form-row--inline" style="flex-wrap:wrap">
+        <div style="max-width:100px">
+          <label class="form-label">Order</label>
+          <input type="number" class="form-input group-sort-order" value="${group.sort_order}" min="0">
+        </div>
+        ${titleFieldsHtml}
+        <div style="max-width:120px">
+          <label class="form-label">Color</label>
+          <div class="color-input-wrap">
+            <input type="color" class="group-color-picker" value="${group.color || "#0057b8"}" tabindex="-1">
+            <input type="text" class="form-input color-hex-input group-color-text" value="${esc(group.color || "")}" maxlength="7" placeholder="Optional">
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-xs);align-items:center">
+        <button type="button" class="btn btn--primary btn--small group-save" data-id="${group.id}">Save</button>
+        <button type="button" class="btn btn--danger btn--small group-delete" data-id="${group.id}">Delete</button>
+      </div>
+    `;
+    container.appendChild(card);
+
+    // Sync color picker and text input
+    const picker = card.querySelector(".group-color-picker");
+    const textInput = card.querySelector(".group-color-text");
+    picker.addEventListener("input", () => { textInput.value = picker.value; });
+    textInput.addEventListener("input", () => {
+      if (/^#[0-9a-fA-F]{6}$/.test(textInput.value)) picker.value = textInput.value;
+    });
+  }
+
+  // Save handlers
+  container.querySelectorAll(".group-save").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const card = btn.closest(".floor-card");
+      const groupId = btn.dataset.id;
+      const sortOrder = parseInt(card.querySelector(".group-sort-order").value) || 0;
+      const colorText = card.querySelector(".group-color-text").value.trim();
+      const color = /^#[0-9a-fA-F]{6}$/.test(colorText) ? colorText : "";
+      try {
+        await api(`collections/groups/records/${groupId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sort_order: sortOrder, color }),
+        });
+        // Save titles per language
+        const group = currentGroups.find(g => g.id === groupId);
+        const gc = group?._content || {};
+        const titleInputs = card.querySelectorAll(".group-title-lang");
+        for (const input of titleInputs) {
+          const lang = input.dataset.lang;
+          const title = input.value.trim();
+          const existing = gc[lang];
+          if (existing && existing.id) {
+            await api(`collections/group_content/records/${existing.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ title }),
+            });
+          } else if (title) {
+            await api("collections/group_content/records", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ group: groupId, language: lang, title }),
+            });
+          }
+        }
+        showToast("Group saved!");
+        loadGroups(editingSet.id);
+      } catch (e) {
+        showToast("Could not save group: " + e.message);
+      }
+    });
+  });
+
+  // Delete handlers
+  container.querySelectorAll(".group-delete").forEach(btn => {
+    btn.addEventListener("click", () => {
+      confirmAction(btn, async () => {
+        try {
+          await api(`collections/groups/records/${btn.dataset.id}`, { method: "DELETE" });
+          showToast("Group deleted");
+          loadGroups(editingSet.id);
+        } catch (e) {
+          showToast("Could not delete group: " + e.message);
+        }
+      });
+    });
+  });
+}
+
+async function addGroup() {
+  if (!editingSet) return;
+  try {
+    await api("collections/groups/records", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        set: editingSet.id,
+        sort_order: currentGroups.length + 1,
+      }),
+    });
+    showToast("Group added");
+    loadGroups(editingSet.id);
+  } catch (e) {
+    showToast("Could not add group: " + e.message);
+  }
+}
+
+function getGroupDisplayTitle(group) {
+  const gc = group._content || {};
+  for (const lang of Object.keys(gc)) {
+    if (gc[lang]?.title) return gc[lang].title;
+  }
+  return "(Untitled group)";
+}
+
 // ===== IMAGES =====
 async function loadObjectImages(objectId) {
   try {
@@ -1992,6 +2174,7 @@ function setupEvents() {
   // Floors
   $("#btnAddFloor").addEventListener("click", addFloor);
   $("#btnAddOutdoor").addEventListener("click", addOutdoor);
+  $("#btnAddGroup").addEventListener("click", addGroup);
 
   // Objects
   $("#objectSetFilter").addEventListener("change", (e) => loadObjects(e.target.value));

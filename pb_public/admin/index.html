@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Augus — Admin</title>
-  <link rel="stylesheet" href="/admin/css/admin.css?v=20260514a">
+  <link rel="stylesheet" href="/admin/css/admin.css?v=20260514b">
 </head>
 <body>
   <!-- ===== LOGIN ===== -->
@@ -102,6 +102,13 @@
               <option value="">First floor</option>
             </select>
           </div>
+        </fieldset>
+
+        <fieldset class="form-fieldset" id="groupsFieldset" style="display:none">
+          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Groups</legend>
+          <p class="form-hint" style="margin-bottom:var(--spacing-sm)">Organize objects into groups (e.g. rooms, sections). Optional.</p>
+          <div id="groupsList"></div>
+          <button type="button" class="btn" id="btnAddGroup" style="margin-top:var(--spacing-sm)">+ Add Group</button>
         </fieldset>
 
         <div class="form-row">
@@ -228,9 +235,13 @@
               <!-- Options populated by JS from set's available_languages -->
             </select>
           </div>
+          <div id="objectGroupRow" style="display:none">
+            <label for="objectGroup" class="form-label">Group</label>
+            <select id="objectGroup" class="form-input form-select">
+              <option value="">No group</option>
+            </select>
+          </div>
         </div>
-
-        <div id="objectContentFieldsets">
           <!-- Dynamic language fieldsets rendered by JS (name, audio, subtitles per language) -->
         </div>
 
@@ -346,6 +357,6 @@
   <div class="toast" id="adminToast" role="alert"></div>
 
   <script src="/admin/js/lib/qrcode-generator.min.js"></script>
-  <script src="/admin/js/admin.js?v=20260514a" type="module"></script>
+  <script src="/admin/js/admin.js?v=20260514b" type="module"></script>
 </body>
 </html>

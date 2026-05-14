@@ -9,13 +9,8 @@ Full accessibility mode for blind and low-vision visitors. Continuous QR scannin
 - **Plan:** `docs/plan-blind-user-mode.md`
 - **Scope:** 4-7 sessions across 3 phases
 
-### Object Groupings (#2)
-Group multiple objects together within a set. Use case: rooms in an exhibition, thematic sections, or any logical grouping of objects. Purely optional — ungrouped objects remain flat in the list as they are today.
-- **Data model:** Groups collection with per-language title (via `group_content` table following the content table pattern), `sort_order`, `color` (optional hex), and relation to set. Objects get a nullable `group` relation. Objects within a group have their own sort_order for internal ordering. No nested groups.
-- **Visitor list view:** Grouped objects are visually enclosed with a group header showing the title. Optional per-group color applied as a subtle left border or background tint on the group section. Groups without a custom color fall back to neutral styling. Ungrouped objects display normally above or below groups.
-- **Visitor map view:** No impact — pins are shown flat regardless of grouping.
-- **Admin:** Dropdown on object form to assign to a group (or "No group"). Group management section on the set form — add/remove/reorder groups, set title per language, optional color picker. Drag-to-reorder groups and objects within groups.
-- **Scope:** 2-3 sessions
+### ~~Object Groupings (#2)~~ ✅ Done
+Groups collection with `group_content` for multilingual titles, optional per-group color, sort_order. Objects have nullable group relation. Visitor list interleaves groups and ungrouped objects by sort_order. Group color applied to map pins with contrast-aware text. Cluster pins changed to rounded rectangles to distinguish from colored pins.
 
 ---
 
