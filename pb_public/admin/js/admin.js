@@ -1737,11 +1737,46 @@ async function loadObjectImages(objectId) {
           if (c.image === img.id) img._captions[c.language] = c;
         }
       }
+      // Load video subtitles
+      const videoItems = images.filter(img => img.media_type === "video");
+      if (videoItems.length > 0) {
+        try {
+          const vIds = videoItems.map(v => v.id);
+          const subsResp = await api(`collections/video_subtitles/records?filter=(media='${vIds.join("'||media='")}')&perPage=200`);
+          for (const sub of (subsResp.items || [])) {
+            const img = images.find(i => i.id === sub.media);
+            if (img) {
+              img._videoSubs = img._videoSubs || {};
+              img._videoSubs[sub.language] = sub;
+            }
+          }
+        } catch (e) { /* video_subtitles may not exist yet */ }
+      }
     }
     renderImagesGrid(images);
   } catch (e) {
     showToast("Could not load images. Please try refreshing the page.");
   }
+}
+
+function buildVideoSubsHtml(img) {
+  const subs = img._videoSubs || {};
+  const setId = $("#objectFormSetId").value || selectedSetId;
+  const parentSet = currentSets.find(s => s.id === setId);
+  const setLangs = (parentSet && parentSet.available_languages) || ["en"];
+  let html = '<div class="video-subs-section" style="margin-top:0.5rem">';
+  html += '<label class="form-label" style="font-size:0.8rem">Video subtitles</label>';
+  for (const lang of setLangs) {
+    const sub = subs[lang];
+    html += `<div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem">
+      <span style="font-size:0.75rem;min-width:30px">${lang.toUpperCase()}</span>
+      ${sub ? `<span style="font-size:0.75rem">${esc(sub.subtitles)}</span>
+        <button type="button" class="btn btn--danger btn--small video-sub-delete" data-sub-id="${sub.id}" style="min-height:24px;min-width:24px;padding:0 4px;font-size:0.7rem">&times;</button>` :
+        `<input type="file" class="form-input video-sub-upload" data-lang="${lang}" data-media-id="${img.id}" accept=".vtt,text/vtt,text/plain" style="font-size:0.75rem">`}
+    </div>`;
+  }
+  html += '</div>';
+  return html;
 }
 
 function getFirstCaption(captions) {
@@ -1786,6 +1821,7 @@ function renderImagesGrid(images) {
         <img src="${url}" alt="${esc(displayCaption)}" loading="lazy">
         ${img.media_type === "360" ? '<span class="image-card__360-badge">360°</span>' : ""}
         ${img.media_type === "3d" ? '<span class="image-card__360-badge">3D</span>' : ""}
+        ${img.media_type === "video" ? '<span class="image-card__360-badge">Video</span>' : ""}
       </div>
       <div class="image-card__caption image-card__caption--display">${esc(displayCaption)}</div>
       <div class="image-card__edit-fields" style="display:none">
@@ -1795,7 +1831,9 @@ function renderImagesGrid(images) {
           <option value="image" ${(img.media_type || "image") === "image" ? "selected" : ""}>Image</option>
           <option value="360" ${img.media_type === "360" ? "selected" : ""}>360° photo</option>
           <option value="3d" ${img.media_type === "3d" ? "selected" : ""}>3D model</option>
+          <option value="video" ${img.media_type === "video" ? "selected" : ""}>Video</option>
         </select>
+        ${img.media_type === "video" ? buildVideoSubsHtml(img) : ""}
       </div>
       <div class="image-card__actions">
         <button class="btn btn--edit" data-edit-image="${img.id}" title="Edit captions">Edit</button>
@@ -1889,6 +1927,40 @@ function renderImagesGrid(images) {
     });
   });
 
+  // Video subtitle upload handlers
+  grid.querySelectorAll(".video-sub-upload").forEach(input => {
+    input.addEventListener("change", async () => {
+      const file = input.files[0];
+      if (!file) return;
+      const mediaId = input.dataset.mediaId;
+      const lang = input.dataset.lang;
+      const formData = new FormData();
+      formData.append("media", mediaId);
+      formData.append("language", lang);
+      formData.append("subtitles", file);
+      try {
+        await api("collections/video_subtitles/records", { method: "POST", body: formData });
+        showToast("Subtitle uploaded");
+        loadObjectImages(editingObject.id);
+      } catch (e) {
+        showToast("Could not upload subtitle: " + e.message);
+      }
+    });
+  });
+
+  // Video subtitle delete handlers
+  grid.querySelectorAll(".video-sub-delete").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      try {
+        await api(`collections/video_subtitles/records/${btn.dataset.subId}`, { method: "DELETE" });
+        showToast("Subtitle removed");
+        loadObjectImages(editingObject.id);
+      } catch (e) {
+        showToast("Could not remove subtitle.");
+      }
+    });
+  });
+
   // Delete image handlers
   grid.querySelectorAll("[data-delete-image]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1916,13 +1988,18 @@ async function uploadImage(e) {
   const mediaType = $("#imageMediaType").value;
   const imageFile = $("#imageFile").files[0];
   const modelFile = mediaType === "3d" ? $("#imageModelFile").files[0] : null;
+  const videoFile = mediaType === "video" ? $("#imageVideoFile").files[0] : null;
 
-  if (!imageFile && mediaType !== "3d") {
+  if (!imageFile && mediaType !== "3d" && mediaType !== "video") {
     showToast("Please select an image file.");
     return;
   }
   if (mediaType === "3d" && !modelFile) {
     showToast("Please select a 3D model file (.glb).");
+    return;
+  }
+  if (mediaType === "video" && !videoFile) {
+    showToast("Please select a video file (.mp4 or .webm).");
     return;
   }
 
@@ -1941,11 +2018,16 @@ async function uploadImage(e) {
       modelForm.append("model_file", modelFile);
       modelForm.append("media_type", "3d");
       await api(`collections/object_images/records/${result.id}`, { method: "PATCH", body: modelForm });
+    } else if (mediaType === "video" && videoFile) {
+      const videoForm = new FormData();
+      videoForm.append("video_file", videoFile);
+      videoForm.append("media_type", "video");
+      await api(`collections/object_images/records/${result.id}`, { method: "PATCH", body: videoForm });
     } else if (mediaType !== "image") {
       await api(`collections/object_images/records/${result.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patchData),
+        body: JSON.stringify({ media_type: mediaType }),
       });
     }
 
@@ -1968,7 +2050,10 @@ async function uploadImage(e) {
     document.querySelectorAll("#imageCaptionFields .image-upload-caption").forEach(el => el.value = "");
     $("#imageMediaType").value = "image";
     $("#imageModelFile").value = "";
+    $("#imageVideoFile").value = "";
     $("#modelFileRow").classList.add("hidden");
+    $("#videoFileRow").classList.add("hidden");
+    $("#videoSubsRow").classList.add("hidden");
     loadObjectImages(objectId);
   } catch (e) {
     showToast("Could not upload the image. Please check the file size and format and try again.");
@@ -2210,10 +2295,12 @@ function setupEvents() {
   // Images
   $("#imageUploadForm").addEventListener("submit", uploadImage);
   $("#imageMediaType").addEventListener("change", () => {
-    const is3d = $("#imageMediaType").value === "3d";
-    $("#modelFileRow").classList.toggle("hidden", !is3d);
-    $("#imageFile").required = !is3d;
-    $("#imageFileLabel").textContent = is3d ? "Poster image (optional)" : "Image file";
+    const val = $("#imageMediaType").value;
+    $("#modelFileRow").classList.toggle("hidden", val !== "3d");
+    $("#videoFileRow").classList.toggle("hidden", val !== "video");
+    $("#videoSubsRow").classList.toggle("hidden", val !== "video");
+    $("#imageFile").required = val === "image" || val === "360";
+    $("#imageFileLabel").textContent = (val === "3d" || val === "video") ? "Poster image (optional)" : "Image file";
   });
 
   // QR

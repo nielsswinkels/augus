@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Augus — Admin</title>
-  <link rel="stylesheet" href="/admin/css/admin.css?v=20260514e">
+  <link rel="stylesheet" href="/admin/css/admin.css?v=20260514f">
   <link rel="stylesheet" href="/admin/js/lib/quill/quill.bubble.css">
 </head>
 <body>
@@ -327,11 +327,19 @@
               <option value="image">Image</option>
               <option value="360">360° photo</option>
               <option value="3d">3D model</option>
+              <option value="video">Video</option>
             </select>
           </div>
           <div id="modelFileRow" class="form-row hidden">
             <label class="form-label">3D model file (.glb)</label>
             <input type="file" id="imageModelFile" class="form-input" accept=".glb,.gltf">
+          </div>
+          <div id="videoFileRow" class="form-row hidden">
+            <label class="form-label">Video file (.mp4 / .webm)</label>
+            <input type="file" id="imageVideoFile" class="form-input" accept="video/mp4,video/webm">
+          </div>
+          <div id="videoSubsRow" class="form-row hidden">
+            <label class="form-label">Video subtitles (VTT) — per language, can be added after upload</label>
           </div>
           <button type="submit" class="btn btn--primary">Upload</button>
         </form>
@@ -359,6 +367,6 @@
 
   <script src="/admin/js/lib/qrcode-generator.min.js"></script>
   <script src="/admin/js/lib/quill/quill.js"></script>
-  <script src="/admin/js/admin.js?v=20260514e" type="module"></script>
+  <script src="/admin/js/admin.js?v=20260514f" type="module"></script>
 </body>
 </html>

@@ -685,6 +685,21 @@ async function loadObject(obj) {
           if (img) img[`caption_${c.language}`] = c.caption || "";
         }
       } catch (e) { /* content table may not exist yet */ }
+      // Load video subtitles
+      const videoItems = state.images.filter(i => i.media_type === "video");
+      if (videoItems.length > 0) {
+        try {
+          const vIds = videoItems.map(v => v.id);
+          const subsResp = await api(`video_subtitles/records?filter=(media='${vIds.join("'||media='")}')&perPage=200`);
+          for (const sub of (subsResp.items || [])) {
+            const img = state.images.find(i => i.id === sub.media);
+            if (img) {
+              img._videoSubs = img._videoSubs || {};
+              img._videoSubs[sub.language] = sub;
+            }
+          }
+        } catch (e) { /* video_subtitles may not exist yet */ }
+      }
     }
   } catch (e) {
     state.images = [];
@@ -881,17 +896,29 @@ function renderCarousel() {
       icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>';
       slide.appendChild(icon);
     } else {
-      const url = fileUrl("object_images", img.id, img.image, "600x400");
-      const imgEl = document.createElement("img");
-      imgEl.src = url;
-      imgEl.alt = caption || `Image ${i + 1}`;
-      imgEl.loading = i === 0 ? "eager" : "lazy";
-      imgEl.addEventListener("click", () => openGallery(i));
-      slide.appendChild(imgEl);
+      const url = img.image ? fileUrl("object_images", img.id, img.image, "600x400") : "";
+      if (url) {
+        const imgEl = document.createElement("img");
+        imgEl.src = url;
+        imgEl.alt = caption || `Image ${i + 1}`;
+        imgEl.loading = i === 0 ? "eager" : "lazy";
+        imgEl.addEventListener("click", () => openGallery(i));
+        slide.appendChild(imgEl);
+      } else {
+        const placeholder = document.createElement("div");
+        placeholder.className = "carousel__placeholder";
+        placeholder.addEventListener("click", () => openGallery(i));
+        slide.appendChild(placeholder);
+      }
       if (img.media_type === "360") {
         const icon = document.createElement("span");
         icon.className = "carousel__360-icon";
         icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><ellipse cx="12" cy="12" rx="4" ry="10"/><path d="M2 12h20"/></svg>';
+        slide.appendChild(icon);
+      } else if (img.media_type === "video") {
+        const icon = document.createElement("span");
+        icon.className = "carousel__360-icon carousel__play-icon";
+        icon.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><polygon points="5,3 19,12 5,21"/></svg>';
         slide.appendChild(icon);
       }
     }
@@ -1148,6 +1175,7 @@ function openGallery(index = 0) {
 function closeGallery() {
   destroyPannellum();
   destroyModelViewer();
+  destroyGalleryVideo();
   dom.galleryImage.classList.remove("hidden");
   dom.galleryOverlay.classList.remove("active");
   if (galleryFocusTrapCleanup) { galleryFocusTrapCleanup(); galleryFocusTrapCleanup = null; }
@@ -1162,6 +1190,16 @@ function closeGallery() {
 }
 
 let pannellumViewer = null;
+
+function destroyGalleryVideo() {
+  const container = document.getElementById("galleryVideoContainer");
+  if (container) {
+    const video = container.querySelector("video");
+    if (video) { video.pause(); video.src = ""; }
+    container.classList.add("hidden");
+    container.innerHTML = "";
+  }
+}
 
 function destroyModelViewer() {
   const container = document.getElementById("gallery3dContainer");
@@ -1244,12 +1282,53 @@ async function renderGalleryImage() {
     viewer.setAttribute("ar", "");
     if (url) viewer.setAttribute("poster", url);
     container.appendChild(viewer);
+  } else if (img.media_type === "video" && img.video_file) {
+    destroyPannellum();
+    destroyModelViewer();
+    destroyGalleryVideo();
+    dom.galleryImage.classList.add("hidden");
+    const container = document.getElementById("galleryVideoContainer");
+    container.classList.remove("hidden");
+
+    // Pause audio guide
+    if (!dom.audioElement.paused) {
+      dom.audioElement.pause();
+      state.audioPausedByGallery = true;
+    }
+
+    const videoUrl = fileUrl("object_images", img.id, img.video_file);
+    const video = document.createElement("video");
+    video.controls = true;
+    video.preload = "metadata";
+    if (url) video.poster = url;
+    const source = document.createElement("source");
+    source.src = videoUrl;
+    source.type = img.video_file.endsWith(".webm") ? "video/webm" : "video/mp4";
+    video.appendChild(source);
+
+    // Add subtitle tracks
+    const subs = img._videoSubs || {};
+    const visitorLang = state.settings.language;
+    for (const [lang, sub] of Object.entries(subs)) {
+      const track = document.createElement("track");
+      track.kind = "subtitles";
+      track.src = fileUrl("video_subtitles", sub.id, sub.subtitles);
+      track.srclang = lang;
+      track.label = LANGUAGE_NAMES[lang] || lang.toUpperCase();
+      if (lang === visitorLang) track.default = true;
+      video.appendChild(track);
+    }
+
+    container.appendChild(video);
   } else {
     destroyPannellum();
     destroyModelViewer();
+    destroyGalleryVideo();
     dom.galleryImage.classList.remove("hidden");
-    dom.galleryImage.src = url;
-    dom.galleryImage.alt = caption || `Image ${state.galleryIndex + 1}`;
+    if (url) {
+      dom.galleryImage.src = url;
+      dom.galleryImage.alt = caption || `Image ${state.galleryIndex + 1}`;
+    }
   }
 
   // Read caption aloud
@@ -1333,6 +1412,7 @@ function setupGalleryEvents() {
   dom.galleryBody.addEventListener("pointerdown", (e) => {
     if (pannellumViewer) return;
     if (document.getElementById("gallery3dContainer") && !document.getElementById("gallery3dContainer").classList.contains("hidden")) return;
+    if (document.getElementById("galleryVideoContainer") && !document.getElementById("galleryVideoContainer").classList.contains("hidden")) return;
     if (e.target.closest(".gallery-nav")) return;
     galleryPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     dom.galleryBody.setPointerCapture(e.pointerId);
