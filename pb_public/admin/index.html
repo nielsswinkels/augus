@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Augus — Admin</title>
-  <link rel="stylesheet" href="/admin/css/admin.css?v=20260514g">
+  <link rel="stylesheet" href="/admin/css/admin.css?v=20260514h">
   <link rel="stylesheet" href="/admin/js/lib/quill/quill.bubble.css">
 </head>
 <body>
@@ -105,13 +105,6 @@
           </div>
         </fieldset>
 
-        <fieldset class="form-fieldset" id="groupsFieldset" style="display:none">
-          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Groups</legend>
-          <p class="form-hint" style="margin-bottom:var(--spacing-sm)">Organize objects into groups (e.g. rooms, sections). Optional.</p>
-          <div id="groupsList"></div>
-          <button type="button" class="btn" id="btnAddGroup" style="margin-top:var(--spacing-sm)">+ Add Group</button>
-        </fieldset>
-
         <div class="form-row">
           <label class="form-label">Colour scheme (optional)</label>
           <div class="color-scheme-row">
@@ -198,6 +191,7 @@
             <option value="">Select a set...</option>
           </select>
           <button class="btn btn--primary hidden" id="btnNewObject">+ New Object</button>
+          <button class="btn hidden" id="btnAddGroup">+ Group</button>
         </div>
       </div>
       <div class="objects-list" id="objectsList">
@@ -369,6 +363,6 @@
 
   <script src="/admin/js/lib/qrcode-generator.min.js"></script>
   <script src="/admin/js/lib/quill/quill.js"></script>
-  <script src="/admin/js/admin.js?v=20260514g" type="module"></script>
+  <script src="/admin/js/admin.js?v=20260514h" type="module"></script>
 </body>
 </html>
