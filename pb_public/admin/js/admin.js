@@ -1174,7 +1174,7 @@ async function setupMapPicker(obj) {
     $("#floorSelectRow").classList.remove("hidden");
     const btnContainer = $("#objectFloorButtons");
     btnContainer.innerHTML = "";
-    const selectedFloor = obj ? obj.floor : "";
+    const selectedFloor = obj ? obj.floor : (floors.length > 0 ? floors[0].id : "");
     floors.forEach(floor => {
       const btn = document.createElement("button");
       btn.type = "button";
