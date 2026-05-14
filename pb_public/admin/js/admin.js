@@ -835,11 +835,17 @@ function renderObjectsList() {
     const dropIndex = parseInt(dropEl.dataset.dropIndex);
     const dropGroup = dropEl.dataset.dropGroup || "";
 
-    // Calculate target sort_order based on neighbors
+    // Calculate target sort_order based on neighbors (use global sort_order)
+    function globalOrder(entry) {
+      if (!entry) return null;
+      if (entry.type === "group") return entry.group.sort_order;
+      if (entry.type === "grouped-object") return entry.group.sort_order;
+      return entry.obj.sort_order;
+    }
     const prev = dropIndex > 0 ? flat[dropIndex - 1] : null;
     const next = dropIndex < flat.length ? flat[dropIndex] : null;
-    const prevOrder = prev ? (prev.type === "group" ? prev.group.sort_order : prev.obj.sort_order) : 0;
-    const nextOrder = next ? (next.type === "group" ? next.group.sort_order : next.obj.sort_order) : prevOrder + 2;
+    const prevOrder = globalOrder(prev) ?? 0;
+    const nextOrder = globalOrder(next) ?? prevOrder + 2;
     const targetOrder = (prevOrder + nextOrder) / 2;
 
     try {
