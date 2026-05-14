@@ -816,26 +816,30 @@ function renderObjectsList() {
     clearDropIndicators();
     if (dragSrcIdx === null) return;
     const src = flat[dragSrcIdx];
-    if (src.type === "group") { loadObjects(selectedSetId); return; }
-    const obj = src.obj;
     const dropIndex = parseInt(dropEl.dataset.dropIndex);
     const dropGroup = dropEl.dataset.dropGroup || "";
 
     // Calculate target sort_order based on neighbors
     const prev = dropIndex > 0 ? flat[dropIndex - 1] : null;
     const next = dropIndex < flat.length ? flat[dropIndex] : null;
-    let targetOrder;
-    if (prev && next) targetOrder = ((prev.sortOrder || prev.obj?.sort_order || 0) + (next.sortOrder || next.obj?.sort_order || 0)) / 2;
-    else if (prev) targetOrder = (prev.sortOrder || prev.obj?.sort_order || 0) + 1;
-    else if (next) targetOrder = (next.sortOrder || next.obj?.sort_order || 0) - 1;
-    else targetOrder = 1;
+    const prevOrder = prev ? (prev.type === "group" ? prev.group.sort_order : prev.obj.sort_order) : 0;
+    const nextOrder = next ? (next.type === "group" ? next.group.sort_order : next.obj.sort_order) : prevOrder + 2;
+    const targetOrder = (prevOrder + nextOrder) / 2;
 
     try {
-      await api(`collections/objects/records/${obj.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ group: dropGroup, sort_order: targetOrder }),
-      });
+      if (src.type === "group") {
+        await api(`collections/groups/records/${src.group.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sort_order: targetOrder }),
+        });
+      } else {
+        await api(`collections/objects/records/${src.obj.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ group: dropGroup, sort_order: targetOrder }),
+        });
+      }
       loadObjects(selectedSetId);
     } catch (err) { showToast("Could not reorder."); }
   }
@@ -889,8 +893,12 @@ function renderObjectsList() {
 
     // Drop line after each item
     const nextEntry = flat[i + 1];
-    const lineGroupId = (entry.type === "grouped-object") ? entry.group.id :
-      (nextEntry && nextEntry.type === "grouped-object") ? nextEntry.group.id : "";
+    let lineGroupId = "";
+    if (entry.type === "grouped-object" && nextEntry && nextEntry.type === "grouped-object" && nextEntry.group.id === entry.group.id) {
+      // Between two objects in the same group
+      lineGroupId = entry.group.id;
+    }
+    // All other cases: ungrouped drop line (between groups, after last child, etc.)
     container.appendChild(createDropLine(i + 1, lineGroupId));
   }
 }
