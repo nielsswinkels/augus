@@ -765,13 +765,69 @@ function renderObjectsList() {
     return;
   }
   const flat = buildFlatList();
+  let dragSrcIdx = null;
+
   for (let i = 0; i < flat.length; i++) {
     const entry = flat[i];
     let card;
     if (entry.type === "group") card = renderGroupHeader(entry.group);
     else card = renderObjectCard(entry.obj, entry.type === "grouped-object");
+    card.dataset.flatIndex = i;
+    card.draggable = true;
     card.querySelector(".item-move-up")?.addEventListener("click", (e) => { e.stopPropagation(); moveItem(flat, i, -1); });
     card.querySelector(".item-move-down")?.addEventListener("click", (e) => { e.stopPropagation(); moveItem(flat, i, 1); });
+
+    card.addEventListener("dragstart", (e) => {
+      dragSrcIdx = i;
+      e.dataTransfer.effectAllowed = "move";
+      card.classList.add("dragging");
+    });
+    card.addEventListener("dragend", () => {
+      card.classList.remove("dragging");
+      container.querySelectorAll(".drag-over").forEach(c => c.classList.remove("drag-over"));
+    });
+    card.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      container.querySelectorAll(".drag-over").forEach(c => c.classList.remove("drag-over"));
+      card.classList.add("drag-over");
+    });
+    card.addEventListener("dragleave", () => card.classList.remove("drag-over"));
+    card.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      card.classList.remove("drag-over");
+      const destIdx = parseInt(card.dataset.flatIndex);
+      if (dragSrcIdx === null || dragSrcIdx === destIdx) return;
+      const src = flat[dragSrcIdx];
+      const dest = flat[destIdx];
+      // Only support dragging objects (not group headers) for simplicity
+      if (src.type === "group") { loadObjects(selectedSetId); return; }
+      const obj = src.obj;
+      // Determine target group and sort_order
+      let targetGroup = "";
+      let targetOrder = dest.sortOrder;
+      if (dest.type === "group") {
+        targetGroup = dest.group.id;
+        const groupObjs = currentObjects.filter(o => o.group === dest.group.id);
+        targetOrder = groupObjs.length > 0 ? Math.min(...groupObjs.map(o => o.sort_order)) - 0.5 : dest.group.sort_order;
+      } else if (dest.type === "grouped-object") {
+        targetGroup = dest.group.id;
+        targetOrder = dest.obj.sort_order + (destIdx > dragSrcIdx ? 0.5 : -0.5);
+      } else {
+        targetOrder = dest.obj.sort_order + (destIdx > dragSrcIdx ? 0.5 : -0.5);
+      }
+      try {
+        await api(`collections/objects/records/${obj.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ group: targetGroup, sort_order: targetOrder }),
+        });
+        loadObjects(selectedSetId);
+      } catch (err) {
+        showToast("Could not reorder.");
+      }
+    });
+
     container.appendChild(card);
   }
 }
