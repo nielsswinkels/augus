@@ -711,7 +711,9 @@ async function moveItem(flat, flatIndex, direction) {
       if (target.type === "grouped-object") {
         await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: target.group.id, sort_order: target.obj.sort_order + 0.5 }) });
       } else if (target.type === "group") {
-        await swapSortCross("objects", obj, "groups", target.group);
+        const groupObjs = currentObjects.filter(o => o.group === target.group.id);
+        const maxOrder = groupObjs.length > 0 ? Math.max(...groupObjs.map(o => o.sort_order)) : 0;
+        await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: target.group.id, sort_order: maxOrder + 1 }) });
       } else {
         await swapSort("objects", obj, target.obj);
       }
