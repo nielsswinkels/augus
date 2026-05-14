@@ -1408,11 +1408,15 @@ function setupGalleryEvents() {
 }
 
 // ===== About Page =====
-function renderAboutContent() {
+async function renderAboutContent() {
   if (!state.currentSet) return;
   const lang = state.settings.language;
   const content = state.currentSet[`about_${lang}`] || state.currentSet.about_en || "";
-  dom.aboutContent.innerHTML = content;
+  const DOMPurify = await loadDOMPurify();
+  dom.aboutContent.innerHTML = DOMPurify.sanitize(content, {
+    ALLOWED_TAGS: ["p", "b", "i", "u", "a", "br", "strong", "em", "h2", "h3", "ul", "ol", "li"],
+    ALLOWED_ATTR: ["href", "target", "rel"],
+  });
 }
 
 // ===== List View =====
@@ -1526,6 +1530,18 @@ async function loadListThumbnails() {
       }
     }
   } catch (e) { /* ignore */ }
+}
+
+// ===== DOMPurify Lazy Loader =====
+function loadDOMPurify() {
+  if (window._domPurifyPromise) return window._domPurifyPromise;
+  window._domPurifyPromise = new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "/js/lib/dompurify/purify.min.js";
+    script.onload = () => resolve(window.DOMPurify);
+    document.head.appendChild(script);
+  });
+  return window._domPurifyPromise;
 }
 
 // ===== model-viewer Lazy Loader =====

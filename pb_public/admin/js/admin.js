@@ -322,9 +322,12 @@ function removeSetLanguage(code) {
   formDirty = true;
 }
 
+let quillInstances = {};
+
 function renderSetContentFieldsets() {
   const container = $("#setContentFieldsets");
   container.innerHTML = "";
+  quillInstances = {};
   for (const lang of editingSetLanguages) {
     const content = editingSetContent[lang] || {};
     const fieldset = document.createElement("fieldset");
@@ -336,9 +339,27 @@ function renderSetContentFieldsets() {
       <label class="form-label">Description</label>
       <textarea class="form-input form-textarea set-content-desc" data-lang="${lang}">${esc(content.description || "")}</textarea>
       <label class="form-label">About page</label>
-      <textarea class="form-input form-textarea set-content-about" data-lang="${lang}" rows="4">${esc(content.about || "")}</textarea>
+      <div class="quill-editor" data-lang="${lang}"></div>
     `;
     container.appendChild(fieldset);
+
+    if (typeof Quill !== "undefined") {
+      const editorEl = fieldset.querySelector(`.quill-editor[data-lang="${lang}"]`);
+      const quill = new Quill(editorEl, {
+        theme: "bubble",
+        placeholder: "Write about this exhibition...",
+        modules: {
+          toolbar: [
+            ["bold", "italic", "underline"],
+            ["link"],
+            [{ header: [2, 3, false] }],
+            ["clean"],
+          ],
+        },
+      });
+      if (content.about) quill.root.innerHTML = content.about;
+      quillInstances[lang] = quill;
+    }
   }
 }
 
@@ -396,13 +417,15 @@ async function saveSet(e) {
     for (const lang of editingSetLanguages) {
       const nameEl = document.querySelector(`.set-content-name[data-lang="${lang}"]`);
       const descEl = document.querySelector(`.set-content-desc[data-lang="${lang}"]`);
-      const aboutEl = document.querySelector(`.set-content-about[data-lang="${lang}"]`);
+      const quill = quillInstances[lang];
+      const aboutHtml = quill ? quill.root.innerHTML : "";
+      const aboutClean = aboutHtml === "<p><br></p>" ? "" : aboutHtml;
       const contentData = {
         set: savedSetId,
         language: lang,
         name: nameEl?.value.trim() || "",
         description: descEl?.value.trim() || "",
-        about: aboutEl?.value.trim() || "",
+        about: aboutClean,
       };
       const existing = editingSetContent[lang];
       if (existing && existing.id) {

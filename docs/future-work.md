@@ -43,9 +43,8 @@ Comprehensive documentation for self-hosting. README with setup guide, deploymen
 - **Should cover:** Docker setup, PocketBase admin, creating first set/objects, QR code printing, custom domain, Caddy configuration
 - **Scope:** 1 session
 
-### WYSIWYG Editor for About Page
-Replace the raw HTML textarea in the admin set form with a rich text editor supporting paragraphs, bold/italic/underline, and links.
-- **Scope:** 1 session
+### ~~WYSIWYG Editor for About Page~~ ✅ Done
+Quill.js 2.0 with bubble theme. Supports bold, italic, underline, links, headings (h2/h3), and clean formatting. DOMPurify sanitizes output on the visitor side.
 
 ---
 
@@ -58,7 +57,7 @@ Replace the raw HTML textarea in the admin set form with a rich text editor supp
 - **Offline/PWA support:** Service worker for caching audio and content for offline use in museums with poor WiFi
 - **QR code batch printing:** Admin tool to generate a printable PDF of all QR codes for a set
 - **Analytics:** Simple view/play counts per object (privacy-friendly, no tracking)
-- **Sanitize About page innerHTML with DOMPurify:** The About page injects raw HTML from the database with no sanitization — XSS vulnerability if an admin account is compromised. Add DOMPurify (~7KB) to sanitize with a strict allowlist (p, b, i, u, a, br, strong, em).
+- ~~**Sanitize About page innerHTML with DOMPurify**~~ ✅ Done
 - **Split app.js into ES modules:** The visitor app is ~2500 lines in a single file. Split into modules (audio, map, gallery, scanner, carousel, routing) using ES `import`/`export` — no build step needed since `type="module"` is already declared.
 - **Admin UI tooltips and help text:** The admin has accumulated many options (languages, media types, floor management, sequential nav, show numbers, colors, fonts, etc.). Add tooltips or info icons next to each setting that explain what it does. Consider a small `(?)` icon that shows a popover on hover/tap.
 - **Admin UI/UX overhaul:** Review the overall admin workflow and layout. The current single-page form approach works but could be improved — consider better grouping of related settings, a more intuitive navigation flow between sets/objects/images, clearer visual hierarchy, and a more polished look. Worth doing a dedicated design pass.
