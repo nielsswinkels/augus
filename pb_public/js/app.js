@@ -1401,6 +1401,7 @@ function renderObjectList() {
   for (let idx = 0; idx < state.objects.length; idx++) {
     const obj = state.objects[idx];
     const displayNum = idx + 1;
+    const showNums = state.currentSet.show_numbers !== false;
     const name = obj[`name_${lang}`] || obj.name_en || "Object";
     const isCurrent = state.currentObject && state.currentObject.id === obj.id;
 
@@ -1415,7 +1416,7 @@ function renderObjectList() {
     });
 
     a.innerHTML = `
-      <span class="object-list__number">${displayNum}</span>
+      ${showNums ? `<span class="object-list__number">${displayNum}</span>` : ""}
       <div class="object-list__info">
         <div class="object-list__name">${escapeHtml(name)}</div>
       </div>
@@ -1626,8 +1627,9 @@ function showGpsCard(obj) {
   const idx = state.objects.indexOf(obj);
   const displayNum = idx >= 0 ? idx + 1 : "?";
 
+  const showNums = state.currentSet.show_numbers !== false;
   const card = document.getElementById("gpsCard");
-  document.getElementById("gpsCardNumber").textContent = displayNum;
+  document.getElementById("gpsCardNumber").textContent = showNums ? displayNum : "●";
   document.getElementById("gpsCardName").textContent = name;
 
   const tt = i18n[lang] || i18n.en;
@@ -1695,17 +1697,18 @@ async function renderOutdoorMap(floor) {
     if (!obj.latitude || !obj.longitude) continue;
 
     const displayNum = idx + 1;
+    const showNums = state.currentSet.show_numbers !== false;
     const name = obj[`name_${lang}`] || obj.name_en || "Object";
 
     const icon = L.divIcon({
       className: "leaflet-numbered-pin",
-      html: `<div class="map-pin-leaflet">${displayNum}</div>`,
+      html: `<div class="map-pin-leaflet">${showNums ? displayNum : "●"}</div>`,
       iconSize: [32, 32],
       iconAnchor: [16, 16],
     });
 
     const marker = L.marker([obj.latitude, obj.longitude], { icon }).addTo(state.leafletMap);
-    marker.bindPopup(`<b>${displayNum}. ${escapeHtml(name)}</b>`);
+    marker.bindPopup(`<b>${showNums ? displayNum + ". " : ""}${escapeHtml(name)}</b>`);
     marker.on("click", () => navigateTo(state.currentSet.slug, obj.slug));
   }
 
@@ -1845,10 +1848,11 @@ function renderMapPins() {
       const pin = document.createElement("a");
       pin.className = "map-pin";
       pin.href = `#/${state.currentSet.slug}/${p.slug}`;
-      pin.textContent = p.displayNum;
+      const showNums = state.currentSet.show_numbers !== false;
+      pin.textContent = showNums ? p.displayNum : "●";
       pin.style.left = `${p.x}%`;
       pin.style.top = `${p.y}%`;
-      pin.setAttribute("aria-label", `${p.displayNum}. ${p.name}`);
+      pin.setAttribute("aria-label", showNums ? `${p.displayNum}. ${p.name}` : p.name);
       pin.addEventListener("click", (e) => {
         e.preventDefault();
         navigateTo(state.currentSet.slug, p.slug);
