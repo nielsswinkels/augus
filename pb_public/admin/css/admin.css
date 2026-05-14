@@ -573,6 +573,17 @@ body {
   }
 }
 
+.object-card--grouped {
+  margin-left: var(--spacing-lg);
+  border-left: 3px solid var(--color-border);
+}
+
+.object-card--group-header {
+  border-left: 4px solid var(--color-primary);
+  background: var(--color-surface);
+  font-weight: 700;
+}
+
 .object-card__number {
   font-weight: 700;
   font-size: 1.2rem;

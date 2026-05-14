@@ -243,7 +243,6 @@ async function editSet(set) {
 
     $("#floorsFieldset").style.display = "";
     loadFloors(set.id);
-    loadGroups(set.id);
 
     const primary = set.color_primary || "#0057b8";
     const accent = set.color_accent || "#ffffff";
@@ -556,135 +555,225 @@ async function loadObjects(setId) {
         obj._displayName = first ? first.name : (obj.name_en || "");
       }
     }
+    // Load groups for this set
+    try {
+      const groupResp = await api(`collections/groups/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=50`);
+      currentGroups = groupResp.items || [];
+      if (currentGroups.length > 0) {
+        const groupIds = currentGroups.map(g => g.id);
+        const gcResp = await api(`collections/group_content/records?filter=(group='${groupIds.join("'||group='")}')&perPage=200`);
+        for (const gc of (gcResp.items || [])) {
+          const group = currentGroups.find(g => g.id === gc.group);
+          if (group) { group._content = group._content || {}; group._content[gc.language] = gc; }
+        }
+      }
+    } catch (e) { currentGroups = []; }
+
+    // Load set languages for group editing
+    const parentSet = currentSets.find(s => s.id === setId);
+    editingSetLanguages = (parentSet && parentSet.available_languages) || ["en"];
+
     renderObjectsList();
+    $("#btnAddGroup").classList.remove("hidden");
     $("#btnNewObject").classList.remove("hidden");
   } catch (e) {
     showToast("Could not load objects. Please check your connection and try again.");
   }
 }
 
+function buildFlatList() {
+  const ungrouped = currentObjects.filter(o => !o.group);
+  const entries = [];
+  for (const obj of ungrouped) entries.push({ type: "object", obj, sortOrder: obj.sort_order });
+  for (const group of currentGroups) entries.push({ type: "group", group, sortOrder: group.sort_order });
+  entries.sort((a, b) => a.sortOrder - b.sortOrder);
+  const flat = [];
+  for (const entry of entries) {
+    flat.push(entry);
+    if (entry.type === "group") {
+      const groupObjs = currentObjects.filter(o => o.group === entry.group.id);
+      groupObjs.sort((a, b) => a.sort_order - b.sort_order);
+      for (const obj of groupObjs) flat.push({ type: "grouped-object", obj, group: entry.group });
+    }
+  }
+  return flat;
+}
+
+function renderObjectCard(obj, isGrouped) {
+  const card = document.createElement("div");
+  card.className = "object-card" + (isGrouped ? " object-card--grouped" : "");
+  card.tabIndex = 0;
+  card.setAttribute("role", "button");
+  card.innerHTML = `
+    <div class="object-card__move">
+      <button class="btn btn--small item-move-up" title="Move up" aria-label="Move up">&#9650;</button>
+      <button class="btn btn--small item-move-down" title="Move down" aria-label="Move down">&#9660;</button>
+    </div>
+    <span class="object-card__number">${obj.sort_order}</span>
+    <div class="object-card__info">
+      <div class="object-card__name">${esc(obj._displayName || obj.name_en || "(Untitled)")}${obj.published ? "" : ' <span class="set-card__draft">Draft</span>'}</div>
+      <div class="object-card__slug">/${esc(obj.slug)}</div>
+    </div>
+  `;
+  card.addEventListener("click", (e) => { if (!e.target.closest("button")) editObject(obj); });
+  card.addEventListener("keydown", (e) => { if (e.key === "Enter") editObject(obj); });
+  return card;
+}
+
+function renderGroupHeader(group) {
+  const gc = group._content || {};
+  const title = getGroupDisplayTitle(group);
+  const color = group.color || "";
+  const card = document.createElement("div");
+  card.className = "object-card object-card--group-header";
+  if (color) card.style.borderLeftColor = color;
+  card.innerHTML = `
+    <div class="object-card__move">
+      <button class="btn btn--small item-move-up" title="Move up" aria-label="Move up">&#9650;</button>
+      <button class="btn btn--small item-move-down" title="Move down" aria-label="Move down">&#9660;</button>
+    </div>
+    <div class="object-card__info" style="flex:1">
+      <div class="object-card__name" ${color ? `style="color:${esc(color)}"` : ""}>${esc(title)}</div>
+    </div>
+    <button class="btn btn--small group-edit-btn" title="Edit group">Edit</button>
+    <button class="btn btn--danger btn--small group-delete-btn" title="Delete group">Delete</button>
+  `;
+  card.querySelector(".group-edit-btn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    const setLangs = editingSetLanguages || ["en"];
+    const existing = card.querySelector(".group-inline-edit");
+    if (existing) { existing.remove(); return; }
+    let editHtml = '<div class="group-inline-edit" style="padding:var(--spacing-sm);border-top:1px solid var(--color-border);margin-top:var(--spacing-xs)">';
+    for (const lang of setLangs) {
+      const t = gc[lang]?.title || "";
+      editHtml += `<div style="margin-bottom:var(--spacing-xs)"><label class="form-label" style="font-size:0.8rem">Title (${esc(langName(lang))})</label><input type="text" class="form-input group-edit-title" data-lang="${lang}" value="${esc(t)}" style="font-size:0.85rem"></div>`;
+    }
+    editHtml += `<div style="display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-xs)">
+      <label class="form-label" style="font-size:0.8rem;margin:0">Color</label>
+      <input type="color" class="group-edit-color-picker" value="${color || "#0057b8"}" style="width:32px;height:24px;padding:0;border:1px solid var(--color-border)">
+      <input type="text" class="form-input group-edit-color-text" value="${esc(color)}" maxlength="7" placeholder="Optional" style="width:90px;font-size:0.85rem">
+    </div>`;
+    editHtml += `<button class="btn btn--primary btn--small group-edit-save">Save</button></div>`;
+    card.insertAdjacentHTML("beforeend", editHtml);
+    const picker = card.querySelector(".group-edit-color-picker");
+    const textInput = card.querySelector(".group-edit-color-text");
+    picker.addEventListener("input", () => { textInput.value = picker.value; });
+    textInput.addEventListener("input", () => { if (/^#[0-9a-fA-F]{6}$/.test(textInput.value)) picker.value = textInput.value; });
+    card.querySelector(".group-edit-save").addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      const colorVal = textInput.value.trim();
+      const finalColor = /^#[0-9a-fA-F]{6}$/.test(colorVal) ? colorVal : "";
+      try {
+        await api(`collections/groups/records/${group.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ color: finalColor }) });
+        const titleInputs = card.querySelectorAll(".group-edit-title");
+        for (const input of titleInputs) {
+          const lang = input.dataset.lang;
+          const titleVal = input.value.trim();
+          const ex = gc[lang];
+          if (ex && ex.id) { await api(`collections/group_content/records/${ex.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: titleVal }) }); }
+          else if (titleVal) { await api("collections/group_content/records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: group.id, language: lang, title: titleVal }) }); }
+        }
+        showToast("Group saved!");
+        loadObjects(selectedSetId);
+      } catch (err) { showToast("Could not save group: " + err.message); }
+    });
+  });
+  card.querySelector(".group-delete-btn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    confirmAction(card.querySelector(".group-delete-btn"), async () => {
+      try {
+        const grouped = currentObjects.filter(o => o.group === group.id);
+        for (const obj of grouped) await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: "" }) });
+        await api(`collections/groups/records/${group.id}`, { method: "DELETE" });
+        showToast("Group deleted — objects ungrouped");
+        loadObjects(selectedSetId);
+      } catch (err) { showToast("Could not delete group: " + err.message); }
+    });
+  });
+  return card;
+}
+
+async function moveItem(flat, flatIndex, direction) {
+  const entry = flat[flatIndex];
+  const targetIdx = flatIndex + direction;
+  if (targetIdx < 0 || targetIdx >= flat.length) return;
+  const target = flat[targetIdx];
+  if (entry.type === "object" || entry.type === "grouped-object") {
+    const obj = entry.obj;
+    if (direction === -1) {
+      if (entry.type === "grouped-object") {
+        const groupIdx = flat.findIndex(e => e.type === "group" && e.group.id === entry.group.id);
+        if (flatIndex === groupIdx + 1) {
+          await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: "", sort_order: entry.group.sort_order - 0.5 }) });
+        } else {
+          await swapSort("objects", obj, flat[targetIdx].obj);
+        }
+      } else {
+        if (target.type === "grouped-object") {
+          await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: target.group.id, sort_order: target.obj.sort_order + 0.5 }) });
+        } else if (target.type === "group") {
+          await swapSortCross("objects", obj, "groups", target.group);
+        } else {
+          await swapSort("objects", obj, target.obj);
+        }
+      }
+    } else {
+      if (entry.type === "grouped-object") {
+        const groupObjs = flat.filter(e => e.type === "grouped-object" && e.group.id === entry.group.id);
+        if (groupObjs[groupObjs.length - 1].obj.id === obj.id) {
+          await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: "", sort_order: entry.group.sort_order + 0.5 }) });
+        } else {
+          await swapSort("objects", flat[targetIdx].obj, obj);
+        }
+      } else {
+        if (target.type === "group") {
+          const groupObjs = currentObjects.filter(o => o.group === target.group.id);
+          const minOrder = groupObjs.length > 0 ? Math.min(...groupObjs.map(o => o.sort_order)) : target.group.sort_order;
+          await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: target.group.id, sort_order: minOrder - 0.5 }) });
+        } else if (target.type === "object") {
+          await swapSort("objects", obj, target.obj);
+        }
+      }
+    }
+  } else if (entry.type === "group") {
+    if (target.type === "object") await swapSortCross("groups", entry.group, "objects", target.obj);
+    else if (target.type === "group") await swapSort("groups", entry.group, target.group);
+    else return;
+  }
+  loadObjects(selectedSetId);
+}
+
+async function swapSort(col, a, b) {
+  await Promise.all([
+    api(`collections/${col}/records/${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sort_order: b.sort_order }) }),
+    api(`collections/${col}/records/${b.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sort_order: a.sort_order }) }),
+  ]);
+}
+
+async function swapSortCross(colA, a, colB, b) {
+  await Promise.all([
+    api(`collections/${colA}/records/${a.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sort_order: b.sort_order }) }),
+    api(`collections/${colB}/records/${b.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sort_order: a.sort_order }) }),
+  ]);
+}
+
 function renderObjectsList() {
   const container = $("#objectsList");
   container.innerHTML = "";
-  if (currentObjects.length === 0) {
+  if (currentObjects.length === 0 && currentGroups.length === 0) {
     container.innerHTML = '<p style="color:var(--color-text-secondary)">No objects yet.</p>';
     return;
   }
-
-  let dragSrcIndex = null;
-
-  for (let i = 0; i < currentObjects.length; i++) {
-    const obj = currentObjects[i];
-    const card = document.createElement("div");
-    card.className = "object-card";
-    card.tabIndex = 0;
-    card.setAttribute("role", "button");
-    card.draggable = true;
-    card.dataset.index = i;
-    card.innerHTML = `
-      <span class="drag-handle" title="Drag to reorder" aria-hidden="true">⠿</span>
-      <div class="object-card__move">
-        <button class="btn btn--small object-move-up" data-index="${i}" ${i === 0 ? "disabled" : ""} title="Move up" aria-label="Move up">&#9650;</button>
-        <button class="btn btn--small object-move-down" data-index="${i}" ${i === currentObjects.length - 1 ? "disabled" : ""} title="Move down" aria-label="Move down">&#9660;</button>
-      </div>
-      <span class="object-card__number">${obj.sort_order}</span>
-      <div class="object-card__info">
-        <div class="object-card__name">${esc(obj._displayName || obj.name_en || "(Untitled)")}${obj.published ? "" : ' <span class="set-card__draft">Draft</span>'}</div>
-        <div class="object-card__slug">/${esc(obj.slug)}</div>
-      </div>
-    `;
-
-    // Open on click/keyboard (but not after a drag)
-    let didDrag = false;
-    card.addEventListener("click", () => { if (!didDrag) editObject(obj); didDrag = false; });
-    card.addEventListener("keydown", (e) => { if (e.key === "Enter") editObject(obj); });
-
-    // Drag-and-drop handlers
-    card.addEventListener("dragstart", (e) => {
-      didDrag = true;
-      dragSrcIndex = parseInt(card.dataset.index);
-      e.dataTransfer.effectAllowed = "move";
-      card.classList.add("dragging");
-    });
-
-    card.addEventListener("dragend", () => {
-      didDrag = false;
-      card.classList.remove("dragging");
-      container.querySelectorAll(".object-card").forEach((c) => c.classList.remove("drag-over"));
-    });
-
-    card.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      container.querySelectorAll(".object-card").forEach((c) => c.classList.remove("drag-over"));
-      card.classList.add("drag-over");
-    });
-
-    card.addEventListener("dragleave", () => {
-      card.classList.remove("drag-over");
-    });
-
-    card.addEventListener("drop", async (e) => {
-      e.preventDefault();
-      card.classList.remove("drag-over");
-      const destIndex = parseInt(card.dataset.index);
-      if (dragSrcIndex === null || dragSrcIndex === destIndex) return;
-
-      // Reorder in memory
-      const reordered = [...currentObjects];
-      const [moved] = reordered.splice(dragSrcIndex, 1);
-      reordered.splice(destIndex, 0, moved);
-
-      // Assign new sort_order values (1-based) and save all
-      const reorderedWithSort = reordered.map((o, idx) => ({ ...o, sort_order: idx + 1 }));
-
-      try {
-        await Promise.all(reorderedWithSort.map((o) =>
-          api(`collections/objects/records/${o.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sort_order: o.sort_order }),
-          })
-        ));
-        currentObjects = reorderedWithSort;
-        renderObjectsList();
-      } catch (err) {
-        showToast("Could not save the new order. Please try refreshing and reordering again.");
-      }
-    });
-
+  const flat = buildFlatList();
+  for (let i = 0; i < flat.length; i++) {
+    const entry = flat[i];
+    let card;
+    if (entry.type === "group") card = renderGroupHeader(entry.group);
+    else card = renderObjectCard(entry.obj, entry.type === "grouped-object");
+    card.querySelector(".item-move-up")?.addEventListener("click", (e) => { e.stopPropagation(); moveItem(flat, i, -1); });
+    card.querySelector(".item-move-down")?.addEventListener("click", (e) => { e.stopPropagation(); moveItem(flat, i, 1); });
     container.appendChild(card);
   }
-
-  // Wire move up/down buttons
-  container.querySelectorAll(".object-move-up, .object-move-down").forEach(btn => {
-    btn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const idx = parseInt(btn.dataset.index);
-      const isUp = btn.classList.contains("object-move-up");
-      const swapIdx = isUp ? idx - 1 : idx + 1;
-      if (swapIdx < 0 || swapIdx >= currentObjects.length) return;
-      const a = currentObjects[idx];
-      const b = currentObjects[swapIdx];
-      try {
-        await Promise.all([
-          api(`collections/objects/records/${a.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sort_order: b.sort_order }),
-          }),
-          api(`collections/objects/records/${b.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sort_order: a.sort_order }),
-          }),
-        ]);
-        loadObjects(selectedSetId);
-      } catch (e) {
-        showToast("Could not reorder objects.");
-      }
-    });
-  });
 }
 
 async function editObject(obj) {
@@ -1560,154 +1649,17 @@ function updateDefaultFloorDropdown() {
 // ===== GROUPS =====
 let currentGroups = [];
 
-async function loadGroups(setId) {
-  try {
-    const resp = await api(`collections/groups/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=50`);
-    currentGroups = resp.items || [];
-    if (currentGroups.length > 0) {
-      const groupIds = currentGroups.map(g => g.id);
-      const gcResp = await api(`collections/group_content/records?filter=(group='${groupIds.join("'||group='")}')&perPage=200`);
-      for (const gc of (gcResp.items || [])) {
-        const group = currentGroups.find(g => g.id === gc.group);
-        if (group) {
-          group._content = group._content || {};
-          group._content[gc.language] = gc;
-        }
-      }
-    }
-    $("#groupsFieldset").style.display = "";
-    renderGroupsList();
-  } catch (e) {
-    currentGroups = [];
-  }
-}
-
-function renderGroupsList() {
-  const container = $("#groupsList");
-  container.innerHTML = "";
-  const setLangs = editingSetLanguages || ["en"];
-
-  for (let i = 0; i < currentGroups.length; i++) {
-    const group = currentGroups[i];
-    const gc = group._content || {};
-    const card = document.createElement("div");
-    card.className = "floor-card";
-
-    let titleFieldsHtml = "";
-    for (const lang of setLangs) {
-      const title = gc[lang]?.title || "";
-      titleFieldsHtml += `
-        <div>
-          <label class="form-label">Title (${esc(langName(lang))})</label>
-          <input type="text" class="form-input group-title-lang" data-lang="${lang}" value="${esc(title)}" placeholder="e.g. Room A">
-        </div>
-      `;
-    }
-
-    card.innerHTML = `
-      <div class="form-row form-row--inline" style="flex-wrap:wrap">
-        <div style="max-width:100px">
-          <label class="form-label">Order</label>
-          <input type="number" class="form-input group-sort-order" value="${group.sort_order}" min="0">
-        </div>
-        ${titleFieldsHtml}
-        <div style="max-width:120px">
-          <label class="form-label">Color</label>
-          <div class="color-input-wrap">
-            <input type="color" class="group-color-picker" value="${group.color || "#0057b8"}" tabindex="-1">
-            <input type="text" class="form-input color-hex-input group-color-text" value="${esc(group.color || "")}" maxlength="7" placeholder="Optional">
-          </div>
-        </div>
-      </div>
-      <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-xs);align-items:center">
-        <button type="button" class="btn btn--primary btn--small group-save" data-id="${group.id}">Save</button>
-        <button type="button" class="btn btn--danger btn--small group-delete" data-id="${group.id}">Delete</button>
-      </div>
-    `;
-    container.appendChild(card);
-
-    // Sync color picker and text input
-    const picker = card.querySelector(".group-color-picker");
-    const textInput = card.querySelector(".group-color-text");
-    picker.addEventListener("input", () => { textInput.value = picker.value; });
-    textInput.addEventListener("input", () => {
-      if (/^#[0-9a-fA-F]{6}$/.test(textInput.value)) picker.value = textInput.value;
-    });
-  }
-
-  // Save handlers
-  container.querySelectorAll(".group-save").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const card = btn.closest(".floor-card");
-      const groupId = btn.dataset.id;
-      const sortOrder = parseInt(card.querySelector(".group-sort-order").value) || 0;
-      const colorText = card.querySelector(".group-color-text").value.trim();
-      const color = /^#[0-9a-fA-F]{6}$/.test(colorText) ? colorText : "";
-      try {
-        await api(`collections/groups/records/${groupId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sort_order: sortOrder, color }),
-        });
-        // Save titles per language
-        const group = currentGroups.find(g => g.id === groupId);
-        const gc = group?._content || {};
-        const titleInputs = card.querySelectorAll(".group-title-lang");
-        for (const input of titleInputs) {
-          const lang = input.dataset.lang;
-          const title = input.value.trim();
-          const existing = gc[lang];
-          if (existing && existing.id) {
-            await api(`collections/group_content/records/${existing.id}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ title }),
-            });
-          } else if (title) {
-            await api("collections/group_content/records", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ group: groupId, language: lang, title }),
-            });
-          }
-        }
-        showToast("Group saved!");
-        loadGroups(editingSet.id);
-      } catch (e) {
-        showToast("Could not save group: " + e.message);
-      }
-    });
-  });
-
-  // Delete handlers
-  container.querySelectorAll(".group-delete").forEach(btn => {
-    btn.addEventListener("click", () => {
-      confirmAction(btn, async () => {
-        try {
-          await api(`collections/groups/records/${btn.dataset.id}`, { method: "DELETE" });
-          showToast("Group deleted");
-          loadGroups(editingSet.id);
-        } catch (e) {
-          showToast("Could not delete group: " + e.message);
-        }
-      });
-    });
-  });
-}
-
 async function addGroup() {
-  if (!editingSet) return;
+  if (!selectedSetId) return;
+  const maxOrder = Math.max(0, ...currentObjects.map(o => o.sort_order), ...currentGroups.map(g => g.sort_order));
   try {
     await api("collections/groups/records", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        set: editingSet.id,
-        sort_order: currentGroups.length + 1,
-      }),
+      body: JSON.stringify({ set: selectedSetId, sort_order: maxOrder + 1 }),
     });
-    showToast("Group added");
-    loadGroups(editingSet.id);
+    showToast("Group added — click Edit to set title and color");
+    loadObjects(selectedSetId);
   } catch (e) {
     showToast("Could not add group: " + e.message);
   }
