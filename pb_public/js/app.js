@@ -1468,7 +1468,6 @@ function loadModelViewer() {
   if (window._modelViewerPromise) return window._modelViewerPromise;
   window._modelViewerPromise = new Promise((resolve) => {
     const script = document.createElement("script");
-    script.type = "module";
     script.src = "/js/lib/model-viewer/model-viewer.min.js";
     script.onload = () => resolve();
     document.head.appendChild(script);
