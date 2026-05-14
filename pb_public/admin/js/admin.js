@@ -695,50 +695,72 @@ function renderGroupHeader(group) {
 
 async function moveItem(flat, flatIndex, direction) {
   const entry = flat[flatIndex];
+
+  if (entry.type === "group") {
+    // For groups: skip past own children to find the real swap target
+    let targetIdx = flatIndex + direction;
+    if (direction === 1) {
+      // Skip all own children
+      while (targetIdx < flat.length && flat[targetIdx].type === "grouped-object" && flat[targetIdx].group.id === entry.group.id) {
+        targetIdx++;
+      }
+    }
+    if (targetIdx < 0 || targetIdx >= flat.length) return;
+    const target = flat[targetIdx];
+    // Skip over target's children too if it's a group
+    if (target.type === "group") {
+      await swapSort("groups", entry.group, target.group);
+    } else if (target.type === "object") {
+      await swapSortCross("groups", entry.group, "objects", target.obj);
+    } else if (target.type === "grouped-object") {
+      // Swap with the target's parent group
+      const parentGroup = currentGroups.find(g => g.id === target.group.id);
+      if (parentGroup) await swapSort("groups", entry.group, parentGroup);
+    }
+    loadObjects(selectedSetId);
+    return;
+  }
+
+  // Object movement (same as before)
+  const obj = entry.obj;
   const targetIdx = flatIndex + direction;
   if (targetIdx < 0 || targetIdx >= flat.length) return;
   const target = flat[targetIdx];
-  if (entry.type === "object" || entry.type === "grouped-object") {
-    const obj = entry.obj;
-    if (direction === -1) {
-      if (entry.type === "grouped-object") {
-        const groupIdx = flat.findIndex(e => e.type === "group" && e.group.id === entry.group.id);
-        if (flatIndex === groupIdx + 1) {
-          await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: "", sort_order: entry.group.sort_order - 0.5 }) });
-        } else {
-          await swapSort("objects", obj, flat[targetIdx].obj);
-        }
+
+  if (direction === -1) {
+    if (entry.type === "grouped-object") {
+      const groupIdx = flat.findIndex(e => e.type === "group" && e.group.id === entry.group.id);
+      if (flatIndex === groupIdx + 1) {
+        await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: "", sort_order: entry.group.sort_order - 0.5 }) });
       } else {
-        if (target.type === "grouped-object") {
-          await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: target.group.id, sort_order: target.obj.sort_order + 0.5 }) });
-        } else if (target.type === "group") {
-          await swapSortCross("objects", obj, "groups", target.group);
-        } else {
-          await swapSort("objects", obj, target.obj);
-        }
+        await swapSort("objects", obj, flat[targetIdx].obj);
       }
     } else {
-      if (entry.type === "grouped-object") {
-        const groupObjs = flat.filter(e => e.type === "grouped-object" && e.group.id === entry.group.id);
-        if (groupObjs[groupObjs.length - 1].obj.id === obj.id) {
-          await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: "", sort_order: entry.group.sort_order + 0.5 }) });
-        } else {
-          await swapSort("objects", flat[targetIdx].obj, obj);
-        }
+      if (target.type === "grouped-object") {
+        await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: target.group.id, sort_order: target.obj.sort_order + 0.5 }) });
+      } else if (target.type === "group") {
+        await swapSortCross("objects", obj, "groups", target.group);
       } else {
-        if (target.type === "group") {
-          const groupObjs = currentObjects.filter(o => o.group === target.group.id);
-          const minOrder = groupObjs.length > 0 ? Math.min(...groupObjs.map(o => o.sort_order)) : target.group.sort_order;
-          await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: target.group.id, sort_order: minOrder - 0.5 }) });
-        } else if (target.type === "object") {
-          await swapSort("objects", obj, target.obj);
-        }
+        await swapSort("objects", obj, target.obj);
       }
     }
-  } else if (entry.type === "group") {
-    if (target.type === "object") await swapSortCross("groups", entry.group, "objects", target.obj);
-    else if (target.type === "group") await swapSort("groups", entry.group, target.group);
-    else return;
+  } else {
+    if (entry.type === "grouped-object") {
+      const groupObjs = flat.filter(e => e.type === "grouped-object" && e.group.id === entry.group.id);
+      if (groupObjs[groupObjs.length - 1].obj.id === obj.id) {
+        await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: "", sort_order: entry.group.sort_order + 0.5 }) });
+      } else {
+        await swapSort("objects", flat[targetIdx].obj, obj);
+      }
+    } else {
+      if (target.type === "group") {
+        const groupObjs = currentObjects.filter(o => o.group === target.group.id);
+        const minOrder = groupObjs.length > 0 ? Math.min(...groupObjs.map(o => o.sort_order)) : target.group.sort_order;
+        await api(`collections/objects/records/${obj.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: target.group.id, sort_order: minOrder - 0.5 }) });
+      } else if (target.type === "object") {
+        await swapSort("objects", obj, target.obj);
+      }
+    }
   }
   loadObjects(selectedSetId);
 }
@@ -767,6 +789,60 @@ function renderObjectsList() {
   const flat = buildFlatList();
   let dragSrcIdx = null;
 
+  function clearDropIndicators() {
+    container.querySelectorAll(".drop-line-active").forEach(el => el.classList.remove("drop-line-active"));
+    container.querySelectorAll(".drop-into-active").forEach(el => el.classList.remove("drop-into-active"));
+    container.querySelectorAll(".dragging").forEach(el => el.classList.remove("dragging"));
+  }
+
+  function createDropLine(dropIndex, groupId) {
+    const line = document.createElement("div");
+    line.className = "drop-line";
+    line.dataset.dropIndex = dropIndex;
+    if (groupId) line.dataset.dropGroup = groupId;
+    line.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      clearDropIndicators();
+      line.classList.add("drop-line-active");
+    });
+    line.addEventListener("dragleave", () => line.classList.remove("drop-line-active"));
+    line.addEventListener("drop", (e) => handleDrop(e, line));
+    return line;
+  }
+
+  async function handleDrop(e, dropEl) {
+    e.preventDefault();
+    clearDropIndicators();
+    if (dragSrcIdx === null) return;
+    const src = flat[dragSrcIdx];
+    if (src.type === "group") { loadObjects(selectedSetId); return; }
+    const obj = src.obj;
+    const dropIndex = parseInt(dropEl.dataset.dropIndex);
+    const dropGroup = dropEl.dataset.dropGroup || "";
+
+    // Calculate target sort_order based on neighbors
+    const prev = dropIndex > 0 ? flat[dropIndex - 1] : null;
+    const next = dropIndex < flat.length ? flat[dropIndex] : null;
+    let targetOrder;
+    if (prev && next) targetOrder = ((prev.sortOrder || prev.obj?.sort_order || 0) + (next.sortOrder || next.obj?.sort_order || 0)) / 2;
+    else if (prev) targetOrder = (prev.sortOrder || prev.obj?.sort_order || 0) + 1;
+    else if (next) targetOrder = (next.sortOrder || next.obj?.sort_order || 0) - 1;
+    else targetOrder = 1;
+
+    try {
+      await api(`collections/objects/records/${obj.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ group: dropGroup, sort_order: targetOrder }),
+      });
+      loadObjects(selectedSetId);
+    } catch (err) { showToast("Could not reorder."); }
+  }
+
+  // Drop line at the very top
+  container.appendChild(createDropLine(0, ""));
+
   for (let i = 0; i < flat.length; i++) {
     const entry = flat[i];
     let card;
@@ -782,53 +858,40 @@ function renderObjectsList() {
       e.dataTransfer.effectAllowed = "move";
       card.classList.add("dragging");
     });
-    card.addEventListener("dragend", () => {
-      card.classList.remove("dragging");
-      container.querySelectorAll(".drag-over").forEach(c => c.classList.remove("drag-over"));
-    });
-    card.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "move";
-      container.querySelectorAll(".drag-over").forEach(c => c.classList.remove("drag-over"));
-      card.classList.add("drag-over");
-    });
-    card.addEventListener("dragleave", () => card.classList.remove("drag-over"));
-    card.addEventListener("drop", async (e) => {
-      e.preventDefault();
-      card.classList.remove("drag-over");
-      const destIdx = parseInt(card.dataset.flatIndex);
-      if (dragSrcIdx === null || dragSrcIdx === destIdx) return;
-      const src = flat[dragSrcIdx];
-      const dest = flat[destIdx];
-      // Only support dragging objects (not group headers) for simplicity
-      if (src.type === "group") { loadObjects(selectedSetId); return; }
-      const obj = src.obj;
-      // Determine target group and sort_order
-      let targetGroup = "";
-      let targetOrder = dest.sortOrder;
-      if (dest.type === "group") {
-        targetGroup = dest.group.id;
-        const groupObjs = currentObjects.filter(o => o.group === dest.group.id);
-        targetOrder = groupObjs.length > 0 ? Math.min(...groupObjs.map(o => o.sort_order)) - 0.5 : dest.group.sort_order;
-      } else if (dest.type === "grouped-object") {
-        targetGroup = dest.group.id;
-        targetOrder = dest.obj.sort_order + (destIdx > dragSrcIdx ? 0.5 : -0.5);
-      } else {
-        targetOrder = dest.obj.sort_order + (destIdx > dragSrcIdx ? 0.5 : -0.5);
-      }
-      try {
-        await api(`collections/objects/records/${obj.id}`, {
+    card.addEventListener("dragend", () => clearDropIndicators());
+
+    // Group headers: allow dropping INTO the group
+    if (entry.type === "group") {
+      card.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        clearDropIndicators();
+        card.classList.add("drop-into-active");
+      });
+      card.addEventListener("dragleave", () => card.classList.remove("drop-into-active"));
+      card.addEventListener("drop", (e) => {
+        e.preventDefault();
+        clearDropIndicators();
+        if (dragSrcIdx === null) return;
+        const src = flat[dragSrcIdx];
+        if (src.type === "group") return;
+        const groupObjs = currentObjects.filter(o => o.group === entry.group.id);
+        const minOrder = groupObjs.length > 0 ? Math.min(...groupObjs.map(o => o.sort_order)) : entry.group.sort_order;
+        api(`collections/objects/records/${src.obj.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ group: targetGroup, sort_order: targetOrder }),
-        });
-        loadObjects(selectedSetId);
-      } catch (err) {
-        showToast("Could not reorder.");
-      }
-    });
+          body: JSON.stringify({ group: entry.group.id, sort_order: minOrder - 0.5 }),
+        }).then(() => loadObjects(selectedSetId)).catch(() => showToast("Could not reorder."));
+      });
+    }
 
     container.appendChild(card);
+
+    // Drop line after each item
+    const nextEntry = flat[i + 1];
+    const lineGroupId = (entry.type === "grouped-object") ? entry.group.id :
+      (nextEntry && nextEntry.type === "grouped-object") ? nextEntry.group.id : "";
+    container.appendChild(createDropLine(i + 1, lineGroupId));
   }
 }
 
