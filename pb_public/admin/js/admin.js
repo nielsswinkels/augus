@@ -622,7 +622,7 @@ function renderGroupHeader(group) {
     }
     editHtml += `<div style="display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-xs)">
       <label class="form-label" style="font-size:0.8rem;margin:0">Color</label>
-      <input type="color" class="group-edit-color-picker" value="${color || "#0057b8"}" style="width:32px;height:24px;padding:0;border:1px solid var(--color-border)">
+      <input type="color" class="group-edit-color-picker" value="${color || "#cccccc"}" style="width:32px;height:24px;padding:0;border:1px solid var(--color-border)">
       <input type="text" class="form-input group-edit-color-text" value="${esc(color)}" maxlength="7" placeholder="Optional" style="width:90px;font-size:0.85rem">
     </div>`;
     editHtml += `<button class="btn btn--primary btn--small group-edit-save">Save</button></div>`;
