@@ -1417,6 +1417,10 @@ async function renderAboutContent() {
     ALLOWED_TAGS: ["p", "b", "i", "u", "a", "br", "strong", "em", "h2", "h3", "ul", "ol", "li"],
     ALLOWED_ATTR: ["href", "target", "rel"],
   });
+  dom.aboutContent.querySelectorAll("a").forEach(a => {
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+  });
 }
 
 // ===== List View =====
