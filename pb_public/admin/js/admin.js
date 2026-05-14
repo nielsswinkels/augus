@@ -572,9 +572,10 @@ function buildFlatList() {
   return flat;
 }
 
-function renderObjectCard(obj, isGrouped) {
+function renderObjectCard(obj, isGrouped, groupColor) {
   const card = document.createElement("div");
   card.className = "object-card" + (isGrouped ? " object-card--grouped" : "");
+  if (isGrouped && groupColor) card.style.borderLeftColor = groupColor;
   card.tabIndex = 0;
   card.setAttribute("role", "button");
   card.innerHTML = `
@@ -595,17 +596,20 @@ function renderObjectCard(obj, isGrouped) {
 function renderGroupHeader(group) {
   const gc = group._content || {};
   const title = getGroupDisplayTitle(group);
+  const parentSet = currentSets.find(s => s.id === selectedSetId);
+  const setPrimary = parentSet?.color_primary || "#0057b8";
   const color = group.color || "";
+  const displayColor = color || setPrimary;
   const card = document.createElement("div");
   card.className = "object-card object-card--group-header";
-  if (color) card.style.borderLeftColor = color;
+  card.style.borderLeftColor = displayColor;
   card.innerHTML = `
     <div class="object-card__move">
       <button class="btn btn--small item-move-up" title="Move up" aria-label="Move up">&#9650;</button>
       <button class="btn btn--small item-move-down" title="Move down" aria-label="Move down">&#9660;</button>
     </div>
     <div class="object-card__info" style="flex:1">
-      <div class="object-card__name" ${color ? `style="color:${esc(color)}"` : ""}>${esc(title)}</div>
+      <div class="object-card__name" style="color:${esc(displayColor)}">${esc(title)}</div>
     </div>
     <button class="btn btn--small group-edit-btn" title="Edit group">Edit</button>
     <button class="btn btn--danger btn--small group-delete-btn" title="Delete group">Delete</button>
@@ -622,7 +626,7 @@ function renderGroupHeader(group) {
     }
     editHtml += `<div style="display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-xs)">
       <label class="form-label" style="font-size:0.8rem;margin:0">Color</label>
-      <input type="color" class="group-edit-color-picker" value="${color || "#0057b8"}" style="width:32px;height:24px;padding:0;border:1px solid var(--color-border)">
+      <input type="color" class="group-edit-color-picker" value="${displayColor}" style="width:32px;height:24px;padding:0;border:1px solid var(--color-border)">
       <input type="text" class="form-input group-edit-color-text" value="${esc(color)}" maxlength="7" placeholder="Optional" style="width:90px;font-size:0.85rem">
     </div>`;
     editHtml += `<button class="btn btn--primary btn--small group-edit-save">Save</button></div>`;
@@ -875,7 +879,12 @@ function renderObjectsList() {
     const entry = flat[i];
     let card;
     if (entry.type === "group") card = renderGroupHeader(entry.group);
-    else card = renderObjectCard(entry.obj, entry.type === "grouped-object");
+    else {
+      const parentSet = currentSets.find(s => s.id === selectedSetId);
+      const setPrimary = parentSet?.color_primary || "#0057b8";
+      const objGroupColor = entry.group ? (entry.group.color || setPrimary) : "";
+      card = renderObjectCard(entry.obj, entry.type === "grouped-object", objGroupColor);
+    }
     card.dataset.flatIndex = i;
     card.draggable = true;
     card.querySelector(".item-move-up")?.addEventListener("click", (e) => { e.stopPropagation(); moveItem(flat, i, -1); });
