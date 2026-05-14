@@ -805,6 +805,24 @@ body {
 
 .toast.visible { opacity: 1; }
 
+/* Quill editor */
+.quill-editor {
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  min-height: 120px;
+  font-family: inherit;
+  font-size: var(--font-size-base);
+}
+
+.quill-editor .ql-editor {
+  min-height: 100px;
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.quill-editor .ql-editor p {
+  margin-bottom: 0.5em;
+}
+
 /* Language tags */
 .language-tag {
   display: inline-flex;

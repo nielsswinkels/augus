@@ -155,6 +155,7 @@ const state = {
   mapPan: { x: 0, y: 0 },
   audioPausedByGallery: false,
   floors: [],
+  groups: [],
   currentFloorId: null,
   leafletMap: null,
   gpsWatchId: null,
@@ -605,6 +606,26 @@ async function loadRoute() {
       state.currentFloorId = null;
     }
 
+    // Load groups
+    try {
+      const groupResp = await api(`groups/records?filter=(set='${state.currentSet.id}')&sort=sort_order&perPage=50`, { signal });
+      state.groups = groupResp.items || [];
+      if (state.groups.length > 0) {
+        const groupIds = state.groups.map(g => g.id);
+        const gcResp = await api(`group_content/records?filter=(group='${groupIds.join("'||group='")}')&perPage=200`, { signal });
+        for (const gc of (gcResp.items || [])) {
+          const group = state.groups.find(g => g.id === gc.group);
+          if (group) {
+            group._content = group._content || {};
+            group._content[gc.language] = gc;
+          }
+        }
+      }
+    } catch (e) {
+      if (e.name === "AbortError") throw e;
+      state.groups = [];
+    }
+
     // Start or stop GPS tracking based on outdoor floors
     const hasOutdoorFloors = state.floors.some(f => f.type === "outdoor");
     if (hasOutdoorFloors) {
@@ -664,6 +685,21 @@ async function loadObject(obj) {
           if (img) img[`caption_${c.language}`] = c.caption || "";
         }
       } catch (e) { /* content table may not exist yet */ }
+      // Load video subtitles
+      const videoItems = state.images.filter(i => i.media_type === "video");
+      if (videoItems.length > 0) {
+        try {
+          const vIds = videoItems.map(v => v.id);
+          const subsResp = await api(`video_subtitles/records?filter=(media='${vIds.join("'||media='")}')&perPage=200`);
+          for (const sub of (subsResp.items || [])) {
+            const img = state.images.find(i => i.id === sub.media);
+            if (img) {
+              img._videoSubs = img._videoSubs || {};
+              img._videoSubs[sub.language] = sub;
+            }
+          }
+        } catch (e) { /* video_subtitles may not exist yet */ }
+      }
     }
   } catch (e) {
     state.images = [];
@@ -860,17 +896,29 @@ function renderCarousel() {
       icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>';
       slide.appendChild(icon);
     } else {
-      const url = fileUrl("object_images", img.id, img.image, "600x400");
-      const imgEl = document.createElement("img");
-      imgEl.src = url;
-      imgEl.alt = caption || `Image ${i + 1}`;
-      imgEl.loading = i === 0 ? "eager" : "lazy";
-      imgEl.addEventListener("click", () => openGallery(i));
-      slide.appendChild(imgEl);
+      const url = img.image ? fileUrl("object_images", img.id, img.image, "600x400") : "";
+      if (url) {
+        const imgEl = document.createElement("img");
+        imgEl.src = url;
+        imgEl.alt = caption || `Image ${i + 1}`;
+        imgEl.loading = i === 0 ? "eager" : "lazy";
+        imgEl.addEventListener("click", () => openGallery(i));
+        slide.appendChild(imgEl);
+      } else {
+        const placeholder = document.createElement("div");
+        placeholder.className = "carousel__placeholder";
+        placeholder.addEventListener("click", () => openGallery(i));
+        slide.appendChild(placeholder);
+      }
       if (img.media_type === "360") {
         const icon = document.createElement("span");
         icon.className = "carousel__360-icon";
         icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><circle cx="12" cy="12" r="10"/><ellipse cx="12" cy="12" rx="4" ry="10"/><path d="M2 12h20"/></svg>';
+        slide.appendChild(icon);
+      } else if (img.media_type === "video") {
+        const icon = document.createElement("span");
+        icon.className = "carousel__360-icon carousel__play-icon";
+        icon.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><polygon points="5,3 19,12 5,21"/></svg>';
         slide.appendChild(icon);
       }
     }
@@ -1127,6 +1175,7 @@ function openGallery(index = 0) {
 function closeGallery() {
   destroyPannellum();
   destroyModelViewer();
+  destroyGalleryVideo();
   dom.galleryImage.classList.remove("hidden");
   dom.galleryOverlay.classList.remove("active");
   if (galleryFocusTrapCleanup) { galleryFocusTrapCleanup(); galleryFocusTrapCleanup = null; }
@@ -1141,6 +1190,16 @@ function closeGallery() {
 }
 
 let pannellumViewer = null;
+
+function destroyGalleryVideo() {
+  const container = document.getElementById("galleryVideoContainer");
+  if (container) {
+    const video = container.querySelector("video");
+    if (video) { video.pause(); video.src = ""; }
+    container.classList.add("hidden");
+    container.innerHTML = "";
+  }
+}
 
 function destroyModelViewer() {
   const container = document.getElementById("gallery3dContainer");
@@ -1223,12 +1282,53 @@ async function renderGalleryImage() {
     viewer.setAttribute("ar", "");
     if (url) viewer.setAttribute("poster", url);
     container.appendChild(viewer);
+  } else if (img.media_type === "video" && img.video_file) {
+    destroyPannellum();
+    destroyModelViewer();
+    destroyGalleryVideo();
+    dom.galleryImage.classList.add("hidden");
+    const container = document.getElementById("galleryVideoContainer");
+    container.classList.remove("hidden");
+
+    // Pause audio guide
+    if (!dom.audioElement.paused) {
+      dom.audioElement.pause();
+      state.audioPausedByGallery = true;
+    }
+
+    const videoUrl = fileUrl("object_images", img.id, img.video_file);
+    const video = document.createElement("video");
+    video.controls = true;
+    video.preload = "metadata";
+    if (url) video.poster = url;
+    const source = document.createElement("source");
+    source.src = videoUrl;
+    source.type = img.video_file.endsWith(".webm") ? "video/webm" : "video/mp4";
+    video.appendChild(source);
+
+    // Add subtitle tracks
+    const subs = img._videoSubs || {};
+    const visitorLang = state.settings.language;
+    for (const [lang, sub] of Object.entries(subs)) {
+      const track = document.createElement("track");
+      track.kind = "subtitles";
+      track.src = fileUrl("video_subtitles", sub.id, sub.subtitles);
+      track.srclang = lang;
+      track.label = LANGUAGE_NAMES[lang] || lang.toUpperCase();
+      if (lang === visitorLang) track.default = true;
+      video.appendChild(track);
+    }
+
+    container.appendChild(video);
   } else {
     destroyPannellum();
     destroyModelViewer();
+    destroyGalleryVideo();
     dom.galleryImage.classList.remove("hidden");
-    dom.galleryImage.src = url;
-    dom.galleryImage.alt = caption || `Image ${state.galleryIndex + 1}`;
+    if (url) {
+      dom.galleryImage.src = url;
+      dom.galleryImage.alt = caption || `Image ${state.galleryIndex + 1}`;
+    }
   }
 
   // Read caption aloud
@@ -1312,6 +1412,7 @@ function setupGalleryEvents() {
   dom.galleryBody.addEventListener("pointerdown", (e) => {
     if (pannellumViewer) return;
     if (document.getElementById("gallery3dContainer") && !document.getElementById("gallery3dContainer").classList.contains("hidden")) return;
+    if (document.getElementById("galleryVideoContainer") && !document.getElementById("galleryVideoContainer").classList.contains("hidden")) return;
     if (e.target.closest(".gallery-nav")) return;
     galleryPointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     dom.galleryBody.setPointerCapture(e.pointerId);
@@ -1387,42 +1488,94 @@ function setupGalleryEvents() {
 }
 
 // ===== About Page =====
-function renderAboutContent() {
+async function renderAboutContent() {
   if (!state.currentSet) return;
   const lang = state.settings.language;
   const content = state.currentSet[`about_${lang}`] || state.currentSet.about_en || "";
-  dom.aboutContent.innerHTML = content;
+  const DOMPurify = await loadDOMPurify();
+  dom.aboutContent.innerHTML = DOMPurify.sanitize(content, {
+    ALLOWED_TAGS: ["p", "b", "i", "u", "a", "br", "strong", "em", "h2", "h3", "ul", "ol", "li"],
+    ALLOWED_ATTR: ["href", "target", "rel"],
+  });
+  dom.aboutContent.querySelectorAll("a").forEach(a => {
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+  });
 }
 
 // ===== List View =====
+function renderObjectListItem(obj, idx) {
+  const lang = state.settings.language;
+  const showNums = state.currentSet.show_numbers !== false;
+  const displayNum = idx + 1;
+  const name = obj[`name_${lang}`] || obj.name_en || "Object";
+  const isCurrent = state.currentObject && state.currentObject.id === obj.id;
+  const li = document.createElement("li");
+  const a = document.createElement("a");
+  a.className = `object-list__item${isCurrent ? " current" : ""}`;
+  a.href = `#/${state.currentSet.slug}/${obj.slug}`;
+  a.setAttribute("role", "listitem");
+  a.addEventListener("click", (e) => {
+    e.preventDefault();
+    navigateTo(state.currentSet.slug, obj.slug);
+  });
+  a.innerHTML = `
+    ${showNums ? `<span class="object-list__number">${displayNum}</span>` : ""}
+    <div class="object-list__info">
+      <div class="object-list__name">${escapeHtml(name)}</div>
+    </div>
+  `;
+  li.appendChild(a);
+  return li;
+}
+
 function renderObjectList() {
   const lang = state.settings.language;
   dom.objectList.innerHTML = "";
-  for (let idx = 0; idx < state.objects.length; idx++) {
-    const obj = state.objects[idx];
-    const displayNum = idx + 1;
-    const name = obj[`name_${lang}`] || obj.name_en || "Object";
-    const isCurrent = state.currentObject && state.currentObject.id === obj.id;
 
-    const li = document.createElement("li");
-    const a = document.createElement("a");
-    a.className = `object-list__item${isCurrent ? " current" : ""}`;
-    a.href = `#/${state.currentSet.slug}/${obj.slug}`;
-    a.setAttribute("role", "listitem");
-    a.addEventListener("click", (e) => {
-      e.preventDefault();
-      navigateTo(state.currentSet.slug, obj.slug);
-    });
+  if (state.groups.length === 0) {
+    for (let idx = 0; idx < state.objects.length; idx++) {
+      dom.objectList.appendChild(renderObjectListItem(state.objects[idx], idx));
+    }
+  } else {
+    // Build interleaved list: ungrouped objects and groups sorted together by sort_order
+    const ungrouped = state.objects.filter(o => !o.group);
+    const entries = [];
+    for (const obj of ungrouped) {
+      const idx = state.objects.indexOf(obj);
+      entries.push({ type: "object", obj, idx, sortOrder: obj.sort_order });
+    }
+    for (const group of state.groups) {
+      entries.push({ type: "group", group, sortOrder: group.sort_order });
+    }
+    entries.sort((a, b) => a.sortOrder - b.sortOrder);
 
-    a.innerHTML = `
-      <span class="object-list__number">${displayNum}</span>
-      <div class="object-list__info">
-        <div class="object-list__name">${escapeHtml(name)}</div>
-      </div>
-    `;
-
-    li.appendChild(a);
-    dom.objectList.appendChild(li);
+    for (const entry of entries) {
+      if (entry.type === "object") {
+        dom.objectList.appendChild(renderObjectListItem(entry.obj, entry.idx));
+      } else {
+        const gc = entry.group._content || {};
+        const title = gc[lang]?.title || Object.values(gc).find(c => c.title)?.title || "";
+        const color = entry.group.color || "";
+        const section = document.createElement("li");
+        section.className = "object-list__group";
+        if (color) section.style.borderLeftColor = color;
+        if (title) {
+          const header = document.createElement("div");
+          header.className = "object-list__group-header";
+          header.textContent = title;
+          if (color) header.style.color = color;
+          section.appendChild(header);
+        }
+        const groupObjects = state.objects.filter(o => o.group === entry.group.id);
+        groupObjects.sort((a, b) => a.sort_order - b.sort_order);
+        for (const obj of groupObjects) {
+          const idx = state.objects.indexOf(obj);
+          section.appendChild(renderObjectListItem(obj, idx));
+        }
+        dom.objectList.appendChild(section);
+      }
+    }
   }
 
   // Load thumbnails for list items asynchronously
@@ -1461,6 +1614,18 @@ async function loadListThumbnails() {
       }
     }
   } catch (e) { /* ignore */ }
+}
+
+// ===== DOMPurify Lazy Loader =====
+function loadDOMPurify() {
+  if (window._domPurifyPromise) return window._domPurifyPromise;
+  window._domPurifyPromise = new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "/js/lib/dompurify/purify.min.js";
+    script.onload = () => resolve(window.DOMPurify);
+    document.head.appendChild(script);
+  });
+  return window._domPurifyPromise;
 }
 
 // ===== model-viewer Lazy Loader =====
@@ -1626,8 +1791,9 @@ function showGpsCard(obj) {
   const idx = state.objects.indexOf(obj);
   const displayNum = idx >= 0 ? idx + 1 : "?";
 
+  const showNums = state.currentSet.show_numbers !== false;
   const card = document.getElementById("gpsCard");
-  document.getElementById("gpsCardNumber").textContent = displayNum;
+  document.getElementById("gpsCardNumber").textContent = showNums ? displayNum : "●";
   document.getElementById("gpsCardName").textContent = name;
 
   const tt = i18n[lang] || i18n.en;
@@ -1695,17 +1861,21 @@ async function renderOutdoorMap(floor) {
     if (!obj.latitude || !obj.longitude) continue;
 
     const displayNum = idx + 1;
+    const showNums = state.currentSet.show_numbers !== false;
     const name = obj[`name_${lang}`] || obj.name_en || "Object";
+    const objGroup = obj.group ? state.groups.find(g => g.id === obj.group) : null;
+    const pinColor = objGroup?.color || "";
+    const pinStyle = pinColor ? `background:${pinColor};color:${contrastTextColor(pinColor)}` : "";
 
     const icon = L.divIcon({
       className: "leaflet-numbered-pin",
-      html: `<div class="map-pin-leaflet">${displayNum}</div>`,
+      html: `<div class="map-pin-leaflet" ${pinStyle ? `style="${pinStyle}"` : ""}>${showNums ? displayNum : "●"}</div>`,
       iconSize: [32, 32],
       iconAnchor: [16, 16],
     });
 
     const marker = L.marker([obj.latitude, obj.longitude], { icon }).addTo(state.leafletMap);
-    marker.bindPopup(`<b>${displayNum}. ${escapeHtml(name)}</b>`);
+    marker.bindPopup(`<b>${showNums ? displayNum + ". " : ""}${escapeHtml(name)}</b>`);
     marker.on("click", () => navigateTo(state.currentSet.slug, obj.slug));
   }
 
@@ -1778,6 +1948,7 @@ function renderMapView() {
     const obj = state.objects[idx];
     if (obj.map_x == null || obj.map_y == null || obj.map_x < 0 || obj.map_y < 0) continue;
     if (hasFloors && obj.floor !== state.currentFloorId) continue;
+    const objGroup = obj.group ? state.groups.find(g => g.id === obj.group) : null;
     state.mapPins.push({
       x: obj.map_x,
       y: obj.map_y,
@@ -1785,6 +1956,7 @@ function renderMapView() {
       slug: obj.slug,
       name: obj[`name_${lang}`] || obj.name_en || "Object",
       obj: obj,
+      groupColor: objGroup?.color || "",
     });
   }
 
@@ -1845,10 +2017,15 @@ function renderMapPins() {
       const pin = document.createElement("a");
       pin.className = "map-pin";
       pin.href = `#/${state.currentSet.slug}/${p.slug}`;
-      pin.textContent = p.displayNum;
+      const showNums = state.currentSet.show_numbers !== false;
+      pin.textContent = showNums ? p.displayNum : "●";
       pin.style.left = `${p.x}%`;
       pin.style.top = `${p.y}%`;
-      pin.setAttribute("aria-label", `${p.displayNum}. ${p.name}`);
+      if (p.groupColor) {
+        pin.style.background = p.groupColor;
+        pin.style.color = contrastTextColor(p.groupColor);
+      }
+      pin.setAttribute("aria-label", showNums ? `${p.displayNum}. ${p.name}` : p.name);
       pin.addEventListener("click", (e) => {
         e.preventDefault();
         navigateTo(state.currentSet.slug, p.slug);

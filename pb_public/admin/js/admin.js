@@ -239,9 +239,11 @@ async function editSet(set) {
 
     $("#setPublished").checked = !!set.published;
     $("#setSequentialNav").checked = !!set.sequential_navigation;
+    $("#setShowNumbers").checked = set.show_numbers !== false;
 
     $("#floorsFieldset").style.display = "";
     loadFloors(set.id);
+    loadGroups(set.id);
 
     const primary = set.color_primary || "#0057b8";
     const accent = set.color_accent || "#ffffff";
@@ -263,6 +265,7 @@ async function editSet(set) {
     $("#setColorAccentText").value = "#ffffff";
     $("#setPublished").checked = false;
     $("#setSequentialNav").checked = true;
+    $("#setShowNumbers").checked = true;
     $("#btnDeleteSet").classList.add("hidden");
     $("#btnGoToObjects").style.display = "none";
     $("#floorsFieldset").style.display = "none";
@@ -319,9 +322,12 @@ function removeSetLanguage(code) {
   formDirty = true;
 }
 
+let quillInstances = {};
+
 function renderSetContentFieldsets() {
   const container = $("#setContentFieldsets");
   container.innerHTML = "";
+  quillInstances = {};
   for (const lang of editingSetLanguages) {
     const content = editingSetContent[lang] || {};
     const fieldset = document.createElement("fieldset");
@@ -333,9 +339,27 @@ function renderSetContentFieldsets() {
       <label class="form-label">Description</label>
       <textarea class="form-input form-textarea set-content-desc" data-lang="${lang}">${esc(content.description || "")}</textarea>
       <label class="form-label">About page</label>
-      <textarea class="form-input form-textarea set-content-about" data-lang="${lang}" rows="4">${esc(content.about || "")}</textarea>
+      <div class="quill-editor" data-lang="${lang}"></div>
     `;
     container.appendChild(fieldset);
+
+    if (typeof Quill !== "undefined") {
+      const editorEl = fieldset.querySelector(`.quill-editor[data-lang="${lang}"]`);
+      const quill = new Quill(editorEl, {
+        theme: "bubble",
+        placeholder: "Write about this exhibition...",
+        modules: {
+          toolbar: [
+            ["bold", "italic", "underline"],
+            ["link"],
+            [{ header: [2, 3, false] }],
+            ["clean"],
+          ],
+        },
+      });
+      if (content.about) quill.root.innerHTML = content.about;
+      quillInstances[lang] = quill;
+    }
   }
 }
 
@@ -384,6 +408,7 @@ async function saveSet(e) {
       body: JSON.stringify({
         published: $("#setPublished").checked,
         sequential_navigation: $("#setSequentialNav").checked,
+        show_numbers: $("#setShowNumbers").checked,
         available_languages: editingSetLanguages,
       }),
     });
@@ -392,13 +417,15 @@ async function saveSet(e) {
     for (const lang of editingSetLanguages) {
       const nameEl = document.querySelector(`.set-content-name[data-lang="${lang}"]`);
       const descEl = document.querySelector(`.set-content-desc[data-lang="${lang}"]`);
-      const aboutEl = document.querySelector(`.set-content-about[data-lang="${lang}"]`);
+      const quill = quillInstances[lang];
+      const aboutHtml = quill ? quill.root.innerHTML : "";
+      const aboutClean = aboutHtml === "<p><br></p>" ? "" : aboutHtml;
       const contentData = {
         set: savedSetId,
         language: lang,
         name: nameEl?.value.trim() || "",
         description: descEl?.value.trim() || "",
-        about: aboutEl?.value.trim() || "",
+        about: aboutClean,
       };
       const existing = editingSetContent[lang];
       if (existing && existing.id) {
@@ -727,6 +754,22 @@ async function editObject(obj) {
 
   renderObjectContentFieldsets(setLangs);
   renderImageCaptionFields(setLangs);
+
+  // Populate group dropdown
+  const groupSelect = $("#objectGroup");
+  groupSelect.innerHTML = '<option value="">No group</option>';
+  if (currentGroups.length > 0) {
+    for (const g of currentGroups) {
+      const opt = document.createElement("option");
+      opt.value = g.id;
+      opt.textContent = getGroupDisplayTitle(g);
+      groupSelect.appendChild(opt);
+    }
+    groupSelect.value = obj ? (obj.group || "") : "";
+    $("#objectGroupRow").style.display = "";
+  } else {
+    $("#objectGroupRow").style.display = "none";
+  }
 }
 
 function renderImageCaptionFields(langs) {
@@ -818,6 +861,7 @@ async function saveObject(e) {
   const floorBtns = $("#objectFloorButtons");
   const selectedFloorId = floorBtns.dataset.selectedFloor || "";
   formData.append("floor", selectedFloorId);
+  formData.append("group", $("#objectGroup").value || "");
 
   // Outdoor coordinates
   const selFloor = objectPickerFloors.find(f => f.id === selectedFloorId);
@@ -1130,7 +1174,8 @@ async function setupMapPicker(obj) {
     $("#floorSelectRow").classList.remove("hidden");
     const btnContainer = $("#objectFloorButtons");
     btnContainer.innerHTML = "";
-    const selectedFloor = obj ? obj.floor : "";
+    const defaultFloorId = set?.default_floor_rel || set?.default_floor || (floors.length > 0 ? floors[0].id : "");
+    const selectedFloor = obj ? obj.floor : defaultFloorId;
     floors.forEach(floor => {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -1512,6 +1557,170 @@ function updateDefaultFloorDropdown() {
   $("#defaultFloorRow").style.display = currentFloors.length > 0 ? "" : "none";
 }
 
+// ===== GROUPS =====
+let currentGroups = [];
+
+async function loadGroups(setId) {
+  try {
+    const resp = await api(`collections/groups/records?filter=(set='${encodeURIComponent(setId)}')&sort=sort_order&perPage=50`);
+    currentGroups = resp.items || [];
+    if (currentGroups.length > 0) {
+      const groupIds = currentGroups.map(g => g.id);
+      const gcResp = await api(`collections/group_content/records?filter=(group='${groupIds.join("'||group='")}')&perPage=200`);
+      for (const gc of (gcResp.items || [])) {
+        const group = currentGroups.find(g => g.id === gc.group);
+        if (group) {
+          group._content = group._content || {};
+          group._content[gc.language] = gc;
+        }
+      }
+    }
+    $("#groupsFieldset").style.display = "";
+    renderGroupsList();
+  } catch (e) {
+    currentGroups = [];
+  }
+}
+
+function renderGroupsList() {
+  const container = $("#groupsList");
+  container.innerHTML = "";
+  const setLangs = editingSetLanguages || ["en"];
+
+  for (let i = 0; i < currentGroups.length; i++) {
+    const group = currentGroups[i];
+    const gc = group._content || {};
+    const card = document.createElement("div");
+    card.className = "floor-card";
+
+    let titleFieldsHtml = "";
+    for (const lang of setLangs) {
+      const title = gc[lang]?.title || "";
+      titleFieldsHtml += `
+        <div>
+          <label class="form-label">Title (${esc(langName(lang))})</label>
+          <input type="text" class="form-input group-title-lang" data-lang="${lang}" value="${esc(title)}" placeholder="e.g. Room A">
+        </div>
+      `;
+    }
+
+    card.innerHTML = `
+      <div class="form-row form-row--inline" style="flex-wrap:wrap">
+        <div style="max-width:100px">
+          <label class="form-label">Order</label>
+          <input type="number" class="form-input group-sort-order" value="${group.sort_order}" min="0">
+        </div>
+        ${titleFieldsHtml}
+        <div style="max-width:120px">
+          <label class="form-label">Color</label>
+          <div class="color-input-wrap">
+            <input type="color" class="group-color-picker" value="${group.color || "#0057b8"}" tabindex="-1">
+            <input type="text" class="form-input color-hex-input group-color-text" value="${esc(group.color || "")}" maxlength="7" placeholder="Optional">
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-xs);align-items:center">
+        <button type="button" class="btn btn--primary btn--small group-save" data-id="${group.id}">Save</button>
+        <button type="button" class="btn btn--danger btn--small group-delete" data-id="${group.id}">Delete</button>
+      </div>
+    `;
+    container.appendChild(card);
+
+    // Sync color picker and text input
+    const picker = card.querySelector(".group-color-picker");
+    const textInput = card.querySelector(".group-color-text");
+    picker.addEventListener("input", () => { textInput.value = picker.value; });
+    textInput.addEventListener("input", () => {
+      if (/^#[0-9a-fA-F]{6}$/.test(textInput.value)) picker.value = textInput.value;
+    });
+  }
+
+  // Save handlers
+  container.querySelectorAll(".group-save").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const card = btn.closest(".floor-card");
+      const groupId = btn.dataset.id;
+      const sortOrder = parseInt(card.querySelector(".group-sort-order").value) || 0;
+      const colorText = card.querySelector(".group-color-text").value.trim();
+      const color = /^#[0-9a-fA-F]{6}$/.test(colorText) ? colorText : "";
+      try {
+        await api(`collections/groups/records/${groupId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sort_order: sortOrder, color }),
+        });
+        // Save titles per language
+        const group = currentGroups.find(g => g.id === groupId);
+        const gc = group?._content || {};
+        const titleInputs = card.querySelectorAll(".group-title-lang");
+        for (const input of titleInputs) {
+          const lang = input.dataset.lang;
+          const title = input.value.trim();
+          const existing = gc[lang];
+          if (existing && existing.id) {
+            await api(`collections/group_content/records/${existing.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ title }),
+            });
+          } else if (title) {
+            await api("collections/group_content/records", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ group: groupId, language: lang, title }),
+            });
+          }
+        }
+        showToast("Group saved!");
+        loadGroups(editingSet.id);
+      } catch (e) {
+        showToast("Could not save group: " + e.message);
+      }
+    });
+  });
+
+  // Delete handlers
+  container.querySelectorAll(".group-delete").forEach(btn => {
+    btn.addEventListener("click", () => {
+      confirmAction(btn, async () => {
+        try {
+          await api(`collections/groups/records/${btn.dataset.id}`, { method: "DELETE" });
+          showToast("Group deleted");
+          loadGroups(editingSet.id);
+        } catch (e) {
+          showToast("Could not delete group: " + e.message);
+        }
+      });
+    });
+  });
+}
+
+async function addGroup() {
+  if (!editingSet) return;
+  try {
+    await api("collections/groups/records", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        set: editingSet.id,
+        sort_order: currentGroups.length + 1,
+      }),
+    });
+    showToast("Group added");
+    loadGroups(editingSet.id);
+  } catch (e) {
+    showToast("Could not add group: " + e.message);
+  }
+}
+
+function getGroupDisplayTitle(group) {
+  const gc = group._content || {};
+  for (const lang of Object.keys(gc)) {
+    if (gc[lang]?.title) return gc[lang].title;
+  }
+  return "(Untitled group)";
+}
+
 // ===== IMAGES =====
 async function loadObjectImages(objectId) {
   try {
@@ -1528,11 +1737,46 @@ async function loadObjectImages(objectId) {
           if (c.image === img.id) img._captions[c.language] = c;
         }
       }
+      // Load video subtitles
+      const videoItems = images.filter(img => img.media_type === "video");
+      if (videoItems.length > 0) {
+        try {
+          const vIds = videoItems.map(v => v.id);
+          const subsResp = await api(`collections/video_subtitles/records?filter=(media='${vIds.join("'||media='")}')&perPage=200`);
+          for (const sub of (subsResp.items || [])) {
+            const img = images.find(i => i.id === sub.media);
+            if (img) {
+              img._videoSubs = img._videoSubs || {};
+              img._videoSubs[sub.language] = sub;
+            }
+          }
+        } catch (e) { /* video_subtitles may not exist yet */ }
+      }
     }
     renderImagesGrid(images);
   } catch (e) {
     showToast("Could not load images. Please try refreshing the page.");
   }
+}
+
+function buildVideoSubsHtml(img) {
+  const subs = img._videoSubs || {};
+  const setId = $("#objectFormSetId").value || selectedSetId;
+  const parentSet = currentSets.find(s => s.id === setId);
+  const setLangs = (parentSet && parentSet.available_languages) || ["en"];
+  let html = '<div class="video-subs-section" style="margin-top:0.5rem">';
+  html += '<label class="form-label" style="font-size:0.8rem">Video subtitles</label>';
+  for (const lang of setLangs) {
+    const sub = subs[lang];
+    html += `<div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem">
+      <span style="font-size:0.75rem;min-width:30px">${lang.toUpperCase()}</span>
+      ${sub ? `<span style="font-size:0.75rem">${esc(sub.subtitles)}</span>
+        <button type="button" class="btn btn--danger btn--small video-sub-delete" data-sub-id="${sub.id}" style="min-height:24px;min-width:24px;padding:0 4px;font-size:0.7rem">&times;</button>` :
+        `<input type="file" class="form-input video-sub-upload" data-lang="${lang}" data-media-id="${img.id}" accept=".vtt,text/vtt,text/plain" style="font-size:0.75rem">`}
+    </div>`;
+  }
+  html += '</div>';
+  return html;
 }
 
 function getFirstCaption(captions) {
@@ -1577,6 +1821,7 @@ function renderImagesGrid(images) {
         <img src="${url}" alt="${esc(displayCaption)}" loading="lazy">
         ${img.media_type === "360" ? '<span class="image-card__360-badge">360°</span>' : ""}
         ${img.media_type === "3d" ? '<span class="image-card__360-badge">3D</span>' : ""}
+        ${img.media_type === "video" ? '<span class="image-card__360-badge">Video</span>' : ""}
       </div>
       <div class="image-card__caption image-card__caption--display">${esc(displayCaption)}</div>
       <div class="image-card__edit-fields" style="display:none">
@@ -1586,7 +1831,9 @@ function renderImagesGrid(images) {
           <option value="image" ${(img.media_type || "image") === "image" ? "selected" : ""}>Image</option>
           <option value="360" ${img.media_type === "360" ? "selected" : ""}>360° photo</option>
           <option value="3d" ${img.media_type === "3d" ? "selected" : ""}>3D model</option>
+          <option value="video" ${img.media_type === "video" ? "selected" : ""}>Video</option>
         </select>
+        ${img.media_type === "video" ? buildVideoSubsHtml(img) : ""}
       </div>
       <div class="image-card__actions">
         <button class="btn btn--edit" data-edit-image="${img.id}" title="Edit captions">Edit</button>
@@ -1680,6 +1927,40 @@ function renderImagesGrid(images) {
     });
   });
 
+  // Video subtitle upload handlers
+  grid.querySelectorAll(".video-sub-upload").forEach(input => {
+    input.addEventListener("change", async () => {
+      const file = input.files[0];
+      if (!file) return;
+      const mediaId = input.dataset.mediaId;
+      const lang = input.dataset.lang;
+      const formData = new FormData();
+      formData.append("media", mediaId);
+      formData.append("language", lang);
+      formData.append("subtitles", file);
+      try {
+        await api("collections/video_subtitles/records", { method: "POST", body: formData });
+        showToast("Subtitle uploaded");
+        loadObjectImages(editingObject.id);
+      } catch (e) {
+        showToast("Could not upload subtitle: " + e.message);
+      }
+    });
+  });
+
+  // Video subtitle delete handlers
+  grid.querySelectorAll(".video-sub-delete").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      try {
+        await api(`collections/video_subtitles/records/${btn.dataset.subId}`, { method: "DELETE" });
+        showToast("Subtitle removed");
+        loadObjectImages(editingObject.id);
+      } catch (e) {
+        showToast("Could not remove subtitle.");
+      }
+    });
+  });
+
   // Delete image handlers
   grid.querySelectorAll("[data-delete-image]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -1707,13 +1988,18 @@ async function uploadImage(e) {
   const mediaType = $("#imageMediaType").value;
   const imageFile = $("#imageFile").files[0];
   const modelFile = mediaType === "3d" ? $("#imageModelFile").files[0] : null;
+  const videoFile = mediaType === "video" ? $("#imageVideoFile").files[0] : null;
 
-  if (!imageFile && mediaType !== "3d") {
+  if (!imageFile && mediaType !== "3d" && mediaType !== "video") {
     showToast("Please select an image file.");
     return;
   }
   if (mediaType === "3d" && !modelFile) {
     showToast("Please select a 3D model file (.glb).");
+    return;
+  }
+  if (mediaType === "video" && !videoFile) {
+    showToast("Please select a video file (.mp4 or .webm).");
     return;
   }
 
@@ -1732,11 +2018,16 @@ async function uploadImage(e) {
       modelForm.append("model_file", modelFile);
       modelForm.append("media_type", "3d");
       await api(`collections/object_images/records/${result.id}`, { method: "PATCH", body: modelForm });
+    } else if (mediaType === "video" && videoFile) {
+      const videoForm = new FormData();
+      videoForm.append("video_file", videoFile);
+      videoForm.append("media_type", "video");
+      await api(`collections/object_images/records/${result.id}`, { method: "PATCH", body: videoForm });
     } else if (mediaType !== "image") {
       await api(`collections/object_images/records/${result.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patchData),
+        body: JSON.stringify({ media_type: mediaType }),
       });
     }
 
@@ -1759,7 +2050,10 @@ async function uploadImage(e) {
     document.querySelectorAll("#imageCaptionFields .image-upload-caption").forEach(el => el.value = "");
     $("#imageMediaType").value = "image";
     $("#imageModelFile").value = "";
+    $("#imageVideoFile").value = "";
     $("#modelFileRow").classList.add("hidden");
+    $("#videoFileRow").classList.add("hidden");
+    $("#videoSubsRow").classList.add("hidden");
     loadObjectImages(objectId);
   } catch (e) {
     showToast("Could not upload the image. Please check the file size and format and try again.");
@@ -1989,6 +2283,7 @@ function setupEvents() {
   // Floors
   $("#btnAddFloor").addEventListener("click", addFloor);
   $("#btnAddOutdoor").addEventListener("click", addOutdoor);
+  $("#btnAddGroup").addEventListener("click", addGroup);
 
   // Objects
   $("#objectSetFilter").addEventListener("change", (e) => loadObjects(e.target.value));
@@ -2000,10 +2295,12 @@ function setupEvents() {
   // Images
   $("#imageUploadForm").addEventListener("submit", uploadImage);
   $("#imageMediaType").addEventListener("change", () => {
-    const is3d = $("#imageMediaType").value === "3d";
-    $("#modelFileRow").classList.toggle("hidden", !is3d);
-    $("#imageFile").required = !is3d;
-    $("#imageFileLabel").textContent = is3d ? "Poster image (optional)" : "Image file";
+    const val = $("#imageMediaType").value;
+    $("#modelFileRow").classList.toggle("hidden", val !== "3d");
+    $("#videoFileRow").classList.toggle("hidden", val !== "video");
+    $("#videoSubsRow").classList.toggle("hidden", val !== "video");
+    $("#imageFile").required = val === "image" || val === "360";
+    $("#imageFileLabel").textContent = (val === "3d" || val === "video") ? "Poster image (optional)" : "Image file";
   });
 
   // QR

@@ -584,6 +584,41 @@ body {
   --poster-color: transparent;
 }
 
+.gallery-video-container {
+  width: 100%;
+  max-height: 70vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gallery-video-container.hidden {
+  display: none;
+}
+
+.gallery-video-container video {
+  max-width: 100%;
+  max-height: 70vh;
+  border-radius: 4px;
+}
+
+.carousel__play-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.carousel__placeholder {
+  width: 100%;
+  height: min(180px, 25dvh);
+  border-radius: 8px;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
 .gallery-nav {
   position: absolute;
   top: 50%;
@@ -751,6 +786,22 @@ body {
   font-size: var(--font-size-base);
 }
 
+.object-list__group {
+  border-left: 4px solid var(--color-border);
+  border-radius: 0 8px 8px 0;
+  padding: var(--spacing-xs) 0 var(--spacing-xs) var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.object-list__group-header {
+  font-weight: 700;
+  font-size: var(--font-size-base);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  color: var(--color-text-secondary);
+}
+
 
 /* ===== MAP VIEW ===== */
 .map-view {
@@ -808,9 +859,10 @@ body {
   position: absolute;
   transform: translate(-50%, -50%);
   font-size: var(--font-size-base);
-  width: 3em;
-  height: 3em;
-  border-radius: 50%;
+  min-width: 2.5em;
+  height: 2.5em;
+  padding: 0 0.5em;
+  border-radius: 6px;
   background: var(--color-text);
   color: var(--color-bg);
   border: 3px solid #ffffff;

@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Augus — Admin</title>
-  <link rel="stylesheet" href="/admin/css/admin.css?v=20260513d">
+  <link rel="stylesheet" href="/admin/css/admin.css?v=20260514f">
+  <link rel="stylesheet" href="/admin/js/lib/quill/quill.bubble.css">
 </head>
 <body>
   <!-- ===== LOGIN ===== -->
@@ -104,6 +105,13 @@
           </div>
         </fieldset>
 
+        <fieldset class="form-fieldset" id="groupsFieldset" style="display:none">
+          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Groups</legend>
+          <p class="form-hint" style="margin-bottom:var(--spacing-sm)">Organize objects into groups (e.g. rooms, sections). Optional.</p>
+          <div id="groupsList"></div>
+          <button type="button" class="btn" id="btnAddGroup" style="margin-top:var(--spacing-sm)">+ Add Group</button>
+        </fieldset>
+
         <div class="form-row">
           <label class="form-label">Colour scheme (optional)</label>
           <div class="color-scheme-row">
@@ -155,6 +163,14 @@
             Sequential navigation
           </label>
           <p class="form-hint">Show previous/next buttons so visitors can navigate between objects in order</p>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label" style="display:flex;align-items:center;gap:var(--spacing-sm)">
+            <input type="checkbox" id="setShowNumbers" checked>
+            Show object numbers
+          </label>
+          <p class="form-hint">Display numbers on objects in the list and on map pins. Disable for exhibitions that can be explored in any order.</p>
         </div>
 
         <div class="form-row">
@@ -220,9 +236,13 @@
               <!-- Options populated by JS from set's available_languages -->
             </select>
           </div>
+          <div id="objectGroupRow" style="display:none">
+            <label for="objectGroup" class="form-label">Group</label>
+            <select id="objectGroup" class="form-input form-select">
+              <option value="">No group</option>
+            </select>
+          </div>
         </div>
-
-        <div id="objectContentFieldsets">
           <!-- Dynamic language fieldsets rendered by JS (name, audio, subtitles per language) -->
         </div>
 
@@ -307,11 +327,19 @@
               <option value="image">Image</option>
               <option value="360">360° photo</option>
               <option value="3d">3D model</option>
+              <option value="video">Video</option>
             </select>
           </div>
           <div id="modelFileRow" class="form-row hidden">
             <label class="form-label">3D model file (.glb)</label>
             <input type="file" id="imageModelFile" class="form-input" accept=".glb,.gltf">
+          </div>
+          <div id="videoFileRow" class="form-row hidden">
+            <label class="form-label">Video file (.mp4 / .webm)</label>
+            <input type="file" id="imageVideoFile" class="form-input" accept="video/mp4,video/webm">
+          </div>
+          <div id="videoSubsRow" class="form-row hidden">
+            <label class="form-label">Video subtitles (VTT) — per language, can be added after upload</label>
           </div>
           <button type="submit" class="btn btn--primary">Upload</button>
         </form>
@@ -338,6 +366,7 @@
   <div class="toast" id="adminToast" role="alert"></div>
 
   <script src="/admin/js/lib/qrcode-generator.min.js"></script>
-  <script src="/admin/js/admin.js?v=20260513d" type="module"></script>
+  <script src="/admin/js/lib/quill/quill.js"></script>
+  <script src="/admin/js/admin.js?v=20260514f" type="module"></script>
 </body>
 </html>
