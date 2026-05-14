@@ -10,10 +10,12 @@ Full accessibility mode for blind and low-vision visitors. Continuous QR scannin
 - **Scope:** 4-7 sessions across 3 phases
 
 ### Object Groupings (#2)
-Group multiple objects together within a set. Groups have a title and sort order. In list view, grouped objects are visually enclosed with a border and group title header. No impact on map view, no nested groups.
-- **Design:** Groups collection with `title_en`, `title_sv`, `sort_order`, relation to set. Objects get a nullable `group` relation. Objects within a group have their own sort_order for internal ordering.
-- **Admin:** Dropdown on object form to assign to group. Drag-to-reorder groups and objects within groups.
-- **Scope:** 1-2 sessions
+Group multiple objects together within a set. Use case: rooms in an exhibition, thematic sections, or any logical grouping of objects. Purely optional — ungrouped objects remain flat in the list as they are today.
+- **Data model:** Groups collection with per-language title (via `group_content` table following the content table pattern), `sort_order`, `color` (optional hex), and relation to set. Objects get a nullable `group` relation. Objects within a group have their own sort_order for internal ordering. No nested groups.
+- **Visitor list view:** Grouped objects are visually enclosed with a group header showing the title. Optional per-group color applied as a subtle left border or background tint on the group section. Groups without a custom color fall back to neutral styling. Ungrouped objects display normally above or below groups.
+- **Visitor map view:** No impact — pins are shown flat regardless of grouping.
+- **Admin:** Dropdown on object form to assign to a group (or "No group"). Group management section on the set form — add/remove/reorder groups, set title per language, optional color picker. Drag-to-reorder groups and objects within groups.
+- **Scope:** 2-3 sessions
 
 ---
 
