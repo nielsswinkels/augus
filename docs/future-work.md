@@ -13,9 +13,6 @@ Full accessibility mode for blind and low-vision visitors. Continuous QR scannin
 
 ## Ideas (need design work)
 
-### ~~Video Support in Gallery & Carousel~~ ✅ Done
-Self-hosted video (mp4/webm, 500MB max) with per-language VTT subtitles via `video_subtitles` collection. Carousel shows poster with play icon. Gallery renders native `<video>` with subtitle tracks. Audio guide paused during video playback. YouTube/Vimeo embed support deferred as potential future enhancement.
-
 ### Easy Audio Recording (#3)
 Record audio directly in the admin interface. Save as MP3, auto-send to Whisper API for subtitle/transcription generation.
 - **Open questions:** Which Whisper API (OpenAI hosted vs self-hosted)? Where to store API key? In-browser MP3 encoding library?
