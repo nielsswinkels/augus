@@ -1793,7 +1793,7 @@ function showGpsCard(obj) {
 
   const showNums = state.currentSet.show_numbers !== false;
   const card = document.getElementById("gpsCard");
-  document.getElementById("gpsCardNumber").textContent = showNums ? displayNum : "●";
+  document.getElementById("gpsCardNumber").textContent = showNums ? displayNum : "";
   document.getElementById("gpsCardName").textContent = name;
 
   const tt = i18n[lang] || i18n.en;
@@ -1869,7 +1869,7 @@ async function renderOutdoorMap(floor) {
 
     const icon = L.divIcon({
       className: "leaflet-numbered-pin",
-      html: `<div class="map-pin-leaflet" ${pinStyle ? `style="${pinStyle}"` : ""}>${showNums ? displayNum : "●"}</div>`,
+      html: `<div class="map-pin-leaflet" ${pinStyle ? `style="${pinStyle}"` : ""}>${showNums ? displayNum : ""}</div>`,
       iconSize: [32, 32],
       iconAnchor: [16, 16],
     });
@@ -2018,7 +2018,7 @@ function renderMapPins() {
       pin.className = "map-pin";
       pin.href = `#/${state.currentSet.slug}/${p.slug}`;
       const showNums = state.currentSet.show_numbers !== false;
-      pin.textContent = showNums ? p.displayNum : "●";
+      pin.textContent = showNums ? p.displayNum : "";
       pin.style.left = `${p.x}%`;
       pin.style.top = `${p.y}%`;
       if (p.groupColor) {
