@@ -565,15 +565,17 @@ body {
 }
 
 .drop-line {
-  height: 4px;
-  margin: -2px 0;
+  height: 2px;
   border-radius: 2px;
-  transition: background 0.1s, height 0.1s;
+  transition: background 0.1s;
+}
+
+.dragging-active .drop-line {
+  height: 16px;
 }
 
 .drop-line-active {
   background: var(--color-primary);
-  height: 4px;
 }
 
 .drop-into-active {

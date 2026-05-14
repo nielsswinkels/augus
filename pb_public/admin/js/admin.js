@@ -861,8 +861,12 @@ function renderObjectsList() {
       dragSrcIdx = i;
       e.dataTransfer.effectAllowed = "move";
       card.classList.add("dragging");
+      container.classList.add("dragging-active");
     });
-    card.addEventListener("dragend", () => clearDropIndicators());
+    card.addEventListener("dragend", () => {
+      clearDropIndicators();
+      container.classList.remove("dragging-active");
+    });
 
     // Group headers: allow dropping INTO the group
     if (entry.type === "group") {
