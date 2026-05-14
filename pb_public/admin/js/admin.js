@@ -609,7 +609,7 @@ function renderGroupHeader(group) {
       <button class="btn btn--small item-move-down" title="Move down" aria-label="Move down">&#9660;</button>
     </div>
     <div class="object-card__info" style="flex:1">
-      <div class="object-card__name" style="color:${esc(displayColor)}">${esc(title)}</div>
+      <div class="object-card__name">${esc(title)}</div>
     </div>
     <button class="btn btn--small group-edit-btn" title="Edit group">Edit</button>
     <button class="btn btn--danger btn--small group-delete-btn" title="Delete group">Delete</button>
