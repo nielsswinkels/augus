@@ -1564,7 +1564,6 @@ function renderObjectList() {
           const header = document.createElement("div");
           header.className = "object-list__group-header";
           header.textContent = title;
-          if (color) header.style.color = color;
           section.appendChild(header);
         }
         const groupObjects = state.objects.filter(o => o.group === entry.group.id);
