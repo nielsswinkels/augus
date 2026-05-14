@@ -231,7 +231,7 @@ When a gallery image has no caption, the alt text falls back to "Image N" which 
 
 | Priority | Item | Effort | Section | Status |
 |----------|------|--------|---------|--------|
-| **P0** | Sanitize About page innerHTML with DOMPurify | 30 min | Critical #1 | Open |
+| **P0** | Sanitize About page innerHTML with DOMPurify | 30 min | Critical #1 | ✅ Done |
 | **P0** | Verify PocketBase self-registration is disabled | 5 min | Critical #2 | ✅ Done |
 | **P1** | Batch thumbnail loading into single API call | 1 hour | Performance | ✅ Done |
 | **P1** | Add missing database indexes (floor, published) | 30 min | Data Model | ✅ Done |
