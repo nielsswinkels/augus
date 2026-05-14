@@ -559,19 +559,6 @@ body {
   line-height: 1;
 }
 
-/* Touch: show move buttons, hide drag handle */
-@media (pointer: coarse) {
-  .drag-handle {
-    display: none;
-  }
-}
-
-/* Mouse: show drag handle, hide move buttons */
-@media (pointer: fine) {
-  .object-card__move {
-    display: none;
-  }
-}
 
 .object-card--grouped {
   margin-left: var(--spacing-lg);
