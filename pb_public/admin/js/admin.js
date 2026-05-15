@@ -31,6 +31,8 @@ const LANGUAGE_NAMES = {
   pl: "Polski", cs: "Čeština", ru: "Русский",
   uk: "Українська", tr: "Türkçe", el: "Ελληνικά",
   he: "עברית", hi: "हिन्दी", th: "ไทย",
+  se: "Davvisámegiella", fit: "Meänkieli",
+  yi: "ייִדיש", rom: "Romani",
 };
 
 function langName(code) {
