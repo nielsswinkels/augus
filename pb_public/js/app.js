@@ -2218,40 +2218,31 @@ let scannerCanvas = null;
 let scannerCtx = null;
 
 async function startScanner() {
-  // Check if camera permission is already granted
+  // Try to activate camera directly — if permission was already granted,
+  // this succeeds without a prompt. If not, the browser shows its own
+  // permission dialog. Only show our custom prompt if activation fails.
   try {
-    const result = await navigator.permissions.query({ name: "camera" });
-    if (result.state === "granted") {
-      activateCamera();
-      return;
-    }
-  } catch (e) { /* Permissions API not supported, show prompt */ }
-
-  // Show prompt screen first, hide video container
-  dom.scannerPrompt.classList.remove("hidden");
-  dom.scannerVideoContainer.classList.add("hidden");
-  dom.scannerPromptText.textContent = t("cameraPrompt");
-  dom.btnAllowCamera.textContent = t("allowCamera");
+    await activateCamera();
+  } catch (e) {
+    // Camera failed — show our prompt with explanation
+    dom.scannerPrompt.classList.remove("hidden");
+    dom.scannerVideoContainer.classList.add("hidden");
+    dom.scannerPromptText.textContent = t("cameraPrompt");
+    dom.btnAllowCamera.textContent = t("allowCamera");
+  }
 }
 
 async function activateCamera() {
-  try {
-    scannerStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" },
-    });
-    // Hide prompt, show video
-    dom.scannerPrompt.classList.add("hidden");
-    dom.scannerVideoContainer.classList.remove("hidden");
-    dom.scannerVideo.srcObject = scannerStream;
-    scannerCanvas = document.createElement("canvas");
-    scannerCtx = scannerCanvas.getContext("2d");
-    state.scannerActive = true;
-    scanFrame();
-  } catch (e) {
-    console.error("Camera access denied:", e);
-    showToast(t("errorCameraDenied"), true);
-    showView(state.previousView);
-  }
+  scannerStream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment" },
+  });
+  dom.scannerPrompt.classList.add("hidden");
+  dom.scannerVideoContainer.classList.remove("hidden");
+  dom.scannerVideo.srcObject = scannerStream;
+  scannerCanvas = document.createElement("canvas");
+  scannerCtx = scannerCanvas.getContext("2d");
+  state.scannerActive = true;
+  scanFrame();
 }
 
 function stopScanner() {
@@ -2755,7 +2746,15 @@ function init() {
   setupMapEvents();
 
   // Camera pre-prompt: allow button triggers actual camera access
-  dom.btnAllowCamera.addEventListener("click", () => activateCamera());
+  dom.btnAllowCamera.addEventListener("click", async () => {
+    try {
+      await activateCamera();
+    } catch (e) {
+      console.error("Camera access denied:", e);
+      showToast(t("errorCameraDenied"), true);
+      showView(state.previousView);
+    }
+  });
 
   // GPS prompt buttons
   document.getElementById("btnGpsEnable").addEventListener("click", () => {
