@@ -2457,6 +2457,8 @@ async function renderAboutContent() {
     a.target = "_blank";
     a.rel = "noopener noreferrer";
   });
+  const footer = document.getElementById("aboutFooter");
+  if (footer) footer.classList.toggle("hidden", state.currentSet.show_augus_branding === false);
 }
 
 // ===== List View =====

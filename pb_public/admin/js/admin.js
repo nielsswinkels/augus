@@ -242,6 +242,7 @@ async function editSet(set) {
     $("#setPublished").checked = !!set.published;
     $("#setSequentialNav").checked = !!set.sequential_navigation;
     $("#setShowNumbers").checked = set.show_numbers !== false;
+    $("#setShowBranding").checked = set.show_augus_branding !== false;
 
     $("#floorsFieldset").style.display = "";
     loadFloors(set.id);
@@ -267,6 +268,7 @@ async function editSet(set) {
     $("#setPublished").checked = false;
     $("#setSequentialNav").checked = true;
     $("#setShowNumbers").checked = true;
+    $("#setShowBranding").checked = true;
     $("#btnDeleteSet").classList.add("hidden");
     $("#btnGoToObjects").style.display = "none";
     $("#floorsFieldset").style.display = "none";
@@ -410,6 +412,7 @@ async function saveSet(e) {
         published: $("#setPublished").checked,
         sequential_navigation: $("#setSequentialNav").checked,
         show_numbers: $("#setShowNumbers").checked,
+        show_augus_branding: $("#setShowBranding").checked,
         available_languages: editingSetLanguages,
       }),
     });

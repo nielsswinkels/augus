@@ -1343,6 +1343,13 @@ body {
   color: var(--color-primary);
 }
 
+.about-footer {
+  text-align: center;
+  padding: var(--spacing-lg) var(--spacing-md);
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
 /* ===== REDUCED MOTION ===== */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
