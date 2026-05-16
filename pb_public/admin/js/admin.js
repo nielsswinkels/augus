@@ -378,8 +378,12 @@ async function saveSet(e) {
   }
   const formData = new FormData();
   formData.append("slug", slug);
-  // Keep name_en for backward compatibility / sorting
-  const firstLangName = document.querySelector(".set-content-name")?.value.trim() || "";
+  // Use first available language name for name_en fallback (used for sorting)
+  let firstLangName = "";
+  for (const lang of editingSetLanguages) {
+    const el = document.querySelector(`.set-content-name[data-lang="${lang}"]`);
+    if (el && el.value.trim()) { firstLangName = el.value.trim(); break; }
+  }
   formData.append("name_en", firstLangName);
 
   const logoFile = $("#setLogo").files[0];
