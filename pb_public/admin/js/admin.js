@@ -460,7 +460,7 @@ async function saveSet(e) {
     formDirty = false;
     showTab("sets");
   } catch (e) {
-    showToast("Could not save the set. Please check that all required fields are filled in and try again.");
+    showToast(e.message || "Could not save the set. Please check that all required fields are filled in and try again.");
   }
 }
 
