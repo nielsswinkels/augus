@@ -475,7 +475,9 @@ async function saveSet(e) {
 
     showToast("Set saved!");
     formDirty = false;
-    showTab("sets");
+    // Reload the set to get fresh data (e.g. new ID for new sets)
+    const freshResp = await api(`collections/sets/records/${savedSetId}`);
+    editSet(freshResp);
   } catch (e) {
     showToast(e.message || "Could not save the set. Please check that all required fields are filled in and try again.");
   }
