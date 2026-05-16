@@ -2457,6 +2457,8 @@ async function renderAboutContent() {
     a.target = "_blank";
     a.rel = "noopener noreferrer";
   });
+  const footer = document.getElementById("aboutFooter");
+  if (footer) footer.classList.toggle("hidden", state.currentSet.show_augus_branding === false);
 }
 
 // ===== List View =====
@@ -3626,10 +3628,11 @@ function applySetColors(set) {
   // Background + derivatives
   root.setProperty("--color-bg", bg);
   root.setProperty("--color-text", contrastTextColor(bg));
-  // Surface (cards, inputs): slightly darker than bg
-  root.setProperty("--color-surface", adjustHex(bg, 10));
-  // Border: midpoint between bg and text direction
-  root.setProperty("--color-border", adjustHex(bg, 40));
+  const textColor = contrastTextColor(bg);
+  const isLightBg = relativeLuminance(bg) > 0.5;
+  root.setProperty("--color-text-secondary", isLightBg ? "#4a4a4a" : "#b0b0b0");
+  root.setProperty("--color-surface", adjustHex(bg, isLightBg ? 10 : -10));
+  root.setProperty("--color-border", adjustHex(bg, isLightBg ? 40 : -30));
 }
 
 function applySetFonts(set) {
