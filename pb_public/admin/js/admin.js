@@ -13,6 +13,8 @@ let editingSet = null;
 let editingObject = null;
 let selectedSetId = "";
 let formDirty = false;
+let setSlugManual = false;
+let objectSlugManual = false;
 let adminMapInstance = null;
 let adminMapMarker = null;
 let adminRadiusCircle = null;
@@ -203,6 +205,7 @@ function renderSetsList() {
 async function editSet(set) {
   editingSet = set;
   formDirty = false;
+  setSlugManual = !!set;
   resetConfirmButton($("#btnDeleteSet"));
   $("#setFormTitle").textContent = set ? "Edit Set" : "New Set";
   $("#panelSets").classList.add("hidden");
@@ -363,6 +366,16 @@ function renderSetContentFieldsets() {
       if (content.about) quill.root.innerHTML = content.about;
       quillInstances[lang] = quill;
     }
+  }
+
+  // Auto-generate slug from first language name (only for new sets)
+  const firstNameInput = container.querySelector(".set-content-name");
+  if (firstNameInput && !$("#setFormId").value) {
+    firstNameInput.addEventListener("input", () => {
+      if (!setSlugManual) {
+        $("#setSlug").value = toSlug(firstNameInput.value);
+      }
+    });
   }
 }
 
@@ -952,6 +965,7 @@ function renderObjectsList() {
 async function editObject(obj) {
   editingObject = obj;
   formDirty = false;
+  objectSlugManual = !!obj;
   resetConfirmButton($("#btnDeleteObject"));
   $("#objectFormTitle").textContent = obj ? "Edit Object" : "New Object";
   $("#panelObjects").classList.add("hidden");
@@ -1090,6 +1104,16 @@ function renderObjectContentFieldsets(langs) {
       }
     });
   });
+
+  // Auto-generate slug from first language name (only for new objects)
+  const firstObjNameInput = container.querySelector(".obj-content-name");
+  if (firstObjNameInput && !$("#objectFormId").value) {
+    firstObjNameInput.addEventListener("input", () => {
+      if (!objectSlugManual) {
+        $("#objectSlug").value = toSlug(firstObjNameInput.value);
+      }
+    });
+  }
 }
 
 function showCurrentFile(elId, filename, collection, recordId, field) {
@@ -2263,6 +2287,14 @@ function showToast(msg) {
 }
 
 // ===== Utility =====
+function toSlug(str) {
+  return str.toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .substring(0, 60);
+}
+
 function esc(str) {
   const div = document.createElement("div");
   div.textContent = str || "";
@@ -2401,6 +2433,8 @@ function setupEvents() {
       showTab("objects");
     });
   });
+  $("#setSlug").addEventListener("input", () => { setSlugManual = true; });
+  $("#objectSlug").addEventListener("input", () => { objectSlugManual = true; });
   $("#setForm").addEventListener("submit", saveSet);
   $("#btnDeleteSet").addEventListener("click", deleteSet);
   $("#btnAddLanguage").addEventListener("click", addSetLanguage);
