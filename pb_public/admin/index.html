@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Augus — Admin</title>
-  <link rel="stylesheet" href="/admin/css/admin.css?v=20260515f">
+  <link rel="stylesheet" href="/admin/css/admin.css?v=20260515h">
   <link rel="stylesheet" href="/admin/js/lib/quill/quill.bubble.css">
 </head>
 <body>
@@ -57,9 +57,9 @@
         <input type="hidden" id="setFormId">
 
         <div class="form-row">
-          <label for="setSlug" class="form-label">Slug (URL-safe, lowercase) <span class="required">*</span></label>
+          <label for="setSlug" class="form-label">Slug (URL) <span class="required">*</span></label>
           <input type="text" id="setSlug" class="form-input" required pattern="^[a-z0-9\-]+$"
-            placeholder="e.g. viking-gallery">
+            placeholder="auto-generated from name">
         </div>
 
         <fieldset class="form-fieldset">
@@ -223,9 +223,9 @@
 
         <div class="form-row form-row--inline">
           <div>
-            <label for="objectSlug" class="form-label">Slug <span class="required">*</span></label>
+            <label for="objectSlug" class="form-label">Slug (URL) <span class="required">*</span></label>
             <input type="text" id="objectSlug" class="form-input" required pattern="^[a-z0-9\-]+$"
-              placeholder="e.g. runestone-1">
+              placeholder="auto-generated from name">
           </div>
           <div>
             <label for="objectSortOrder" class="form-label">Number / Order <span class="required">*</span></label>
@@ -370,6 +370,6 @@
 
   <script src="/admin/js/lib/qrcode-generator.min.js"></script>
   <script src="/admin/js/lib/quill/quill.js"></script>
-  <script src="/admin/js/admin.js?v=20260515f" type="module"></script>
+  <script src="/admin/js/admin.js?v=20260515h" type="module"></script>
 </body>
 </html>
