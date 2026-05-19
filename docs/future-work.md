@@ -40,7 +40,7 @@ Comprehensive documentation for self-hosting. README with setup guide, deploymen
 - **Batch operations in admin:** Multi-select objects for bulk delete, move between sets
 - **Audio waveform visualization:** Show waveform in the player instead of just a progress bar
 - **Offline/PWA support:** Service worker for caching audio and content for offline use in museums with poor WiFi
-- **QR code batch printing:** Admin tool to generate a printable PDF of all QR codes for a set
+- **QR sign template generator:** Replace the basic QR code download with a full sign generator in the admin. Auto-generate printable signs for each object using configurable templates. See `docs/qr-sign-design-guide.md` for design principles and template ideas. Templates could include: Minimal (number + name + QR + headphone icon), Rich (number + name + teaser + QR + language flags), Wall label (traditional museum label format with QR). Batch export as PDF for all objects in a set.
 - **Analytics:** Simple view/play counts per object (privacy-friendly, no tracking)
 - **Split app.js into ES modules:** The visitor app is ~2500 lines in a single file. Split into modules (audio, map, gallery, scanner, carousel, routing) using ES `import`/`export` — no build step needed since `type="module"` is already declared.
 - **Admin UI tooltips and help text:** The admin has accumulated many options (languages, media types, floor management, sequential nav, show numbers, colors, fonts, etc.). Add tooltips or info icons next to each setting that explain what it does. Consider a small `(?)` icon that shows a popover on hover/tap.
