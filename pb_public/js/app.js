@@ -1719,7 +1719,8 @@ async function loadObject(obj) {
       try {
         await dom.audioElement.play();
       } catch (e) {
-        // Autoplay blocked by browser — user will have to tap play
+        // Autoplay blocked by browser — show a tap-to-play prompt
+        showAutoplayPrompt();
       }
     }
 
@@ -2059,6 +2060,8 @@ function stopAudio() {
   audio.currentTime = 0;
   audio.src = "";
   dom.audioPlayer.classList.add("hidden");
+  const prompt = document.getElementById("autoplayPrompt");
+  if (prompt) prompt.remove();
 }
 
 function formatTime(seconds) {
@@ -2066,6 +2069,20 @@ function formatTime(seconds) {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function showAutoplayPrompt() {
+  const existing = document.getElementById("autoplayPrompt");
+  if (existing) existing.remove();
+  const prompt = document.createElement("button");
+  prompt.id = "autoplayPrompt";
+  prompt.className = "autoplay-prompt";
+  prompt.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><polygon points="5,3 19,12 5,21"/></svg><span>${t("play")}</span>`;
+  prompt.addEventListener("click", () => {
+    dom.audioElement.play();
+    prompt.remove();
+  });
+  dom.viewObject.appendChild(prompt);
 }
 
 function setupMediaSession(title) {
