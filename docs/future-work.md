@@ -67,3 +67,27 @@ Comprehensive documentation for self-hosting. README with setup guide, deploymen
 - **Multi-admin accounts:** Currently one superuser. Multiple admin accounts with different permissions (e.g. "can edit this set but not that one") would matter for larger institutions with multiple curators.
 - **Embeddable widget:** Let other websites embed a mini audio player for a specific object. Museums could put the audio guide directly on their website's collection page via an iframe or script tag.
 - **Kiosk mode:** A dedicated display mode for a tablet mounted at an exhibit. Larger touch targets, no browser navigation, auto-return to the current object after idle, possibly locked to a single object or set.
+
+---
+
+## Non-Code: Content, Testing & Outreach
+
+### Content & Testing
+- **Build a polished demo exhibition** — the test content doesn't showcase Augus's full capabilities. Create a demo with good audio, proper images, multiple languages, 360 photos, a 3D model, and groups. This becomes the calling card when showing it to museums.
+- **Guerrilla user testing** — 3-5 people, 5 minutes each, just watch them use it. Follow the test script in the QR sign design guide. Do this before building more features.
+- **Cross-device testing** — test on iPhone Safari (autoplay, gyroscope permissions), older Android phones, tablets, and different screen sizes. Known issues exist with QR scanner rotation on some devices.
+
+### Outreach & Positioning
+- **Find one real museum to pilot with** — a single real-world deployment teaches more than months of solo development. Offer it for free to a small local museum in exchange for feedback.
+- **Document a case study** — even from the office installation. Photos of the signs, visitor reactions, what worked, what didn't. "We set up Augus for 5 exhibits, here's what happened."
+- **Research Swedish museum audio guide landscape** — what do museums currently use? Spotify playlists? Expensive SaaS? Nothing? Understanding the competition helps articulate why Augus matters.
+- **Write a blog post or LinkedIn article** — "I built a free open-source audioguide system, here's why." Museum tech people are active on LinkedIn. One post could find the first pilot museum.
+- **Conference talk or demo** — Swedish museum conferences (Museernas Vårmöte) or cultural heritage tech meetups. Even a lightning talk gets visibility.
+
+### Sustainability
+- **Decide on a sustainability model** — if this grows, will there be paid hosting/support? Purely open source? The AGPL license ensures anyone who modifies it must share their changes.
+
+### Design & Polish
+- **Screenshots and a short video** — record a 60-second walkthrough of the visitor experience. Essential for the landing page and any outreach.
+- **Refine the office QR signs** — apply the design guide principles (docs/qr-sign-design-guide.md). Replace "curious? scan here" with something compelling and measure if scan rates improve.
+
