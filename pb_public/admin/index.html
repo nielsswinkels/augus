@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Augus — Admin</title>
-  <link rel="stylesheet" href="/admin/css/admin.css?v=20260515h">
+  <link rel="stylesheet" href="/admin/css/admin.css?v=20260530a">
   <link rel="stylesheet" href="/admin/js/lib/quill/quill.bubble.css">
 </head>
 <body>
@@ -51,7 +51,14 @@
       <div class="panel-header">
         <button class="btn" id="btnBackToSets">&larr; Back</button>
         <h2 id="setFormTitle">New Set</h2>
-        <button class="btn btn--primary" id="btnGoToObjects" style="display:none">Objects &rarr;</button>
+        <div class="panel-header__right">
+          <label class="panel-header__published" title="Unpublished content is hidden from visitors but preserved in the admin">
+            <input type="checkbox" id="setPublishedHeader"> Published
+            <span class="help-icon">?<span class="help-tooltip">Unpublished content is hidden from visitors but preserved in the admin</span></span>
+          </label>
+          <button type="button" class="btn btn--danger btn--small" id="btnDeleteSetHeader">Delete Set</button>
+          <button class="btn btn--primary" id="btnGoToObjects" style="display:none">Objects &rarr;</button>
+        </div>
       </div>
       <form id="setForm" class="admin-form" novalidate>
         <input type="hidden" id="setFormId">
@@ -63,7 +70,7 @@
         </div>
 
         <fieldset class="form-fieldset">
-          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Languages</legend>
+          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Languages <span class="help-icon" onclick="event.stopPropagation()">?<span class="help-tooltip">Choose which languages your exhibition content is available in</span></span></legend>
           <div class="form-row">
             <label class="form-label">Available languages</label>
             <div style="display:flex;gap:var(--spacing-sm);align-items:center;flex-wrap:wrap">
@@ -90,7 +97,7 @@
         </div>
 
         <fieldset class="form-fieldset" id="floorsFieldset" style="display:none">
-          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Map</legend>
+          <legend class="form-fieldset__toggle" onclick="this.closest('.form-fieldset').classList.toggle('collapsed')">Map <span class="help-icon" onclick="event.stopPropagation()">?<span class="help-tooltip">Floors let visitors switch between maps for different levels of your building</span></span></legend>
           <p class="form-hint" style="margin-bottom:var(--spacing-sm)" id="floorsHint">Upload a map image for the exhibition.</p>
           <div id="floorsList"></div>
           <div style="display:flex;gap:var(--spacing-sm);margin-top:var(--spacing-sm)">
@@ -109,7 +116,7 @@
           <label class="form-label">Colour scheme (optional)</label>
           <div class="color-scheme-row">
             <div class="color-scheme-field">
-              <label for="setColorPrimaryText" class="form-label form-label--small">Primary</label>
+              <label for="setColorPrimaryText" class="form-label form-label--small">Accent colour (buttons, pins)</label>
               <div class="color-input-wrap">
                 <input type="color" id="setColorPrimary" value="#0057b8" tabindex="-1" aria-hidden="true">
                 <input type="text" id="setColorPrimaryText" class="form-input color-hex-input" value="#0057b8" maxlength="7" placeholder="#0057b8" spellcheck="false">
@@ -117,7 +124,7 @@
               <p class="form-hint">Buttons, pins, active states</p>
             </div>
             <div class="color-scheme-field">
-              <label for="setColorAccentText" class="form-label form-label--small">Background</label>
+              <label for="setColorAccentText" class="form-label form-label--small">Background colour (page)</label>
               <div class="color-input-wrap">
                 <input type="color" id="setColorAccent" value="#ffffff" tabindex="-1" aria-hidden="true">
                 <input type="text" id="setColorAccentText" class="form-input color-hex-input" value="#ffffff" maxlength="7" placeholder="#ffffff" spellcheck="false">
@@ -154,6 +161,7 @@
           <label class="form-label" style="display:flex;align-items:center;gap:var(--spacing-sm)">
             <input type="checkbox" id="setSequentialNav">
             Sequential navigation
+            <span class="help-icon">?<span class="help-tooltip">When enabled, visitors see Previous/Next buttons to navigate between objects in order</span></span>
           </label>
           <p class="form-hint">Show previous/next buttons so visitors can navigate between objects in order</p>
         </div>
@@ -162,6 +170,7 @@
           <label class="form-label" style="display:flex;align-items:center;gap:var(--spacing-sm)">
             <input type="checkbox" id="setShowNumbers" checked>
             Show object numbers
+            <span class="help-icon">?<span class="help-tooltip">When disabled, numbered pins on the map and list become plain dots -- good for exhibitions that can be explored in any order</span></span>
           </label>
           <p class="form-hint">Display numbers on objects in the list and on map pins. Disable for exhibitions that can be explored in any order.</p>
         </div>
@@ -173,19 +182,13 @@
           </label>
         </div>
 
-        <div class="form-row">
-          <label class="form-label" style="display:flex;align-items:center;gap:var(--spacing-sm)">
-            <input type="checkbox" id="setPublished">
-            Published
-          </label>
-          <p class="form-hint">Unpublished sets are hidden from visitors</p>
-        </div>
+        <input type="hidden" id="setPublished">
 
         <p class="form-required-note"><span class="required">*</span> Required field</p>
         <div class="form-actions">
           <button type="submit" class="btn btn--primary">Save</button>
-          <button type="button" class="btn btn--danger" id="btnDeleteSet">Delete Set</button>
         </div>
+        <button type="button" class="btn btn--danger hidden" id="btnDeleteSet" style="display:none">Delete Set</button>
       </form>
     </div>
 
@@ -199,6 +202,7 @@
           </select>
           <button class="btn btn--primary hidden" id="btnNewObject">+ New Object</button>
           <button class="btn hidden" id="btnAddGroup">+ New Group</button>
+          <span class="help-icon" style="margin-left:0">?<span class="help-tooltip">Groups let you organize objects into sections like rooms or themes. Drag objects onto a group header to add them.</span></span>
         </div>
       </div>
       <div class="objects-list" id="objectsList">
@@ -211,6 +215,13 @@
       <div class="panel-header">
         <button class="btn" id="btnBackToObjects">&larr; Back</button>
         <h2 id="objectFormTitle">New Object</h2>
+        <div class="panel-header__right">
+          <label class="panel-header__published" title="Unpublished objects are hidden from visitors">
+            <input type="checkbox" id="objectPublishedHeader" checked> Published
+            <span class="help-icon">?<span class="help-tooltip">Unpublished content is hidden from visitors but preserved in the admin</span></span>
+          </label>
+          <button type="button" class="btn btn--danger btn--small" id="btnDeleteObjectHeader">Delete Object</button>
+        </div>
         <div class="panel-header__actions">
           <button class="btn" id="btnDuplicateObject" title="Duplicate">Duplicate</button>
           <button class="btn" id="btnPreviewObject" title="Preview">Preview</button>
@@ -297,19 +308,13 @@
           </div>
         </fieldset>
 
-        <div class="form-row">
-          <label class="form-label" style="display:flex;align-items:center;gap:var(--spacing-sm)">
-            <input type="checkbox" id="objectPublished" checked>
-            Published
-          </label>
-          <p class="form-hint">Unpublished objects are hidden from visitors</p>
-        </div>
+        <input type="hidden" id="objectPublished">
 
         <p class="form-required-note"><span class="required">*</span> Required field</p>
         <div class="form-actions">
           <button type="submit" class="btn btn--primary">Save Object</button>
-          <button type="button" class="btn btn--danger" id="btnDeleteObject">Delete Object</button>
         </div>
+        <button type="button" class="btn btn--danger hidden" id="btnDeleteObject" style="display:none">Delete Object</button>
       </form>
 
       <!-- Images section -->
@@ -349,6 +354,31 @@
       </div>
     </div>
 
+    <!-- ===== GROUP EDIT MODAL ===== -->
+    <div class="modal-overlay hidden" id="groupEditModal">
+      <div class="modal modal--group">
+        <div class="modal__header">
+          <h3>Edit Group</h3>
+          <button class="btn btn--icon" id="btnCloseGroupEdit" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal__body" style="text-align:left" id="groupEditModalBody">
+          <!-- Filled by JS -->
+        </div>
+        <div class="modal__footer" style="display:flex;gap:var(--spacing-sm);justify-content:flex-end">
+          <button class="btn" id="btnCancelGroupEdit">Cancel</button>
+          <button class="btn btn--primary" id="btnSaveGroupEdit">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== BATCH ACTION BAR ===== -->
+    <div class="batch-bar hidden" id="batchBar">
+      <span class="batch-bar__count" id="batchCount">0 selected</span>
+      <button class="btn btn--small" id="btnBatchPublish">Publish selected</button>
+      <button class="btn btn--small" id="btnBatchUnpublish">Unpublish selected</button>
+      <button class="btn btn--danger btn--small" id="btnBatchDelete">Delete selected</button>
+    </div>
+
     <!-- ===== QR CODE MODAL ===== -->
     <div class="modal-overlay hidden" id="qrModal">
       <div class="modal">
@@ -370,6 +400,6 @@
 
   <script src="/admin/js/lib/qrcode-generator.min.js"></script>
   <script src="/admin/js/lib/quill/quill.js"></script>
-  <script src="/admin/js/admin.js?v=20260515h" type="module"></script>
+  <script src="/admin/js/admin.js?v=20260530a" type="module"></script>
 </body>
 </html>
