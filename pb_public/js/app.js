@@ -1719,7 +1719,8 @@ async function loadObject(obj) {
       try {
         await dom.audioElement.play();
       } catch (e) {
-        // Autoplay blocked by browser — user will have to tap play
+        // Autoplay blocked by browser — show a tap-to-play prompt
+        showAutoplayPrompt();
       }
     }
 
@@ -2059,6 +2060,8 @@ function stopAudio() {
   audio.currentTime = 0;
   audio.src = "";
   dom.audioPlayer.classList.add("hidden");
+  const prompt = document.getElementById("autoplayPrompt");
+  if (prompt) prompt.remove();
 }
 
 function formatTime(seconds) {
@@ -2066,6 +2069,20 @@ function formatTime(seconds) {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function showAutoplayPrompt() {
+  const existing = document.getElementById("autoplayPrompt");
+  if (existing) existing.remove();
+  const prompt = document.createElement("button");
+  prompt.id = "autoplayPrompt";
+  prompt.className = "autoplay-prompt";
+  prompt.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><polygon points="5,3 19,12 5,21"/></svg><span>${t("play")}</span>`;
+  prompt.addEventListener("click", () => {
+    dom.audioElement.play();
+    prompt.remove();
+  });
+  dom.viewObject.appendChild(prompt);
 }
 
 function setupMediaSession(title) {
@@ -2126,14 +2143,16 @@ function openGallery(index = 0) {
   dom.galleryOverlay.classList.add("active");
   galleryPreviousFocus = document.activeElement;
   galleryFocusTrapCleanup = trapFocus(dom.galleryOverlay);
+  history.pushState({ overlay: "gallery" }, "");
 }
 
-function closeGallery() {
+function closeGallery(fromPopstate) {
   destroyPannellum();
   destroyModelViewer();
   destroyGalleryVideo();
   dom.galleryImage.classList.remove("hidden");
   dom.galleryOverlay.classList.remove("active");
+  if (!fromPopstate && history.state?.overlay === "gallery") history.back();
   if (galleryFocusTrapCleanup) { galleryFocusTrapCleanup(); galleryFocusTrapCleanup = null; }
   if (galleryPreviousFocus) { galleryPreviousFocus.focus(); galleryPreviousFocus = null; }
   if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
@@ -3423,14 +3442,16 @@ function setupSettingsEvents() {
     settingsPreviousFocus = document.activeElement;
     dom.settingsOverlay.classList.add("active");
     settingsFocusTrapCleanup = trapFocus(dom.settingsOverlay);
+    history.pushState({ overlay: "settings" }, "");
   }
   dom.btnSettings.addEventListener("click", openSettings);
   dom.btnSettingsDesktop.addEventListener("click", openSettings);
 
-  function closeSettings() {
+  function closeSettings(fromPopstate) {
     dom.settingsOverlay.classList.remove("active");
     if (settingsFocusTrapCleanup) { settingsFocusTrapCleanup(); settingsFocusTrapCleanup = null; }
     if (settingsPreviousFocus) { settingsPreviousFocus.focus(); settingsPreviousFocus = null; }
+    if (!fromPopstate && history.state?.overlay === "settings") history.back();
   }
 
   dom.btnCloseSettings.addEventListener("click", closeSettings);
@@ -3528,6 +3549,14 @@ function setupNavigationEvents() {
 
   // Browser back/forward (hash-based routing)
   window.addEventListener("hashchange", () => loadRoute());
+
+  window.addEventListener("popstate", (e) => {
+    if (dom.galleryOverlay.classList.contains("active")) {
+      closeGallery(true);
+    } else if (dom.settingsOverlay.classList.contains("active")) {
+      closeSettings(true);
+    }
+  });
 }
 
 function navigateSequential(direction) {
