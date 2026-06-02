@@ -1681,9 +1681,6 @@ body {
   transform: scale(1.15);
 }
 
-.leaflet-popup-hidden {
-  display: none !important;
-}
 
 /* ===== GPS Nearby Card ===== */
 .gps-card {
