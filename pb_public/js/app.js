@@ -1232,6 +1232,30 @@ function saveSettings() {
   applySettings();
 }
 
+// ===== Treasure Hunt Discovery Tracking =====
+function getDiscoveredObjects(setId) {
+  try {
+    const key = `augus_discovered_${setId}`;
+    return JSON.parse(localStorage.getItem(key)) || [];
+  } catch (e) { return []; }
+}
+
+function markObjectDiscovered(setId, objectId) {
+  const discovered = getDiscoveredObjects(setId);
+  if (!discovered.includes(objectId)) {
+    discovered.push(objectId);
+    localStorage.setItem(`augus_discovered_${setId}`, JSON.stringify(discovered));
+  }
+}
+
+function isObjectDiscovered(setId, objectId) {
+  return getDiscoveredObjects(setId).includes(objectId);
+}
+
+function isTreasureHuntActive() {
+  return state.currentSet && state.currentSet.treasure_hunt === true;
+}
+
 function applySettings() {
   // Font size
   document.body.classList.remove("font-xl", "font-xxl", "font-xxxl");
@@ -1620,6 +1644,11 @@ async function loadObject(obj) {
   stopAudio();
 
   state.currentObject = obj;
+
+  // Mark as discovered in treasure hunt mode
+  if (isTreasureHuntActive()) {
+    markObjectDiscovered(state.currentSet.id, obj.id);
+  }
 
   // Update header
   const lang = state.settings.language;
@@ -2485,23 +2514,37 @@ function renderObjectListItem(obj, idx) {
   const lang = state.settings.language;
   const showNums = state.currentSet.show_numbers !== false;
   const displayNum = idx + 1;
-  const name = obj[`name_${lang}`] || obj.name_en || "Object";
   const isCurrent = state.currentObject && state.currentObject.id === obj.id;
+  const treasureHunt = isTreasureHuntActive();
+  const discovered = !treasureHunt || isObjectDiscovered(state.currentSet.id, obj.id);
+
   const li = document.createElement("li");
   const a = document.createElement("a");
-  a.className = `object-list__item${isCurrent ? " current" : ""}`;
-  a.href = `#/${state.currentSet.slug}/${obj.slug}`;
   a.setAttribute("role", "listitem");
-  a.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(state.currentSet.slug, obj.slug);
-  });
-  a.innerHTML = `
-    ${showNums ? `<span class="object-list__number">${displayNum}</span>` : ""}
-    <div class="object-list__info">
-      <div class="object-list__name">${escapeHtml(name)}</div>
-    </div>
-  `;
+
+  if (discovered) {
+    const name = obj[`name_${lang}`] || obj.name_en || "Object";
+    a.className = `object-list__item${isCurrent ? " current" : ""}`;
+    a.href = `#/${state.currentSet.slug}/${obj.slug}`;
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      navigateTo(state.currentSet.slug, obj.slug);
+    });
+    a.innerHTML = `
+      ${showNums ? `<span class="object-list__number">${displayNum}</span>` : ""}
+      <div class="object-list__info">
+        <div class="object-list__name">${escapeHtml(name)}</div>
+      </div>
+    `;
+  } else {
+    a.className = "object-list__item object-list__item--undiscovered";
+    a.innerHTML = `
+      ${showNums ? `<span class="object-list__number">${displayNum}</span>` : ""}
+      <div class="object-list__info">
+        <div class="object-list__name">???</div>
+      </div>
+    `;
+  }
   li.appendChild(a);
   return li;
 }
@@ -2509,6 +2552,17 @@ function renderObjectListItem(obj, idx) {
 function renderObjectList() {
   const lang = state.settings.language;
   dom.objectList.innerHTML = "";
+
+  // Treasure hunt progress counter
+  if (isTreasureHuntActive()) {
+    const discovered = getDiscoveredObjects(state.currentSet.id);
+    const total = state.objects.length;
+    const found = state.objects.filter(o => discovered.includes(o.id)).length;
+    const counter = document.createElement("div");
+    counter.className = "treasure-hunt-counter";
+    counter.innerHTML = `<span class="treasure-hunt-counter__found">${found}</span> / ${total} ${found === total ? "🎉" : ""}`;
+    dom.objectList.appendChild(counter);
+  }
 
   if (state.groups.length === 0) {
     for (let idx = 0; idx < state.objects.length; idx++) {
@@ -2850,9 +2904,14 @@ async function renderOutdoorMap(floor) {
       iconAnchor: [16, 16],
     });
 
-    const marker = L.marker([obj.latitude, obj.longitude], { icon }).addTo(state.leafletMap);
-    marker.bindPopup(`<b>${showNums ? displayNum + ". " : ""}${escapeHtml(name)}</b>`);
-    marker.on("click", () => navigateTo(state.currentSet.slug, obj.slug));
+    const leafletDiscovered = !isTreasureHuntActive() || isObjectDiscovered(state.currentSet.id, obj.id);
+    const marker = L.marker([obj.latitude, obj.longitude], { icon, opacity: leafletDiscovered ? 1 : 0.4 }).addTo(state.leafletMap);
+    if (leafletDiscovered) {
+      marker.bindPopup(`<b>${showNums ? displayNum + ". " : ""}${escapeHtml(name)}</b>`);
+      marker.on("click", () => navigateTo(state.currentSet.slug, obj.slug));
+    } else {
+      marker.bindPopup("<b>???</b>");
+    }
   }
 
   if (state.gpsPosition) {
@@ -2933,6 +2992,7 @@ function renderMapView() {
       name: obj[`name_${lang}`] || obj.name_en || "Object",
       obj: obj,
       groupColor: objGroup?.color || "",
+      discovered: !isTreasureHuntActive() || isObjectDiscovered(state.currentSet.id, obj.id),
     });
   }
 
@@ -3002,10 +3062,16 @@ function renderMapPins() {
         pin.style.color = contrastTextColor(p.groupColor);
       }
       pin.setAttribute("aria-label", showNums ? `${p.displayNum}. ${p.name}` : p.name);
-      pin.addEventListener("click", (e) => {
-        e.preventDefault();
-        navigateTo(state.currentSet.slug, p.slug);
-      });
+      if (!p.discovered) {
+        pin.classList.add("map-pin--undiscovered");
+        pin.setAttribute("aria-label", "Undiscovered");
+        pin.removeAttribute("href");
+      } else {
+        pin.addEventListener("click", (e) => {
+          e.preventDefault();
+          navigateTo(state.currentSet.slug, p.slug);
+        });
+      }
       dom.mapContainer.appendChild(pin);
     } else {
       const el = document.createElement("button");
@@ -3569,7 +3635,7 @@ function navigateSequential(direction) {
 }
 
 function updateSequentialNav() {
-  const enabled = state.currentSet && state.currentSet.sequential_navigation;
+  const enabled = state.currentSet && state.currentSet.sequential_navigation && !isTreasureHuntActive();
   if (!enabled || !state.currentObject) {
     dom.btnPrevObject.classList.add("hidden");
     dom.btnNextObject.classList.add("hidden");

@@ -267,6 +267,7 @@ async function editSet(set) {
     $("#setPublishedHeader").checked = !!set.published;
     $("#setSequentialNav").checked = !!set.sequential_navigation;
     $("#setShowNumbers").checked = set.show_numbers !== false;
+    $("#setTreasureHunt").checked = !!set.treasure_hunt;
     $("#setShowBranding").checked = set.show_augus_branding !== false;
 
     $("#floorsFieldset").style.display = "";
@@ -294,6 +295,7 @@ async function editSet(set) {
     $("#setPublishedHeader").checked = false;
     $("#setSequentialNav").checked = true;
     $("#setShowNumbers").checked = true;
+    $("#setTreasureHunt").checked = false;
     $("#setShowBranding").checked = true;
     $("#btnDeleteSet").classList.add("hidden");
     $("#btnDeleteSetHeader").style.display = "none";
@@ -453,6 +455,7 @@ async function saveSet(e) {
         published: $("#setPublishedHeader").checked,
         sequential_navigation: $("#setSequentialNav").checked,
         show_numbers: $("#setShowNumbers").checked,
+        treasure_hunt: $("#setTreasureHunt").checked,
         show_augus_branding: $("#setShowBranding").checked,
         available_languages: editingSetLanguages,
       }),

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Augus — Admin</title>
-  <link rel="stylesheet" href="/admin/css/admin.css?v=20260530a">
+  <link rel="stylesheet" href="/admin/css/admin.css?v=20260602a">
   <link rel="stylesheet" href="/admin/js/lib/quill/quill.bubble.css">
 </head>
 <body>
@@ -173,6 +173,15 @@
             <span class="help-icon">?<span class="help-tooltip">When disabled, numbered pins on the map and list become plain dots -- good for exhibitions that can be explored in any order</span></span>
           </label>
           <p class="form-hint">Display numbers on objects in the list and on map pins. Disable for exhibitions that can be explored in any order.</p>
+        </div>
+
+        <div class="form-row">
+          <label class="form-label" style="display:flex;align-items:center;gap:var(--spacing-sm)">
+            <input type="checkbox" id="setTreasureHunt">
+            Treasure hunt mode
+            <span class="help-icon">?<span class="help-tooltip">Turns the exhibition into a scavenger hunt. Visitors discover objects by scanning QR codes. Undiscovered objects appear as mystery items in the list.</span></span>
+          </label>
+          <p class="form-hint">Visitors must scan QR codes to discover objects. Undiscovered objects are hidden in the list. Shows a progress counter.</p>
         </div>
 
         <div class="form-row">
@@ -400,6 +409,6 @@
 
   <script src="/admin/js/lib/qrcode-generator.min.js"></script>
   <script src="/admin/js/lib/quill/quill.js"></script>
-  <script src="/admin/js/admin.js?v=20260530a" type="module"></script>
+  <script src="/admin/js/admin.js?v=20260602a" type="module"></script>
 </body>
 </html>

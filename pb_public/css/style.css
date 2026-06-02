@@ -1365,6 +1365,35 @@ body {
   color: var(--color-primary);
 }
 
+/* Treasure hunt */
+.treasure-hunt-counter {
+  text-align: center;
+  padding: var(--spacing-md);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.treasure-hunt-counter__found {
+  font-size: var(--font-size-xxl);
+}
+
+.object-list__item--undiscovered {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+.object-list__item--undiscovered .object-list__name {
+  font-style: italic;
+  color: var(--color-text-secondary);
+}
+
+.map-pin--undiscovered {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 .about-footer {
   text-align: center;
   padding: var(--spacing-lg) var(--spacing-md);
