@@ -1232,6 +1232,30 @@ function saveSettings() {
   applySettings();
 }
 
+// ===== Treasure Hunt Discovery Tracking =====
+function getDiscoveredObjects(setId) {
+  try {
+    const key = `augus_discovered_${setId}`;
+    return JSON.parse(localStorage.getItem(key)) || [];
+  } catch (e) { return []; }
+}
+
+function markObjectDiscovered(setId, objectId) {
+  const discovered = getDiscoveredObjects(setId);
+  if (!discovered.includes(objectId)) {
+    discovered.push(objectId);
+    localStorage.setItem(`augus_discovered_${setId}`, JSON.stringify(discovered));
+  }
+}
+
+function isObjectDiscovered(setId, objectId) {
+  return getDiscoveredObjects(setId).includes(objectId);
+}
+
+function isTreasureHuntActive() {
+  return state.currentSet && state.currentSet.treasure_hunt === true;
+}
+
 function applySettings() {
   // Font size
   document.body.classList.remove("font-xl", "font-xxl", "font-xxxl");
@@ -1621,6 +1645,11 @@ async function loadObject(obj) {
 
   state.currentObject = obj;
 
+  // Mark as discovered in treasure hunt mode
+  if (isTreasureHuntActive()) {
+    markObjectDiscovered(state.currentSet.id, obj.id);
+  }
+
   // Update header
   const lang = state.settings.language;
   const name = obj[`name_${lang}`] || obj.name_en || "Object";
@@ -1719,7 +1748,8 @@ async function loadObject(obj) {
       try {
         await dom.audioElement.play();
       } catch (e) {
-        // Autoplay blocked by browser — user will have to tap play
+        // Autoplay blocked by browser — show a tap-to-play prompt
+        showAutoplayPrompt();
       }
     }
 
@@ -2059,6 +2089,8 @@ function stopAudio() {
   audio.currentTime = 0;
   audio.src = "";
   dom.audioPlayer.classList.add("hidden");
+  const prompt = document.getElementById("autoplayPrompt");
+  if (prompt) prompt.remove();
 }
 
 function formatTime(seconds) {
@@ -2066,6 +2098,20 @@ function formatTime(seconds) {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function showAutoplayPrompt() {
+  const existing = document.getElementById("autoplayPrompt");
+  if (existing) existing.remove();
+  const prompt = document.createElement("button");
+  prompt.id = "autoplayPrompt";
+  prompt.className = "autoplay-prompt";
+  prompt.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" width="32" height="32"><polygon points="5,3 19,12 5,21"/></svg><span>${t("play")}</span>`;
+  prompt.addEventListener("click", () => {
+    dom.audioElement.play();
+    prompt.remove();
+  });
+  dom.viewObject.appendChild(prompt);
 }
 
 function setupMediaSession(title) {
@@ -2126,14 +2172,16 @@ function openGallery(index = 0) {
   dom.galleryOverlay.classList.add("active");
   galleryPreviousFocus = document.activeElement;
   galleryFocusTrapCleanup = trapFocus(dom.galleryOverlay);
+  history.pushState({ overlay: "gallery" }, "");
 }
 
-function closeGallery() {
+function closeGallery(fromPopstate) {
   destroyPannellum();
   destroyModelViewer();
   destroyGalleryVideo();
   dom.galleryImage.classList.remove("hidden");
   dom.galleryOverlay.classList.remove("active");
+  if (!fromPopstate && history.state?.overlay === "gallery") history.back();
   if (galleryFocusTrapCleanup) { galleryFocusTrapCleanup(); galleryFocusTrapCleanup = null; }
   if (galleryPreviousFocus) { galleryPreviousFocus.focus(); galleryPreviousFocus = null; }
   if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
@@ -2466,23 +2514,37 @@ function renderObjectListItem(obj, idx) {
   const lang = state.settings.language;
   const showNums = state.currentSet.show_numbers !== false;
   const displayNum = idx + 1;
-  const name = obj[`name_${lang}`] || obj.name_en || "Object";
   const isCurrent = state.currentObject && state.currentObject.id === obj.id;
+  const treasureHunt = isTreasureHuntActive();
+  const discovered = !treasureHunt || isObjectDiscovered(state.currentSet.id, obj.id);
+
   const li = document.createElement("li");
   const a = document.createElement("a");
-  a.className = `object-list__item${isCurrent ? " current" : ""}`;
-  a.href = `#/${state.currentSet.slug}/${obj.slug}`;
   a.setAttribute("role", "listitem");
-  a.addEventListener("click", (e) => {
-    e.preventDefault();
-    navigateTo(state.currentSet.slug, obj.slug);
-  });
-  a.innerHTML = `
-    ${showNums ? `<span class="object-list__number">${displayNum}</span>` : ""}
-    <div class="object-list__info">
-      <div class="object-list__name">${escapeHtml(name)}</div>
-    </div>
-  `;
+
+  if (discovered) {
+    const name = obj[`name_${lang}`] || obj.name_en || "Object";
+    a.className = `object-list__item${isCurrent ? " current" : ""}`;
+    a.href = `#/${state.currentSet.slug}/${obj.slug}`;
+    a.addEventListener("click", (e) => {
+      e.preventDefault();
+      navigateTo(state.currentSet.slug, obj.slug);
+    });
+    a.innerHTML = `
+      ${showNums ? `<span class="object-list__number">${displayNum}</span>` : ""}
+      <div class="object-list__info">
+        <div class="object-list__name">${escapeHtml(name)}</div>
+      </div>
+    `;
+  } else {
+    a.className = "object-list__item object-list__item--undiscovered";
+    a.innerHTML = `
+      ${showNums ? `<span class="object-list__number">${displayNum}</span>` : ""}
+      <div class="object-list__info">
+        <div class="object-list__name">???</div>
+      </div>
+    `;
+  }
   li.appendChild(a);
   return li;
 }
@@ -2490,6 +2552,17 @@ function renderObjectListItem(obj, idx) {
 function renderObjectList() {
   const lang = state.settings.language;
   dom.objectList.innerHTML = "";
+
+  // Treasure hunt progress counter
+  if (isTreasureHuntActive()) {
+    const discovered = getDiscoveredObjects(state.currentSet.id);
+    const total = state.objects.length;
+    const found = state.objects.filter(o => discovered.includes(o.id)).length;
+    const counter = document.createElement("div");
+    counter.className = "treasure-hunt-counter";
+    counter.innerHTML = `<span class="treasure-hunt-counter__found">${found}</span> / ${total} ${found === total ? "🎉" : ""}`;
+    dom.objectList.appendChild(counter);
+  }
 
   if (state.groups.length === 0) {
     for (let idx = 0; idx < state.objects.length; idx++) {
@@ -2831,9 +2904,14 @@ async function renderOutdoorMap(floor) {
       iconAnchor: [16, 16],
     });
 
-    const marker = L.marker([obj.latitude, obj.longitude], { icon }).addTo(state.leafletMap);
-    marker.bindPopup(`<b>${showNums ? displayNum + ". " : ""}${escapeHtml(name)}</b>`);
-    marker.on("click", () => navigateTo(state.currentSet.slug, obj.slug));
+    const leafletDiscovered = !isTreasureHuntActive() || isObjectDiscovered(state.currentSet.id, obj.id);
+    const marker = L.marker([obj.latitude, obj.longitude], { icon, opacity: leafletDiscovered ? 1 : 0.4 }).addTo(state.leafletMap);
+    if (leafletDiscovered) {
+      marker.bindPopup(`<b>${showNums ? displayNum + ". " : ""}${escapeHtml(name)}</b>`);
+      marker.on("click", () => navigateTo(state.currentSet.slug, obj.slug));
+    } else {
+      marker.bindPopup("<b>???</b>");
+    }
   }
 
   if (state.gpsPosition) {
@@ -2914,6 +2992,7 @@ function renderMapView() {
       name: obj[`name_${lang}`] || obj.name_en || "Object",
       obj: obj,
       groupColor: objGroup?.color || "",
+      discovered: !isTreasureHuntActive() || isObjectDiscovered(state.currentSet.id, obj.id),
     });
   }
 
@@ -2983,10 +3062,16 @@ function renderMapPins() {
         pin.style.color = contrastTextColor(p.groupColor);
       }
       pin.setAttribute("aria-label", showNums ? `${p.displayNum}. ${p.name}` : p.name);
-      pin.addEventListener("click", (e) => {
-        e.preventDefault();
-        navigateTo(state.currentSet.slug, p.slug);
-      });
+      if (!p.discovered) {
+        pin.classList.add("map-pin--undiscovered");
+        pin.setAttribute("aria-label", "Undiscovered");
+        pin.removeAttribute("href");
+      } else {
+        pin.addEventListener("click", (e) => {
+          e.preventDefault();
+          navigateTo(state.currentSet.slug, p.slug);
+        });
+      }
       dom.mapContainer.appendChild(pin);
     } else {
       const el = document.createElement("button");
@@ -3423,14 +3508,16 @@ function setupSettingsEvents() {
     settingsPreviousFocus = document.activeElement;
     dom.settingsOverlay.classList.add("active");
     settingsFocusTrapCleanup = trapFocus(dom.settingsOverlay);
+    history.pushState({ overlay: "settings" }, "");
   }
   dom.btnSettings.addEventListener("click", openSettings);
   dom.btnSettingsDesktop.addEventListener("click", openSettings);
 
-  function closeSettings() {
+  function closeSettings(fromPopstate) {
     dom.settingsOverlay.classList.remove("active");
     if (settingsFocusTrapCleanup) { settingsFocusTrapCleanup(); settingsFocusTrapCleanup = null; }
     if (settingsPreviousFocus) { settingsPreviousFocus.focus(); settingsPreviousFocus = null; }
+    if (!fromPopstate && history.state?.overlay === "settings") history.back();
   }
 
   dom.btnCloseSettings.addEventListener("click", closeSettings);
@@ -3528,6 +3615,14 @@ function setupNavigationEvents() {
 
   // Browser back/forward (hash-based routing)
   window.addEventListener("hashchange", () => loadRoute());
+
+  window.addEventListener("popstate", (e) => {
+    if (dom.galleryOverlay.classList.contains("active")) {
+      closeGallery(true);
+    } else if (dom.settingsOverlay.classList.contains("active")) {
+      closeSettings(true);
+    }
+  });
 }
 
 function navigateSequential(direction) {
@@ -3540,7 +3635,7 @@ function navigateSequential(direction) {
 }
 
 function updateSequentialNav() {
-  const enabled = state.currentSet && state.currentSet.sequential_navigation;
+  const enabled = state.currentSet && state.currentSet.sequential_navigation && !isTreasureHuntActive();
   if (!enabled || !state.currentObject) {
     dom.btnPrevObject.classList.add("hidden");
     dom.btnNextObject.classList.add("hidden");

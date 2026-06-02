@@ -162,6 +162,21 @@ async function loadSets() {
         if (c.set === s.id) s._content[c.language] = c;
       }
     }
+    // QW2: Load object counts per set
+    try {
+      const objResp = await api("collections/objects/records?perPage=1&fields=id,set,published");
+      // Fetch all objects to count per set (using a larger perPage)
+      const allObjResp = await api("collections/objects/records?perPage=500&fields=id,set,published");
+      const allObjs = allObjResp.items || [];
+      for (const s of currentSets) {
+        const setObjs = allObjs.filter(o => o.set === s.id);
+        s._objectCount = setObjs.length;
+        s._publishedCount = setObjs.filter(o => o.published).length;
+      }
+    } catch (e) {
+      // Non-critical, just skip counts
+      for (const s of currentSets) { s._objectCount = -1; }
+    }
     renderSetsList();
   } catch (e) {
     showToast("Could not load sets. Please check your connection and try refreshing the page.");
@@ -190,10 +205,14 @@ function renderSetsList() {
     card.className = "set-card";
     card.tabIndex = 0;
     card.setAttribute("role", "button");
+    const countText = set._objectCount >= 0
+      ? `${set._objectCount} object${set._objectCount !== 1 ? "s" : ""}${set._objectCount > 0 ? ` (${set._publishedCount} published)` : ""}`
+      : "";
     card.innerHTML = `
       <div class="set-card__info">
         <div class="set-card__name">${esc(getSetDisplayName(set))}${set.published ? "" : ' <span class="set-card__draft">Draft</span>'}</div>
         <div class="set-card__slug">/${esc(set.slug)}</div>
+        ${countText ? `<div class="set-card__count">${esc(countText)}</div>` : ""}
       </div>
     `;
     card.addEventListener("click", () => editSet(set));
@@ -207,6 +226,7 @@ async function editSet(set) {
   formDirty = false;
   setSlugManual = !!set;
   resetConfirmButton($("#btnDeleteSet"));
+  resetConfirmButton($("#btnDeleteSetHeader"));
   $("#setFormTitle").textContent = set ? "Edit Set" : "New Set";
   $("#panelSets").classList.add("hidden");
   $("#panelSetForm").classList.remove("hidden");
@@ -215,6 +235,7 @@ async function editSet(set) {
     $("#setFormId").value = set.id;
     $("#setSlug").value = set.slug;
     $("#btnDeleteSet").classList.remove("hidden");
+    $("#btnDeleteSetHeader").style.display = "";
     $("#btnGoToObjects").style.display = "";
 
     // Load content from content table
@@ -243,8 +264,10 @@ async function editSet(set) {
     $("#setSubtitleFont").value = set.subtitle_font || "Atkinson Hyperlegible Next";
 
     $("#setPublished").checked = !!set.published;
+    $("#setPublishedHeader").checked = !!set.published;
     $("#setSequentialNav").checked = !!set.sequential_navigation;
     $("#setShowNumbers").checked = set.show_numbers !== false;
+    $("#setTreasureHunt").checked = !!set.treasure_hunt;
     $("#setShowBranding").checked = set.show_augus_branding !== false;
 
     $("#floorsFieldset").style.display = "";
@@ -269,10 +292,13 @@ async function editSet(set) {
     $("#setColorAccent").value = "#ffffff";
     $("#setColorAccentText").value = "#ffffff";
     $("#setPublished").checked = false;
+    $("#setPublishedHeader").checked = false;
     $("#setSequentialNav").checked = true;
     $("#setShowNumbers").checked = true;
+    $("#setTreasureHunt").checked = false;
     $("#setShowBranding").checked = true;
     $("#btnDeleteSet").classList.add("hidden");
+    $("#btnDeleteSetHeader").style.display = "none";
     $("#btnGoToObjects").style.display = "none";
     $("#floorsFieldset").style.display = "none";
     editingSetContent = {};
@@ -426,9 +452,10 @@ async function saveSet(e) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        published: $("#setPublished").checked,
+        published: $("#setPublishedHeader").checked,
         sequential_navigation: $("#setSequentialNav").checked,
         show_numbers: $("#setShowNumbers").checked,
+        treasure_hunt: $("#setTreasureHunt").checked,
         show_augus_branding: $("#setShowBranding").checked,
         available_languages: editingSetLanguages,
       }),
@@ -603,6 +630,7 @@ function renderObjectCard(obj, isGrouped, groupColor) {
   card.tabIndex = 0;
   card.setAttribute("role", "button");
   card.innerHTML = `
+    <input type="checkbox" class="object-card__checkbox" data-object-id="${esc(obj.id)}" title="Select for batch actions" onclick="event.stopPropagation()">
     <div class="object-card__move">
       <button class="btn btn--small item-move-up" title="Move up" aria-label="Move up">&#9650;</button>
       <button class="btn btn--small item-move-down" title="Move down" aria-label="Move down">&#9660;</button>
@@ -612,8 +640,10 @@ function renderObjectCard(obj, isGrouped, groupColor) {
       <div class="object-card__slug">/${esc(obj.slug)}</div>
     </div>
   `;
-  card.addEventListener("click", (e) => { if (!e.target.closest("button")) editObject(obj); });
+  card.addEventListener("click", (e) => { if (!e.target.closest("button") && !e.target.closest("input[type=checkbox]")) editObject(obj); });
   card.addEventListener("keydown", (e) => { if (e.key === "Enter") editObject(obj); });
+  // B1: Wire checkbox to update batch bar
+  card.querySelector(".object-card__checkbox").addEventListener("change", updateBatchBar);
   return card;
 }
 
@@ -640,43 +670,7 @@ function renderGroupHeader(group) {
   `;
   card.querySelector(".group-edit-btn").addEventListener("click", (e) => {
     e.stopPropagation();
-    const setLangs = editingSetLanguages || ["en"];
-    const existing = card.querySelector(".group-inline-edit");
-    if (existing) { existing.remove(); return; }
-    let editHtml = '<div class="group-inline-edit" style="padding:var(--spacing-sm);border-top:1px solid var(--color-border);margin-top:var(--spacing-xs)">';
-    for (const lang of setLangs) {
-      const t = gc[lang]?.title || "";
-      editHtml += `<div style="margin-bottom:var(--spacing-xs)"><label class="form-label" style="font-size:0.8rem">Title (${esc(langName(lang))})</label><input type="text" class="form-input group-edit-title" data-lang="${lang}" value="${esc(t)}" style="font-size:0.85rem"></div>`;
-    }
-    editHtml += `<div style="display:flex;align-items:center;gap:var(--spacing-sm);margin-bottom:var(--spacing-xs)">
-      <label class="form-label" style="font-size:0.8rem;margin:0">Color</label>
-      <input type="color" class="group-edit-color-picker" value="${displayColor}" style="width:32px;height:24px;padding:0;border:1px solid var(--color-border)">
-      <input type="text" class="form-input group-edit-color-text" value="${esc(color)}" maxlength="7" placeholder="Optional" style="width:90px;font-size:0.85rem">
-    </div>`;
-    editHtml += `<button class="btn btn--primary btn--small group-edit-save">Save</button></div>`;
-    card.insertAdjacentHTML("beforeend", editHtml);
-    const picker = card.querySelector(".group-edit-color-picker");
-    const textInput = card.querySelector(".group-edit-color-text");
-    picker.addEventListener("input", () => { textInput.value = picker.value; });
-    textInput.addEventListener("input", () => { if (/^#[0-9a-fA-F]{6}$/.test(textInput.value)) picker.value = textInput.value; });
-    card.querySelector(".group-edit-save").addEventListener("click", async (ev) => {
-      ev.stopPropagation();
-      const colorVal = textInput.value.trim();
-      const finalColor = /^#[0-9a-fA-F]{6}$/.test(colorVal) ? colorVal : "";
-      try {
-        await api(`collections/groups/records/${group.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ color: finalColor }) });
-        const titleInputs = card.querySelectorAll(".group-edit-title");
-        for (const input of titleInputs) {
-          const lang = input.dataset.lang;
-          const titleVal = input.value.trim();
-          const ex = gc[lang];
-          if (ex && ex.id) { await api(`collections/group_content/records/${ex.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: titleVal }) }); }
-          else if (titleVal) { await api("collections/group_content/records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: group.id, language: lang, title: titleVal }) }); }
-        }
-        showToast("Group saved!");
-        loadObjects(selectedSetId);
-      } catch (err) { showToast("Could not save group: " + err.message); }
-    });
+    openGroupEditModal(group, gc, displayColor, color);
   });
   card.querySelector(".group-delete-btn").addEventListener("click", (e) => {
     e.stopPropagation();
@@ -828,8 +822,29 @@ async function swapSortCross(colA, a, colB, b) {
 function renderObjectsList() {
   const container = $("#objectsList");
   container.innerHTML = "";
+  // Hide batch bar when re-rendering
+  $("#batchBar").classList.add("hidden");
   if (currentObjects.length === 0 && currentGroups.length === 0) {
-    container.innerHTML = '<p style="color:var(--color-text-secondary)">No objects yet.</p>';
+    // QW4: Getting started checklist for new/empty sets
+    if (selectedSetId) {
+      const parentSet = currentSets.find(s => s.id === selectedSetId);
+      const hasLangs = parentSet && parentSet.available_languages && parentSet.available_languages.length > 0;
+      const hasName = parentSet && getSetDisplayName(parentSet) !== "(Untitled)";
+      const hasFloors = currentFloors && currentFloors.some(f => f.map_image || f.type === "outdoor");
+      container.innerHTML = `
+        <div class="getting-started">
+          <h3>Getting started</h3>
+          <ol>
+            <li class="done">1. Create set (done)</li>
+            <li class="${hasLangs && hasName ? "done" : "pending"}">2. Add languages and set a name ${hasLangs && hasName ? "(done)" : ""}</li>
+            <li class="${hasFloors ? "done" : "pending"}">3. Upload a map image ${hasFloors ? "(done)" : ""}</li>
+            <li class="pending">4. Add objects</li>
+          </ol>
+        </div>
+      `;
+    } else {
+      container.innerHTML = '<p style="color:var(--color-text-secondary)">No objects yet.</p>';
+    }
     return;
   }
   const flat = buildFlatList();
@@ -969,6 +984,7 @@ async function editObject(obj) {
   formDirty = false;
   objectSlugManual = !!obj;
   resetConfirmButton($("#btnDeleteObject"));
+  resetConfirmButton($("#btnDeleteObjectHeader"));
   $("#objectFormTitle").textContent = obj ? "Edit Object" : "New Object";
   $("#panelObjects").classList.add("hidden");
   $("#panelObjectForm").classList.remove("hidden");
@@ -994,7 +1010,9 @@ async function editObject(obj) {
     $("#objectMapX").value = obj.map_x ?? "";
     $("#objectMapY").value = obj.map_y ?? "";
     $("#objectPublished").checked = obj.published !== false;
+    $("#objectPublishedHeader").checked = obj.published !== false;
     $("#btnDeleteObject").classList.remove("hidden");
+    $("#btnDeleteObjectHeader").style.display = "";
     $("#btnPreviewObject").classList.remove("hidden");
     $("#btnQRCode").classList.remove("hidden");
     $("#btnDuplicateObject").classList.remove("hidden");
@@ -1020,7 +1038,9 @@ async function editObject(obj) {
     $("#objectMapX").value = "";
     $("#objectMapY").value = "";
     $("#objectPublished").checked = true;
+    $("#objectPublishedHeader").checked = true;
     editingObjectContent = {};
+    $("#btnDeleteObjectHeader").style.display = "none";
     $("#btnDeleteObject").classList.add("hidden");
     $("#btnPreviewObject").classList.add("hidden");
     $("#btnQRCode").classList.add("hidden");
@@ -1178,7 +1198,7 @@ async function saveObject(e) {
     await api(`collections/objects/records/${savedId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ published: $("#objectPublished").checked }),
+      body: JSON.stringify({ published: $("#objectPublishedHeader").checked }),
     });
 
     // Save content for each language
@@ -1845,6 +1865,53 @@ function updateDefaultFloorDropdown() {
   $("#defaultFloorRow").style.display = currentFloors.length > 0 ? "" : "none";
 }
 
+// ===== R3: Group Edit Modal =====
+function openGroupEditModal(group, gc, displayColor, color) {
+  const setLangs = editingSetLanguages || ["en"];
+  const body = $("#groupEditModalBody");
+  let editHtml = "";
+  for (const lang of setLangs) {
+    const t = gc[lang]?.title || "";
+    editHtml += `<div class="form-row"><label class="form-label">Title (${esc(langName(lang))})</label><input type="text" class="form-input group-modal-title" data-lang="${lang}" value="${esc(t)}"></div>`;
+  }
+  editHtml += `<div class="form-row"><label class="form-label">Color</label><div style="display:flex;align-items:center;gap:var(--spacing-sm)">
+    <input type="color" id="groupModalColorPicker" value="${displayColor}" style="width:36px;height:36px;padding:2px;border:2px solid var(--color-border);border-radius:6px;cursor:pointer">
+    <input type="text" class="form-input color-hex-input" id="groupModalColorText" value="${esc(color)}" maxlength="7" placeholder="Optional (e.g. #ff5500)">
+  </div></div>`;
+  editHtml += `<p class="form-hint" style="margin-top:var(--spacing-sm)">Drag objects onto a group header to add them, or use the Group dropdown in the object form.</p>`;
+  body.innerHTML = editHtml;
+
+  const picker = $("#groupModalColorPicker");
+  const textInput = $("#groupModalColorText");
+  picker.addEventListener("input", () => { textInput.value = picker.value; });
+  textInput.addEventListener("input", () => { if (/^#[0-9a-fA-F]{6}$/.test(textInput.value)) picker.value = textInput.value; });
+
+  // Wire save button
+  const saveBtn = $("#btnSaveGroupEdit");
+  const newSaveBtn = saveBtn.cloneNode(true);
+  saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+  newSaveBtn.addEventListener("click", async () => {
+    const colorVal = textInput.value.trim();
+    const finalColor = /^#[0-9a-fA-F]{6}$/.test(colorVal) ? colorVal : "";
+    try {
+      await api(`collections/groups/records/${group.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ color: finalColor }) });
+      const titleInputs = body.querySelectorAll(".group-modal-title");
+      for (const input of titleInputs) {
+        const lang = input.dataset.lang;
+        const titleVal = input.value.trim();
+        const ex = gc[lang];
+        if (ex && ex.id) { await api(`collections/group_content/records/${ex.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: titleVal }) }); }
+        else if (titleVal) { await api("collections/group_content/records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ group: group.id, language: lang, title: titleVal }) }); }
+      }
+      showToast("Group saved!");
+      $("#groupEditModal").classList.add("hidden");
+      loadObjects(selectedSetId);
+    } catch (err) { showToast("Could not save group: " + err.message); }
+  });
+
+  $("#groupEditModal").classList.remove("hidden");
+}
+
 // ===== GROUPS =====
 let currentGroups = [];
 
@@ -2025,7 +2092,7 @@ function renderImagesGrid(images) {
     });
   });
 
-  // Edit caption handlers
+  // Edit caption handlers (QW3: widen card on edit)
   grid.querySelectorAll("[data-edit-image]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const card = btn.closest(".image-card");
@@ -2033,6 +2100,7 @@ function renderImagesGrid(images) {
       card.querySelector(".image-card__edit-fields").style.display = "block";
       btn.style.display = "none";
       card.querySelector("[data-save-image]").style.display = "";
+      card.classList.add("image-card--editing");
     });
   });
 
@@ -2211,6 +2279,106 @@ async function uploadImage(e) {
   }
 }
 
+// ===== B2: Drag-and-Drop Image Upload =====
+function setupDropZone() {
+  const imagesSection = document.querySelector("#panelObjectForm .admin-section");
+  if (!imagesSection) return;
+
+  // Create drop zone element
+  const dropZone = document.createElement("div");
+  dropZone.className = "drop-zone";
+  dropZone.id = "imageDropZone";
+  dropZone.innerHTML = `
+    <div class="drop-zone__text">Drop images here or click to browse</div>
+    <div class="drop-zone__hint">Accepts PNG, JPEG, WebP, GIF</div>
+    <div class="drop-zone__progress" id="dropZoneProgress" style="display:none"></div>
+  `;
+
+  // Create hidden file input for click-to-browse
+  const hiddenInput = document.createElement("input");
+  hiddenInput.type = "file";
+  hiddenInput.accept = "image/png,image/jpeg,image/webp,image/gif";
+  hiddenInput.multiple = true;
+  hiddenInput.style.display = "none";
+  hiddenInput.id = "dropZoneFileInput";
+  dropZone.appendChild(hiddenInput);
+
+  // Insert drop zone before the existing upload form
+  const uploadForm = $("#imageUploadForm");
+  uploadForm.parentNode.insertBefore(dropZone, uploadForm);
+
+  // Click to browse
+  dropZone.addEventListener("click", (e) => {
+    if (e.target === hiddenInput) return;
+    hiddenInput.click();
+  });
+
+  hiddenInput.addEventListener("change", () => {
+    if (hiddenInput.files.length > 0) {
+      handleDroppedFiles(Array.from(hiddenInput.files));
+      hiddenInput.value = "";
+    }
+  });
+
+  // Drag events
+  dropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropZone.classList.add("drop-zone--active");
+  });
+  dropZone.addEventListener("dragleave", () => {
+    dropZone.classList.remove("drop-zone--active");
+  });
+  dropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropZone.classList.remove("drop-zone--active");
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
+    if (files.length > 0) handleDroppedFiles(files);
+  });
+}
+
+async function handleDroppedFiles(files) {
+  if (!editingObject || !$("#objectFormId").value) {
+    showToast("Please save the object first -- images can only be added to saved objects.");
+    return;
+  }
+  const objectId = $("#objectFormId").value;
+  const progress = $("#dropZoneProgress");
+  progress.style.display = "flex";
+  progress.innerHTML = "";
+
+  const currentImages = $("#imagesGrid").children.length;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const itemEl = document.createElement("div");
+    itemEl.className = "drop-zone__progress-item";
+    itemEl.innerHTML = `
+      <span>${esc(file.name)}</span>
+      <div class="drop-zone__progress-bar"><div class="drop-zone__progress-fill" style="width:0%"></div></div>
+    `;
+    progress.appendChild(itemEl);
+    const fill = itemEl.querySelector(".drop-zone__progress-fill");
+
+    try {
+      fill.style.width = "30%";
+      const formData = new FormData();
+      formData.append("object", objectId);
+      formData.append("image", file);
+      formData.append("sort_order", currentImages + i + 1);
+      fill.style.width = "60%";
+      await api("collections/object_images/records", { method: "POST", body: formData });
+      fill.style.width = "100%";
+    } catch (e) {
+      fill.style.background = "var(--color-danger)";
+      fill.style.width = "100%";
+    }
+  }
+
+  showToast(`${files.length} image(s) uploaded!`);
+  setTimeout(() => { progress.style.display = "none"; progress.innerHTML = ""; }, 1500);
+  loadObjectImages(objectId);
+}
+
 // ===== QR CODE =====
 function generateQRCode() {
   if (!editingObject) return;
@@ -2342,11 +2510,12 @@ function confirmAction(btn, action, label = "Delete") {
 }
 
 function resetConfirmButton(btn) {
+  if (!btn) return;
   if (btn.dataset.confirming === "true") {
     btn.dataset.confirming = "false";
     btn.classList.remove("btn--danger-confirm");
-    if (btn.id === "btnDeleteSet") btn.textContent = "Delete Set";
-    else if (btn.id === "btnDeleteObject") btn.textContent = "Delete Object";
+    if (btn.id === "btnDeleteSet" || btn.id === "btnDeleteSetHeader") btn.textContent = "Delete Set";
+    else if (btn.id === "btnDeleteObject" || btn.id === "btnDeleteObjectHeader") btn.textContent = "Delete Object";
     else btn.textContent = "Delete";
   }
 }
@@ -2419,6 +2588,112 @@ function setupEvents() {
     if (isValidHex(val)) $("#setColorAccent").value = val;
   });
 
+  // QW1: Sync header published toggle with hidden field (set form)
+  $("#setPublishedHeader").addEventListener("change", (e) => {
+    $("#setPublished").checked = e.target.checked;
+    markDirty();
+  });
+
+  // QW1: Delete set from header button
+  $("#btnDeleteSetHeader").addEventListener("click", () => {
+    if (!editingSet) return;
+    confirmAction($("#btnDeleteSetHeader"), async () => {
+      try {
+        await api(`collections/sets/records/${editingSet.id}`, { method: "DELETE" });
+        showToast("Set deleted");
+        formDirty = false;
+        showTab("sets");
+      } catch (e) {
+        showToast("Could not delete this set. It may still have objects -- delete those first.");
+      }
+    });
+  });
+
+  // QW1: Sync header published toggle with hidden field (object form)
+  $("#objectPublishedHeader").addEventListener("change", (e) => {
+    $("#objectPublished").checked = e.target.checked;
+    markDirty();
+  });
+
+  // QW1: Delete object from header button
+  $("#btnDeleteObjectHeader").addEventListener("click", () => {
+    if (!editingObject) return;
+    confirmAction($("#btnDeleteObjectHeader"), async () => {
+      try {
+        const setId = editingObject.set;
+        await api(`collections/objects/records/${editingObject.id}`, { method: "DELETE" });
+        await renumberObjects(setId);
+        showToast("Object deleted");
+        formDirty = false;
+        backToObjects();
+      } catch (e) {
+        showToast("Could not delete this object. Please try again.");
+      }
+    });
+  });
+
+  // QW5: Keyboard shortcut Ctrl+S / Cmd+S
+  document.addEventListener("keydown", (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+      e.preventDefault();
+      // Determine which form is visible and submit it
+      if (!$("#panelSetForm").classList.contains("hidden")) {
+        $("#setForm").requestSubmit();
+      } else if (!$("#panelObjectForm").classList.contains("hidden")) {
+        $("#objectForm").requestSubmit();
+      }
+    }
+  });
+
+  // B1: Batch operations
+  $("#btnBatchPublish").addEventListener("click", async () => {
+    const checked = getCheckedObjectIds();
+    if (checked.length === 0) return;
+    try {
+      await Promise.all(checked.map(id => api(`collections/objects/records/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ published: true }),
+      })));
+      showToast(`${checked.length} object(s) published`);
+      loadObjects(selectedSetId);
+    } catch (e) { showToast("Could not publish selected objects."); }
+  });
+
+  $("#btnBatchUnpublish").addEventListener("click", async () => {
+    const checked = getCheckedObjectIds();
+    if (checked.length === 0) return;
+    try {
+      await Promise.all(checked.map(id => api(`collections/objects/records/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ published: false }),
+      })));
+      showToast(`${checked.length} object(s) unpublished`);
+      loadObjects(selectedSetId);
+    } catch (e) { showToast("Could not unpublish selected objects."); }
+  });
+
+  $("#btnBatchDelete").addEventListener("click", () => {
+    const checked = getCheckedObjectIds();
+    if (checked.length === 0) return;
+    confirmAction($("#btnBatchDelete"), async () => {
+      try {
+        await Promise.all(checked.map(id => api(`collections/objects/records/${id}`, { method: "DELETE" })));
+        showToast(`${checked.length} object(s) deleted`);
+        loadObjects(selectedSetId);
+      } catch (e) { showToast("Could not delete selected objects."); }
+    });
+  });
+
+  // R3: Group edit modal
+  $("#btnCloseGroupEdit").addEventListener("click", () => {
+    $("#groupEditModal").classList.add("hidden");
+  });
+  $("#btnCancelGroupEdit").addEventListener("click", () => {
+    $("#groupEditModal").classList.add("hidden");
+  });
+
   // Sets
   $("#btnNewSet").addEventListener("click", () => editSet(null));
   $("#btnBackToSets").addEventListener("click", () => {
@@ -2463,6 +2738,9 @@ function setupEvents() {
     $("#imageFile").required = val === "image" || val === "360";
     $("#imageFileLabel").textContent = (val === "3d" || val === "video") ? "Poster image (optional)" : "Image file";
   });
+
+  // B2: Drag-and-drop image upload
+  setupDropZone();
 
   // QR
   $("#btnQRCode").addEventListener("click", generateQRCode);
@@ -2521,6 +2799,23 @@ function setupEvents() {
       }
     }, "Remove");
   });
+}
+
+// ===== B1: Batch Operations Helpers =====
+function getCheckedObjectIds() {
+  const checkboxes = document.querySelectorAll(".object-card__checkbox:checked");
+  return Array.from(checkboxes).map(cb => cb.dataset.objectId).filter(Boolean);
+}
+
+function updateBatchBar() {
+  const checked = getCheckedObjectIds();
+  const bar = $("#batchBar");
+  if (checked.length > 0) {
+    bar.classList.remove("hidden");
+    $("#batchCount").textContent = checked.length + " selected";
+  } else {
+    bar.classList.add("hidden");
+  }
 }
 
 // ===== JWT Expiration Check =====
