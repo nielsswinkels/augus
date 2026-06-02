@@ -2925,9 +2925,9 @@ async function renderOutdoorMap(floor) {
 
     const leafletDiscovered = !isTreasureHuntActive() || isObjectDiscovered(state.currentSet.id, obj.id);
     const marker = L.marker([obj.latitude, obj.longitude], { icon, opacity: leafletDiscovered ? 1 : 0.4 }).addTo(state.leafletMap);
-    if (leafletDiscovered) {
-      marker.on("click", () => navigateTo(state.currentSet.slug, obj.slug));
-    }
+    marker.on("click", () => {
+      if (leafletDiscovered) navigateTo(state.currentSet.slug, obj.slug);
+    });
   }
 
   if (state.gpsPosition) {
