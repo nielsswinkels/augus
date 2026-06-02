@@ -2929,9 +2929,25 @@ async function renderOutdoorMap(floor) {
     if (leafletDiscovered) {
       marker.bindPopup(`<b>${showNums ? displayNum + ". " : ""}${escapeHtml(name)}</b>`);
       marker.on("click", () => {
-        console.log("[DEBUG] Marker clicked:", name, "navigating to", obj.slug);
+        console.log("[DEBUG] Leaflet event click:", name);
         navigateTo(state.currentSet.slug, obj.slug);
       });
+      marker.on("mousedown", () => console.log("[DEBUG] Leaflet mousedown:", name));
+      setTimeout(() => {
+        const el = marker.getElement();
+        console.log("[DEBUG] Marker DOM element for", name, ":", el ? el.className : "NOT FOUND");
+        if (el) {
+          el.addEventListener("click", (e) => {
+            console.log("[DEBUG] DOM click on marker:", name);
+            navigateTo(state.currentSet.slug, obj.slug);
+          });
+          const inner = el.querySelector(".map-pin-leaflet");
+          if (inner) inner.addEventListener("click", (e) => {
+            console.log("[DEBUG] DOM click on inner pin:", name);
+            navigateTo(state.currentSet.slug, obj.slug);
+          });
+        }
+      }, 500);
     }
   }
 
