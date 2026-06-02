@@ -693,6 +693,12 @@ body {
   justify-content: center;
 }
 
+.gallery-close svg {
+  width: 24px;
+  height: 24px;
+  stroke: #ffffff;
+}
+
 .gallery-close:hover {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 50%;
