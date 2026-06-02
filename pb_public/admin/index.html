@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Augus — Admin</title>
-  <link rel="stylesheet" href="/admin/css/admin.css?v=20260602a">
+  <link rel="stylesheet" href="/admin/css/admin.css?v=20260602b">
   <link rel="stylesheet" href="/admin/js/lib/quill/quill.bubble.css">
 </head>
 <body>
@@ -157,13 +157,14 @@
           <p class="form-hint">Choose a font optimized for reading subtitles/transcripts</p>
         </div>
 
-        <div class="form-row">
+        <div class="form-row" id="sequentialNavRow">
           <label class="form-label" style="display:flex;align-items:center;gap:var(--spacing-sm)">
             <input type="checkbox" id="setSequentialNav">
             Sequential navigation
             <span class="help-icon">?<span class="help-tooltip">When enabled, visitors see Previous/Next buttons to navigate between objects in order</span></span>
           </label>
           <p class="form-hint">Show previous/next buttons so visitors can navigate between objects in order</p>
+          <p class="form-hint" id="sequentialNavOverride" style="display:none;color:var(--color-danger)">Disabled by treasure hunt mode — visitors must discover objects by scanning QR codes</p>
         </div>
 
         <div class="form-row">
@@ -409,6 +410,6 @@
 
   <script src="/admin/js/lib/qrcode-generator.min.js"></script>
   <script src="/admin/js/lib/quill/quill.js"></script>
-  <script src="/admin/js/admin.js?v=20260602a" type="module"></script>
+  <script src="/admin/js/admin.js?v=20260602b" type="module"></script>
 </body>
 </html>
