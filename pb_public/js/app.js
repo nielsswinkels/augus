@@ -2927,13 +2927,22 @@ async function renderOutdoorMap(floor) {
     console.log("[DEBUG v20260602L] Creating marker for", name, "discovered:", leafletDiscovered, "lat:", obj.latitude, "lng:", obj.longitude);
     const marker = L.marker([obj.latitude, obj.longitude], { icon, opacity: leafletDiscovered ? 1 : 0.4 }).addTo(state.leafletMap);
     if (leafletDiscovered) {
-      marker.bindPopup(`<b>${showNums ? displayNum + ". " : ""}${escapeHtml(name)}</b>`);
-      marker.on("click", () => navigateTo(state.currentSet.slug, obj.slug));
-      marker.on("mousedown", () => {
+      const slug = obj.slug;
+      const setSlug = state.currentSet.slug;
+      marker.on("mousedown", (e) => {
+        const startTime = Date.now();
+        const startX = e.originalEvent.clientX;
+        const startY = e.originalEvent.clientY;
         state.leafletMap.dragging.disable();
-        document.addEventListener("mouseup", function onUp() {
+        document.addEventListener("mouseup", function onUp(ev) {
           document.removeEventListener("mouseup", onUp);
+          const dx = Math.abs(ev.clientX - startX);
+          const dy = Math.abs(ev.clientY - startY);
+          const dt = Date.now() - startTime;
           setTimeout(() => state.leafletMap.dragging.enable(), 10);
+          if (dx < 10 && dy < 10 && dt < 500) {
+            navigateTo(setSlug, slug);
+          }
         }, { once: true });
       });
     }
