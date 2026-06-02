@@ -75,6 +75,7 @@ const i18n = {
     gpsPromptDismiss: "Not now",
     gpsCardHint: "Nearby",
     gpsCardGo: "Listen",
+    treasureHuntFound: "found",
   },
   sv: {
     objectList: "Objekt",
@@ -131,6 +132,7 @@ const i18n = {
     gpsPromptDismiss: "Inte nu",
     gpsCardHint: "I närheten",
     gpsCardGo: "Lyssna",
+    treasureHuntFound: "hittade",
   },
   de: {
     objectList: "Objekte",
@@ -187,6 +189,7 @@ const i18n = {
     gpsPromptDismiss: "Nicht jetzt",
     gpsCardHint: "In der Nähe",
     gpsCardGo: "Anhören",
+    treasureHuntFound: "gefunden",
   },
   fr: {
     objectList: "Objets",
@@ -243,6 +246,7 @@ const i18n = {
     gpsPromptDismiss: "Pas maintenant",
     gpsCardHint: "À proximité",
     gpsCardGo: "Écouter",
+    treasureHuntFound: "trouvés",
   },
   es: {
     objectList: "Objetos",
@@ -299,6 +303,7 @@ const i18n = {
     gpsPromptDismiss: "Ahora no",
     gpsCardHint: "Cerca",
     gpsCardGo: "Escuchar",
+    treasureHuntFound: "encontrados",
   },
   it: {
     objectList: "Oggetti",
@@ -355,6 +360,7 @@ const i18n = {
     gpsPromptDismiss: "Non ora",
     gpsCardHint: "Nelle vicinanze",
     gpsCardGo: "Ascolta",
+    treasureHuntFound: "trovati",
   },
   nl: {
     objectList: "Objecten",
@@ -411,6 +417,7 @@ const i18n = {
     gpsPromptDismiss: "Niet nu",
     gpsCardHint: "In de buurt",
     gpsCardGo: "Luisteren",
+    treasureHuntFound: "gevonden",
   },
   da: {
     objectList: "Objekter",
@@ -467,6 +474,7 @@ const i18n = {
     gpsPromptDismiss: "Ikke nu",
     gpsCardHint: "I nærheden",
     gpsCardGo: "Lyt",
+    treasureHuntFound: "fundet",
   },
   no: {
     objectList: "Objekter",
@@ -523,6 +531,7 @@ const i18n = {
     gpsPromptDismiss: "Ikke nå",
     gpsCardHint: "I nærheten",
     gpsCardGo: "Lytt",
+    treasureHuntFound: "funnet",
   },
   fi: {
     objectList: "Kohteet",
@@ -579,6 +588,7 @@ const i18n = {
     gpsPromptDismiss: "Ei nyt",
     gpsCardHint: "Lähellä",
     gpsCardGo: "Kuuntele",
+    treasureHuntFound: "löydetty",
   },
   pt: {
     objectList: "Objetos",
@@ -635,6 +645,7 @@ const i18n = {
     gpsPromptDismiss: "Agora não",
     gpsCardHint: "Nas proximidades",
     gpsCardGo: "Ouvir",
+    treasureHuntFound: "encontrados",
   },
   pl: {
     objectList: "Obiekty",
@@ -691,6 +702,7 @@ const i18n = {
     gpsPromptDismiss: "Nie teraz",
     gpsCardHint: "W pobliżu",
     gpsCardGo: "Słuchaj",
+    treasureHuntFound: "znalezione",
   },
   ar: {
     objectList: "المعروضات",
@@ -747,6 +759,7 @@ const i18n = {
     gpsPromptDismiss: "ليس الآن",
     gpsCardHint: "قريب",
     gpsCardGo: "استمع",
+    treasureHuntFound: "وُجد",
   },
   zh: {
     objectList: "展品",
@@ -803,6 +816,7 @@ const i18n = {
     gpsPromptDismiss: "暂不",
     gpsCardHint: "附近",
     gpsCardGo: "收听",
+    treasureHuntFound: "已发现",
   },
   ja: {
     objectList: "展示品",
@@ -859,6 +873,7 @@ const i18n = {
     gpsPromptDismiss: "今はしない",
     gpsCardHint: "近く",
     gpsCardGo: "聴く",
+    treasureHuntFound: "発見済み",
   },
   ko: {
     objectList: "전시품",
@@ -915,6 +930,7 @@ const i18n = {
     gpsPromptDismiss: "나중에",
     gpsCardHint: "근처",
     gpsCardGo: "듣기",
+    treasureHuntFound: "발견",
   },
   // Swedish minority languages
   se: { // Northern Sami
@@ -972,6 +988,7 @@ const i18n = {
     gpsPromptDismiss: "Ii dál",
     gpsCardHint: "Lahka",
     gpsCardGo: "Guldal",
+    treasureHuntFound: "gávdnan",
   },
   fit: { // Meänkieli
     objectList: "Objektit",
@@ -1028,6 +1045,7 @@ const i18n = {
     gpsPromptDismiss: "Ei nyt",
     gpsCardHint: "Lähälä",
     gpsCardGo: "Kuuntele",
+    treasureHuntFound: "löydetty",
   },
   yi: { // Yiddish
     objectList: "אָביעקטן",
@@ -1084,6 +1102,7 @@ const i18n = {
     gpsPromptDismiss: "נישט איצט",
     gpsCardHint: "אין דער נאָענט",
     gpsCardGo: "הערן",
+    treasureHuntFound: "געפֿונען",
   },
 };
 
@@ -2560,7 +2579,7 @@ function renderObjectList() {
     const found = state.objects.filter(o => discovered.includes(o.id)).length;
     const counter = document.createElement("div");
     counter.className = "treasure-hunt-counter";
-    counter.innerHTML = `<span class="treasure-hunt-counter__found">${found}</span> / ${total} ${found === total ? "🎉" : ""}`;
+    counter.innerHTML = `<span class="treasure-hunt-counter__found">${found}</span> / ${total} ${t("treasureHuntFound")}`;
     dom.objectList.appendChild(counter);
   }
 
@@ -2907,10 +2926,7 @@ async function renderOutdoorMap(floor) {
     const leafletDiscovered = !isTreasureHuntActive() || isObjectDiscovered(state.currentSet.id, obj.id);
     const marker = L.marker([obj.latitude, obj.longitude], { icon, opacity: leafletDiscovered ? 1 : 0.4 }).addTo(state.leafletMap);
     if (leafletDiscovered) {
-      marker.bindPopup(`<b>${showNums ? displayNum + ". " : ""}${escapeHtml(name)}</b>`);
       marker.on("click", () => navigateTo(state.currentSet.slug, obj.slug));
-    } else {
-      marker.bindPopup("<b>???</b>");
     }
   }
 
