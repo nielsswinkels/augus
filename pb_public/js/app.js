@@ -2925,11 +2925,10 @@ async function renderOutdoorMap(floor) {
 
     const leafletDiscovered = !isTreasureHuntActive() || isObjectDiscovered(state.currentSet.id, obj.id);
     const marker = L.marker([obj.latitude, obj.longitude], { icon, opacity: leafletDiscovered ? 1 : 0.4 }).addTo(state.leafletMap);
-    marker.bindPopup("", { closeButton: false, minWidth: 0, maxWidth: 0, className: "leaflet-popup-hidden" });
-    marker.on("click", () => {
-      marker.closePopup();
-      if (leafletDiscovered) navigateTo(state.currentSet.slug, obj.slug);
-    });
+    if (leafletDiscovered) {
+      marker.bindPopup(`<b>${showNums ? displayNum + ". " : ""}${escapeHtml(name)}</b>`);
+      marker.on("click", () => navigateTo(state.currentSet.slug, obj.slug));
+    }
   }
 
   if (state.gpsPosition) {
