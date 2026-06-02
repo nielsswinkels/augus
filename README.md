@@ -252,6 +252,6 @@ augus/
 
 [AGPL-3.0](LICENSE)
 
-## Known Issues
+## Roadmap & Known Issues
 
-(none currently)
+See [docs/future-work.md](docs/future-work.md) for the full roadmap, planned features, known bugs, and improvement ideas.
