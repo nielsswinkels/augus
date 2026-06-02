@@ -2933,23 +2933,33 @@ async function renderOutdoorMap(floor) {
         navigateTo(state.currentSet.slug, obj.slug);
       });
       marker.on("mousedown", () => console.log("[DEBUG] Leaflet mousedown:", name));
+      marker.on("mouseup", () => console.log("[DEBUG] Leaflet mouseup:", name));
       setTimeout(() => {
         const el = marker.getElement();
         console.log("[DEBUG] Marker DOM element for", name, ":", el ? el.className : "NOT FOUND");
         if (el) {
+          el.addEventListener("mouseup", () => console.log("[DEBUG] DOM mouseup on marker:", name));
           el.addEventListener("click", (e) => {
             console.log("[DEBUG] DOM click on marker:", name);
             navigateTo(state.currentSet.slug, obj.slug);
           });
           const inner = el.querySelector(".map-pin-leaflet");
-          if (inner) inner.addEventListener("click", (e) => {
-            console.log("[DEBUG] DOM click on inner pin:", name);
-            navigateTo(state.currentSet.slug, obj.slug);
-          });
+          if (inner) {
+            inner.addEventListener("mouseup", () => console.log("[DEBUG] DOM mouseup on inner:", name));
+            inner.addEventListener("click", (e) => {
+              console.log("[DEBUG] DOM click on inner pin:", name);
+              navigateTo(state.currentSet.slug, obj.slug);
+            });
+          }
         }
       }, 500);
     }
   }
+
+  // Debug: listen for any click on the map container
+  document.getElementById("leafletMapContainer").addEventListener("click", (e) => {
+    console.log("[DEBUG] Click on map container, target:", e.target.className);
+  });
 
   if (state.gpsPosition) {
     updateGpsDot();
