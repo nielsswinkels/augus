@@ -292,9 +292,10 @@ body {
 .carousel__slide img {
   width: 100%;
   height: min(180px, 25dvh);
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 8px;
   border: 2px solid var(--color-border);
+  background: rgba(128, 128, 128, 0.15);
   display: block;
 }
 
