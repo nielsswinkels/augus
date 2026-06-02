@@ -36,6 +36,7 @@ Comprehensive documentation for self-hosting. README with setup guide, deploymen
 ## Small improvements to consider
 
 - **Improve TTS voice for image captions:** The "read captions aloud" feature uses the browser's built-in speech synthesis, which varies wildly in quality across devices. Some phones use a robotic low-quality voice. Investigate selecting higher-quality voices when available (some browsers offer multiple voices per language), or consider using a cloud TTS API as an alternative.
+- **Image gallery discoverability:** Early user testing suggests visitors don't realize they can tap carousel images to open the full-screen gallery. Unclear if this is a real problem or just needs more testing. Possible fixes if confirmed: subtle "tap to enlarge" hint on first visit, a small expand icon on the image corner, or a pulsing animation on first load. Note: switching from cover to contain mode may have changed this — retest. Track in user testing.
 
 - **Auto-redeploy (#14):** GitHub Actions workflow or webhook for automatic VPS deployment on push
 - **Help section (#7):** Probably not needed if the UI is intuitive enough — revisit after user testing
