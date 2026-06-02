@@ -67,6 +67,7 @@ Comprehensive documentation for self-hosting. README with setup guide, deploymen
 - **Multi-admin accounts:** Currently one superuser. Multiple admin accounts with different permissions (e.g. "can edit this set but not that one") would matter for larger institutions with multiple curators.
 - **Embeddable widget:** Let other websites embed a mini audio player for a specific object. Museums could put the audio guide directly on their website's collection page via an iframe or script tag.
 - **Kiosk mode:** A dedicated display mode for a tablet mounted at an exhibit. Larger touch targets, no browser navigation, auto-return to the current object after idle, possibly locked to a single object or set.
+- **Treasure hunt / discovery mode:** A per-set toggle that turns the exhibition into a scavenger hunt. Visitors discover objects by scanning their QR codes. Undiscovered objects appear as question marks in the list (no name, no image) and are not clickable. The map shows all pins but only discovered ones are tappable. List view shows a progress counter ("4 / 12 found"). Sequential navigation (prev/next) is disabled in this mode — discovery must happen through scanning. Discovered objects tracked in localStorage. Could include a completion celebration when all objects are found.
 
 ---
 
