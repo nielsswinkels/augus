@@ -269,6 +269,7 @@ async function editSet(set) {
     $("#setShowNumbers").checked = set.show_numbers !== false;
     $("#setTreasureHunt").checked = !!set.treasure_hunt;
     $("#setShowBranding").checked = set.show_augus_branding !== false;
+    if (typeof updateTreasureHuntState === "function") updateTreasureHuntState();
 
     $("#floorsFieldset").style.display = "";
     loadFloors(set.id);
@@ -296,6 +297,7 @@ async function editSet(set) {
     $("#setSequentialNav").checked = true;
     $("#setShowNumbers").checked = true;
     $("#setTreasureHunt").checked = false;
+    if (typeof updateTreasureHuntState === "function") updateTreasureHuntState();
     $("#setShowBranding").checked = true;
     $("#btnDeleteSet").classList.add("hidden");
     $("#btnDeleteSetHeader").style.display = "none";
@@ -2715,6 +2717,15 @@ function setupEvents() {
   $("#setForm").addEventListener("submit", saveSet);
   $("#btnDeleteSet").addEventListener("click", deleteSet);
   $("#btnAddLanguage").addEventListener("click", addSetLanguage);
+
+  // Treasure hunt overrides sequential nav
+  window.updateTreasureHuntState = function() {
+    const isTH = $("#setTreasureHunt").checked;
+    $("#setSequentialNav").disabled = isTH;
+    $("#sequentialNavRow").style.opacity = isTH ? "0.5" : "";
+    $("#sequentialNavOverride").style.display = isTH ? "" : "none";
+  }
+  $("#setTreasureHunt").addEventListener("change", updateTreasureHuntState);
 
   // Floors
   $("#btnAddFloor").addEventListener("click", addFloor);
