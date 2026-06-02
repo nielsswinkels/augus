@@ -1422,23 +1422,21 @@ function navigateTo(setSlug, objectSlug) {
 
 // ===== Language Selector =====
 function renderLanguageSelector() {
-  const container = document.getElementById("languageSelector");
+  const select = document.getElementById("languageSelector");
   const langs = (state.currentSet && state.currentSet.available_languages) || ["en", "sv"];
-  const settingRow = container.closest(".setting-row");
+  const settingRow = select.closest(".setting-row");
   if (langs.length <= 1) {
     if (settingRow) settingRow.style.display = "none";
     return;
   }
   if (settingRow) settingRow.style.display = "";
-  container.innerHTML = "";
+  select.innerHTML = "";
   for (const lang of langs) {
-    const btn = document.createElement("button");
-    btn.className = "segmented__option" + (state.settings.language === lang ? " active" : "");
-    btn.dataset.lang = lang;
-    btn.setAttribute("role", "radio");
-    btn.setAttribute("aria-checked", state.settings.language === lang ? "true" : "false");
-    btn.textContent = LANGUAGE_NAMES[lang] || lang.toUpperCase();
-    container.appendChild(btn);
+    const opt = document.createElement("option");
+    opt.value = lang;
+    opt.textContent = LANGUAGE_NAMES[lang] || lang.toUpperCase();
+    if (state.settings.language === lang) opt.selected = true;
+    select.appendChild(opt);
   }
 }
 
@@ -3591,14 +3589,11 @@ function setupSettingsEvents() {
     });
   }
 
-  // Language buttons — rendered dynamically by renderLanguageSelector()
-  document.getElementById("languageSelector").addEventListener("click", (e) => {
-    const btn = e.target.closest("[data-lang]");
-    if (!btn) return;
+  // Language dropdown — rendered dynamically by renderLanguageSelector()
+  document.getElementById("languageSelector").addEventListener("change", (e) => {
     const oldLang = state.settings.language;
-    state.settings.language = btn.dataset.lang;
+    state.settings.language = e.target.value;
     saveSettings();
-    renderLanguageSelector();
     if (state.currentObject && oldLang !== state.settings.language && dom.viewObject.classList.contains("active")) {
       loadObject(state.currentObject);
     }

@@ -1108,6 +1108,19 @@ body {
   flex-shrink: 0;
 }
 
+.settings-select {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-family: inherit;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  border: 2px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  min-height: var(--btn-min-size);
+}
+
 /* Toggle switch */
 .toggle {
   position: relative;
