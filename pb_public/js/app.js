@@ -2924,10 +2924,14 @@ async function renderOutdoorMap(floor) {
     });
 
     const leafletDiscovered = !isTreasureHuntActive() || isObjectDiscovered(state.currentSet.id, obj.id);
+    console.log("[DEBUG v20260602i] Creating marker for", name, "discovered:", leafletDiscovered, "lat:", obj.latitude, "lng:", obj.longitude);
     const marker = L.marker([obj.latitude, obj.longitude], { icon, opacity: leafletDiscovered ? 1 : 0.4 }).addTo(state.leafletMap);
     if (leafletDiscovered) {
       marker.bindPopup(`<b>${showNums ? displayNum + ". " : ""}${escapeHtml(name)}</b>`);
-      marker.on("click", () => navigateTo(state.currentSet.slug, obj.slug));
+      marker.on("click", () => {
+        console.log("[DEBUG] Marker clicked:", name, "navigating to", obj.slug);
+        navigateTo(state.currentSet.slug, obj.slug);
+      });
     }
   }
 
