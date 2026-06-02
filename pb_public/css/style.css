@@ -336,7 +336,7 @@ body {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--color-surface);
   border: none;
   border-radius: 50%;
   width: 36px;
@@ -347,6 +347,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  color: var(--color-text);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
   color: var(--color-text);
 }
@@ -354,7 +355,7 @@ body {
 .carousel__arrow--prev { left: var(--spacing-xs); }
 .carousel__arrow--next { right: var(--spacing-xs); }
 
-.carousel__arrow:hover { background: #ffffff; }
+.carousel__arrow:hover { background: var(--color-border); }
 
 .carousel__dots {
   display: flex;
