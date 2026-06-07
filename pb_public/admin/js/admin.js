@@ -3201,14 +3201,24 @@ async function importSet() {
       return zip.file(prefix + path) || zip.file(path);
     }
 
-    // Check if slug already exists, if so append "-imported"
+    // Check if slug already exists, find a unique one
     let slug = manifest.set.slug;
     try {
-      const existingResp = await api(`collections/sets/records?filter=(slug='${encodeURIComponent(slug)}')&perPage=1`);
-      if (existingResp.items && existingResp.items.length > 0) {
-        slug = slug + "-imported";
+      let attempts = 0;
+      let candidate = slug;
+      while (attempts < 20) {
+        const existingResp = await api(`collections/sets/records?filter=(slug='${encodeURIComponent(candidate)}')&perPage=1`);
+        if (!existingResp.items || existingResp.items.length === 0) {
+          slug = candidate;
+          break;
+        }
+        attempts++;
+        candidate = manifest.set.slug + "-" + attempts;
       }
-    } catch (e) { /* ignore */ }
+      if (slug !== manifest.set.slug) {
+        showToast(`Slug "${manifest.set.slug}" already exists — using "${slug}" instead.`);
+      }
+    } catch (e) { /* ignore, will fail on create if duplicate */ }
 
     showToast("Importing set...");
 
@@ -3495,7 +3505,7 @@ async function importSet() {
     if (e.message && e.message.includes("Unauthorized")) {
       showToast("Import failed: Your session has expired. Please log in again and retry.");
     } else if (e.message && e.message.includes("slug")) {
-      showToast("Import failed: A set with this URL slug already exists. Try deleting it first or rename the slug in the manifest.");
+      showToast("Import failed: Could not find a unique URL slug. Try deleting existing sets with similar names first.");
     } else if (e.message && e.message.includes("file size")) {
       showToast("Import failed: One of the media files exceeds the maximum allowed size. Check your server's upload limits.");
     } else if (e.message && e.message.includes("JSON")) {
