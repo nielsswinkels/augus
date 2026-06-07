@@ -3142,7 +3142,13 @@ async function exportSet() {
     showToast("Export complete!");
   } catch (e) {
     console.error("Export error:", e);
-    showToast("Export failed: " + (e.message || "Unknown error"));
+    if (e.message && e.message.includes("Unauthorized")) {
+      showToast("Export failed: Your session has expired. Please log in again and retry.");
+    } else if (e.message && e.message.includes("fetch")) {
+      showToast("Export failed: Could not download files from the server. Check your internet connection and try again.");
+    } else {
+      showToast("Export failed: " + (e.message || "An unexpected error occurred. Check the browser console for details."));
+    }
   }
 }
 
@@ -3151,6 +3157,11 @@ async function importSet() {
   const file = fileInput.files[0];
   if (!file) return;
   fileInput.value = "";
+
+  if (!file.name.endsWith(".zip") && !file.name.endsWith(".augus.zip")) {
+    showToast("Please select a .augus.zip file exported from Augus.");
+    return;
+  }
 
   try {
     showToast("Reading ZIP file...");
@@ -3165,7 +3176,7 @@ async function importSet() {
       if (manifestPath) manifestFile = zip.file(manifestPath);
     }
     if (!manifestFile) {
-      showToast("Invalid archive: manifest.json not found");
+      showToast("This doesn't look like an Augus export file — manifest.json is missing. Make sure you're importing a .augus.zip file exported from Augus.");
       return;
     }
 
@@ -3173,8 +3184,11 @@ async function importSet() {
     const manifest = JSON.parse(manifestText);
 
     if (!manifest.set || !manifest.set.slug) {
-      showToast("Invalid manifest: missing set data");
+      showToast("Invalid manifest: the file is missing set data. Make sure this is a valid Augus export file.");
       return;
+    }
+    if (!manifest.augus_version) {
+      showToast("Warning: this export file has no version number. It may be from an older version of Augus. Attempting import anyway...");
     }
 
     // Determine file prefix (in case files are nested in a folder)
@@ -3478,7 +3492,17 @@ async function importSet() {
     loadSets();
   } catch (e) {
     console.error("Import error:", e);
-    showToast("Import failed: " + (e.message || "Unknown error"));
+    if (e.message && e.message.includes("Unauthorized")) {
+      showToast("Import failed: Your session has expired. Please log in again and retry.");
+    } else if (e.message && e.message.includes("slug")) {
+      showToast("Import failed: A set with this URL slug already exists. Try deleting it first or rename the slug in the manifest.");
+    } else if (e.message && e.message.includes("file size")) {
+      showToast("Import failed: One of the media files exceeds the maximum allowed size. Check your server's upload limits.");
+    } else if (e.message && e.message.includes("JSON")) {
+      showToast("Import failed: The manifest.json file is corrupted or not valid JSON. Try exporting the set again.");
+    } else {
+      showToast("Import failed: " + (e.message || "An unexpected error occurred. Some data may have been partially imported — check the sets list. See browser console for details."));
+    }
   }
 }
 
