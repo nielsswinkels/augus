@@ -64,32 +64,25 @@ A free, self-hosted audioguide system for museums and exhibitions. Visitors scan
    cd augus
    ```
 
-2. **Download the PocketBase Linux binary** and place it in the project root:
-   ```bash
-   wget https://github.com/pocketbase/pocketbase/releases/download/v0.25.9/pocketbase_0.25.9_linux_amd64.zip
-   unzip pocketbase_0.25.9_linux_amd64.zip pocketbase
-   rm pocketbase_0.25.9_linux_amd64.zip
-   ```
-
-3. **Edit the Caddyfile** — replace `your-domain.com` with your actual domain:
+2. **Edit the Caddyfile** — replace `your-domain.com` with your actual domain:
    ```
    your-domain.com {
        reverse_proxy app:8090
    }
    ```
 
-4. **Start everything:**
+3. **Start everything:**
    ```bash
    docker compose up --build -d
    ```
-   Caddy automatically obtains an HTTPS certificate via Let's Encrypt.
+   PocketBase is downloaded automatically during the Docker build. Caddy obtains an HTTPS certificate via Let's Encrypt.
 
-5. **Create an admin account:**
+4. **Create an admin account:**
    ```bash
    docker compose exec app ./pocketbase superuser create admin@example.com yourpassword
    ```
 
-6. **Open your site:**
+5. **Open your site:**
    - Visitor app: `https://your-domain.com`
    - Admin panel: `https://your-domain.com/admin/`
 
