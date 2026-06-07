@@ -237,6 +237,7 @@ async function editSet(set) {
     $("#btnDeleteSet").classList.remove("hidden");
     $("#btnDeleteSetHeader").style.display = "";
     $("#btnGoToObjects").style.display = "";
+    $("#btnExportSet").style.display = "";
 
     // Load content from content table
     const contentResp = await api(`collections/set_content/records?filter=(set='${set.id}')&perPage=50`);
@@ -302,6 +303,7 @@ async function editSet(set) {
     $("#btnDeleteSet").classList.add("hidden");
     $("#btnDeleteSetHeader").style.display = "none";
     $("#btnGoToObjects").style.display = "none";
+    $("#btnExportSet").style.display = "none";
     $("#floorsFieldset").style.display = "none";
     editingSetContent = {};
     editingSetLanguages = ["en"];
@@ -2764,6 +2766,11 @@ function setupEvents() {
   // Preview
   $("#btnPreviewObject").addEventListener("click", previewObject);
 
+  // Export / Import
+  $("#btnExportSet").addEventListener("click", exportSet);
+  $("#btnImportSet").addEventListener("click", () => $("#importSetFile").click());
+  $("#importSetFile").addEventListener("change", importSet);
+
   // File remove buttons (event delegation)
   document.addEventListener("click", (e) => {
     const btn = e.target.closest(".current-file__remove");
@@ -2810,6 +2817,669 @@ function setupEvents() {
       }
     }, "Remove");
   });
+}
+
+// ===== EXPORT / IMPORT =====
+async function exportSet() {
+  if (!editingSet) return;
+  showToast("Preparing export...");
+  try {
+    const set = editingSet;
+    const setId = set.id;
+
+    // Fetch all related data
+    const [contentResp, floorsResp, groupsResp, objectsResp] = await Promise.all([
+      api(`collections/set_content/records?filter=(set='${setId}')&perPage=50`),
+      api(`collections/floors/records?filter=(set='${setId}')&sort=sort_order&perPage=50`),
+      api(`collections/groups/records?filter=(set='${setId}')&sort=sort_order&perPage=50`),
+      api(`collections/objects/records?filter=(set='${setId}')&sort=sort_order&perPage=200`),
+    ]);
+
+    const setContent = contentResp.items || [];
+    const floors = floorsResp.items || [];
+    const groups = groupsResp.items || [];
+    const objects = objectsResp.items || [];
+
+    // Fetch floor_content
+    let floorContent = [];
+    if (floors.length > 0) {
+      const floorIds = floors.map(f => f.id);
+      const fcResp = await api(`collections/floor_content/records?filter=(floor='${floorIds.join("'||floor='")}')&perPage=200`);
+      floorContent = fcResp.items || [];
+    }
+
+    // Fetch group_content
+    let groupContent = [];
+    if (groups.length > 0) {
+      const groupIds = groups.map(g => g.id);
+      const gcResp = await api(`collections/group_content/records?filter=(group='${groupIds.join("'||group='")}')&perPage=200`);
+      groupContent = gcResp.items || [];
+    }
+
+    // Fetch object_content, object_images, image_content, video_subtitles
+    let objectContent = [];
+    let objectImages = [];
+    let imageContent = [];
+    let videoSubtitles = [];
+    if (objects.length > 0) {
+      const objIds = objects.map(o => o.id);
+      const ocResp = await api(`collections/object_content/records?filter=(object='${objIds.join("'||object='")}')&perPage=500`);
+      objectContent = ocResp.items || [];
+
+      const oiResp = await api(`collections/object_images/records?filter=(object='${objIds.join("'||object='")}')&sort=sort_order&perPage=500`);
+      objectImages = oiResp.items || [];
+
+      if (objectImages.length > 0) {
+        const imgIds = objectImages.map(i => i.id);
+        const icResp = await api(`collections/image_content/records?filter=(image='${imgIds.join("'||image='")}')&perPage=1000`);
+        imageContent = icResp.items || [];
+
+        const videoItems = objectImages.filter(i => i.media_type === "video");
+        if (videoItems.length > 0) {
+          const vIds = videoItems.map(v => v.id);
+          try {
+            const vsResp = await api(`collections/video_subtitles/records?filter=(media='${vIds.join("'||media='")}')&perPage=500`);
+            videoSubtitles = vsResp.items || [];
+          } catch (e) { /* video_subtitles collection may not exist */ }
+        }
+      }
+    }
+
+    // Helper to download a binary file
+    async function downloadFile(collection, recordId, filename) {
+      const url = fileUrl(collection, recordId, filename);
+      const resp = await fetch(url, { headers: { Authorization: "Bearer " + authToken } });
+      if (!resp.ok) throw new Error(`Failed to download ${filename}`);
+      return await resp.blob();
+    }
+
+    // Build ZIP
+    const zip = new JSZip();
+
+    // Helper to get file extension
+    function getExt(filename) {
+      const parts = filename.split(".");
+      return parts.length > 1 ? "." + parts[parts.length - 1].toLowerCase() : "";
+    }
+
+    // Download and add set logo
+    let logoPath = null;
+    if (set.logo) {
+      const ext = getExt(set.logo);
+      logoPath = "files/logo" + ext;
+      const blob = await downloadFile("sets", setId, set.logo);
+      zip.file(logoPath, blob);
+    }
+
+    // Download and add custom font
+    let fontPath = null;
+    if (set.custom_font) {
+      const ext = getExt(set.custom_font);
+      fontPath = "files/custom_font" + ext;
+      const blob = await downloadFile("sets", setId, set.custom_font);
+      zip.file(fontPath, blob);
+    }
+
+    // Download floor maps
+    const floorMapPaths = {};
+    for (const floor of floors) {
+      if (floor.map_image) {
+        const ext = getExt(floor.map_image);
+        const label = (floor.label || "floor").toLowerCase().replace(/[^a-z0-9]/g, "-");
+        const path = `files/floors/${label}-map${ext}`;
+        floorMapPaths[floor.id] = path;
+        const blob = await downloadFile("floors", floor.id, floor.map_image);
+        zip.file(path, blob);
+      }
+    }
+
+    // Download object files (audio, subtitles, images, models, videos, video_subtitles)
+    const objectFilePaths = {}; // { objectId: { lang: { audio: path, subtitles: path }, images: [...] } }
+    for (const obj of objects) {
+      const slug = obj.slug || obj.id;
+      objectFilePaths[obj.id] = { content: {}, images: [] };
+
+      // Object content files (audio, subtitles)
+      const objContents = objectContent.filter(c => c.object === obj.id);
+      for (const oc of objContents) {
+        const lang = oc.language;
+        objectFilePaths[obj.id].content[lang] = {};
+        if (oc.audio) {
+          const ext = getExt(oc.audio);
+          const path = `files/objects/${slug}/audio-${lang}${ext}`;
+          objectFilePaths[obj.id].content[lang].audio = path;
+          const blob = await downloadFile("object_content", oc.id, oc.audio);
+          zip.file(path, blob);
+        }
+        if (oc.subtitles) {
+          const ext = getExt(oc.subtitles);
+          const path = `files/objects/${slug}/subtitles-${lang}${ext}`;
+          objectFilePaths[obj.id].content[lang].subtitles = path;
+          const blob = await downloadFile("object_content", oc.id, oc.subtitles);
+          zip.file(path, blob);
+        }
+      }
+
+      // Object images
+      const objImages = objectImages.filter(i => i.object === obj.id);
+      for (let idx = 0; idx < objImages.length; idx++) {
+        const img = objImages[idx];
+        const imgPaths = {};
+
+        if (img.image) {
+          const ext = getExt(img.image);
+          const mediaPrefix = img.media_type === "image" ? "image" : img.media_type === "360" ? "image" : img.media_type === "3d" ? "image" : "image";
+          const path = `files/objects/${slug}/images/${mediaPrefix}-${idx + 1}${ext}`;
+          imgPaths.image = path;
+          const blob = await downloadFile("object_images", img.id, img.image);
+          zip.file(path, blob);
+        }
+
+        if (img.model_file) {
+          const ext = getExt(img.model_file);
+          const path = `files/objects/${slug}/images/model-${idx + 1}${ext}`;
+          imgPaths.model_file = path;
+          const blob = await downloadFile("object_images", img.id, img.model_file);
+          zip.file(path, blob);
+        }
+
+        if (img.video_file) {
+          const ext = getExt(img.video_file);
+          const path = `files/objects/${slug}/images/video-${idx + 1}${ext}`;
+          imgPaths.video_file = path;
+          const blob = await downloadFile("object_images", img.id, img.video_file);
+          zip.file(path, blob);
+        }
+
+        // Video subtitles for this image
+        const imgVideoSubs = videoSubtitles.filter(vs => vs.media === img.id);
+        const videoSubPaths = {};
+        for (const vs of imgVideoSubs) {
+          const ext = getExt(vs.subtitles);
+          const path = `files/video-subtitles/${slug}/subs-${vs.language}${ext}`;
+          videoSubPaths[vs.language] = path;
+          const blob = await downloadFile("video_subtitles", vs.id, vs.subtitles);
+          zip.file(path, blob);
+        }
+        imgPaths.videoSubPaths = videoSubPaths;
+
+        // Captions
+        const imgCaptions = imageContent.filter(ic => ic.image === img.id);
+        const captions = {};
+        for (const ic of imgCaptions) {
+          captions[ic.language] = ic.caption || "";
+        }
+        imgPaths.captions = captions;
+        imgPaths.sort_order = img.sort_order;
+        imgPaths.media_type = img.media_type || "image";
+
+        objectFilePaths[obj.id].images.push(imgPaths);
+      }
+    }
+
+    // Build manifest
+    const manifest = {
+      augus_version: "1.0",
+      exported_at: new Date().toISOString(),
+      set: {
+        slug: set.slug,
+        available_languages: set.available_languages || [],
+        color_primary: set.color_primary || "#0057b8",
+        color_accent: set.color_accent || "#ffffff",
+        sequential_navigation: !!set.sequential_navigation,
+        show_numbers: set.show_numbers !== false,
+        show_augus_branding: set.show_augus_branding !== false,
+        treasure_hunt: !!set.treasure_hunt,
+        subtitle_font: set.subtitle_font || "",
+        logo: logoPath,
+        custom_font: fontPath,
+        content: {},
+      },
+      floors: [],
+      groups: [],
+      objects: [],
+    };
+
+    // Set content
+    for (const sc of setContent) {
+      manifest.set.content[sc.language] = {
+        name: sc.name || "",
+        description: sc.description || "",
+        about: sc.about || "",
+      };
+    }
+
+    // Floors
+    for (const floor of floors) {
+      const fc = floorContent.filter(c => c.floor === floor.id);
+      const content = {};
+      for (const c of fc) {
+        content[c.language] = { label: c.label || "", name: c.name || "" };
+      }
+      manifest.floors.push({
+        label: floor.label || "",
+        sort_order: floor.sort_order,
+        type: floor.type || "indoor",
+        map_image: floorMapPaths[floor.id] || null,
+        center_lat: floor.center_lat || null,
+        center_lng: floor.center_lng || null,
+        zoom_level: floor.zoom_level || null,
+        is_default: floor.id === set.default_floor,
+        content: content,
+      });
+    }
+
+    // Groups
+    for (const group of groups) {
+      const gc = groupContent.filter(c => c.group === group.id);
+      const content = {};
+      for (const c of gc) {
+        content[c.language] = { title: c.title || "" };
+      }
+      manifest.groups.push({
+        sort_order: group.sort_order,
+        color: group.color || "",
+        content: content,
+      });
+    }
+
+    // Objects
+    for (const obj of objects) {
+      const slug = obj.slug || obj.id;
+      const objContents = objectContent.filter(c => c.object === obj.id);
+      const content = {};
+      for (const oc of objContents) {
+        const filePaths = objectFilePaths[obj.id].content[oc.language] || {};
+        content[oc.language] = {
+          name: oc.name || "",
+          description: oc.description || "",
+          audio: filePaths.audio || null,
+          subtitles: filePaths.subtitles || null,
+        };
+      }
+
+      // Resolve floor_index and group_index
+      const floorIndex = obj.floor ? floors.findIndex(f => f.id === obj.floor) : null;
+      const groupIndex = obj.group ? groups.findIndex(g => g.id === obj.group) : null;
+
+      // Images
+      const images = objectFilePaths[obj.id].images.map(imgPaths => ({
+        sort_order: imgPaths.sort_order,
+        media_type: imgPaths.media_type,
+        image: imgPaths.image || null,
+        model_file: imgPaths.model_file || null,
+        video_file: imgPaths.video_file || null,
+        captions: imgPaths.captions || {},
+        video_subtitles: imgPaths.videoSubPaths || {},
+      }));
+
+      manifest.objects.push({
+        slug: slug,
+        sort_order: obj.sort_order,
+        default_language: obj.default_language || "en",
+        published: obj.published !== false,
+        map_x: obj.map_x ?? null,
+        map_y: obj.map_y ?? null,
+        floor_index: floorIndex >= 0 ? floorIndex : null,
+        group_index: groupIndex >= 0 ? groupIndex : null,
+        latitude: obj.latitude || null,
+        longitude: obj.longitude || null,
+        trigger_radius: obj.trigger_radius || null,
+        content: content,
+        images: images,
+      });
+    }
+
+    zip.file("manifest.json", JSON.stringify(manifest, null, 2));
+
+    // Generate and download
+    const blob = await zip.generateAsync({ type: "blob" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${set.slug}.augus.zip`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    showToast("Export complete!");
+  } catch (e) {
+    console.error("Export error:", e);
+    showToast("Export failed: " + (e.message || "Unknown error"));
+  }
+}
+
+async function importSet() {
+  const fileInput = $("#importSetFile");
+  const file = fileInput.files[0];
+  if (!file) return;
+  fileInput.value = "";
+
+  try {
+    showToast("Reading ZIP file...");
+    const zip = await JSZip.loadAsync(file);
+
+    // Find manifest.json (may be at root or inside a folder)
+    let manifestFile = zip.file("manifest.json");
+    if (!manifestFile) {
+      // Check inside a subfolder
+      const files = Object.keys(zip.files);
+      const manifestPath = files.find(f => f.endsWith("/manifest.json") || f === "manifest.json");
+      if (manifestPath) manifestFile = zip.file(manifestPath);
+    }
+    if (!manifestFile) {
+      showToast("Invalid archive: manifest.json not found");
+      return;
+    }
+
+    const manifestText = await manifestFile.async("string");
+    const manifest = JSON.parse(manifestText);
+
+    if (!manifest.set || !manifest.set.slug) {
+      showToast("Invalid manifest: missing set data");
+      return;
+    }
+
+    // Determine file prefix (in case files are nested in a folder)
+    const manifestPath = manifestFile.name;
+    const prefix = manifestPath.includes("/") ? manifestPath.substring(0, manifestPath.lastIndexOf("/") + 1) : "";
+
+    // Helper to get a file from the ZIP
+    function getZipFile(path) {
+      if (!path) return null;
+      return zip.file(prefix + path) || zip.file(path);
+    }
+
+    // Check if slug already exists, if so append "-imported"
+    let slug = manifest.set.slug;
+    try {
+      const existingResp = await api(`collections/sets/records?filter=(slug='${encodeURIComponent(slug)}')&perPage=1`);
+      if (existingResp.items && existingResp.items.length > 0) {
+        slug = slug + "-imported";
+      }
+    } catch (e) { /* ignore */ }
+
+    showToast("Importing set...");
+
+    // 1. Create the set record
+    const setData = new FormData();
+    setData.append("slug", slug);
+    setData.append("name_en", Object.values(manifest.set.content || {})[0]?.name || slug);
+    setData.append("color_primary", manifest.set.color_primary || "#0057b8");
+    setData.append("color_accent", manifest.set.color_accent || "#ffffff");
+    setData.append("subtitle_font", manifest.set.subtitle_font || "");
+
+    // Upload logo if present
+    if (manifest.set.logo) {
+      const logoFile = getZipFile(manifest.set.logo);
+      if (logoFile) {
+        const logoBlob = await logoFile.async("blob");
+        const ext = manifest.set.logo.split(".").pop();
+        setData.append("logo", new File([logoBlob], "logo." + ext));
+      }
+    }
+
+    // Upload custom font if present
+    if (manifest.set.custom_font) {
+      const fontFile = getZipFile(manifest.set.custom_font);
+      if (fontFile) {
+        const fontBlob = await fontFile.async("blob");
+        const ext = manifest.set.custom_font.split(".").pop();
+        setData.append("custom_font", new File([fontBlob], "custom_font." + ext));
+      }
+    }
+
+    const createdSet = await api("collections/sets/records", { method: "POST", body: setData });
+    const newSetId = createdSet.id;
+
+    // Save booleans and available_languages
+    await api(`collections/sets/records/${newSetId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        published: false,
+        sequential_navigation: !!manifest.set.sequential_navigation,
+        show_numbers: manifest.set.show_numbers !== false,
+        show_augus_branding: manifest.set.show_augus_branding !== false,
+        treasure_hunt: !!manifest.set.treasure_hunt,
+        available_languages: manifest.set.available_languages || [],
+      }),
+    });
+
+    // 2. Create set_content records
+    for (const [lang, content] of Object.entries(manifest.set.content || {})) {
+      await api("collections/set_content/records", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          set: newSetId,
+          language: lang,
+          name: content.name || "",
+          description: content.description || "",
+          about: content.about || "",
+        }),
+      });
+    }
+
+    // 3. Create floors
+    const floorIdMap = []; // index -> new floor ID
+    for (let i = 0; i < (manifest.floors || []).length; i++) {
+      const floor = manifest.floors[i];
+      showToast(`Importing... (floor ${i + 1}/${manifest.floors.length})`);
+      const floorData = new FormData();
+      floorData.append("set", newSetId);
+      floorData.append("label", floor.label || String(i + 1));
+      floorData.append("sort_order", String(floor.sort_order || i + 1));
+      floorData.append("type", floor.type || "indoor");
+      if (floor.center_lat) floorData.append("center_lat", String(floor.center_lat));
+      if (floor.center_lng) floorData.append("center_lng", String(floor.center_lng));
+      if (floor.zoom_level) floorData.append("zoom_level", String(floor.zoom_level));
+
+      // Upload map image
+      if (floor.map_image) {
+        const mapFile = getZipFile(floor.map_image);
+        if (mapFile) {
+          const mapBlob = await mapFile.async("blob");
+          const ext = floor.map_image.split(".").pop();
+          floorData.append("map_image", new File([mapBlob], "map." + ext));
+        }
+      }
+
+      const createdFloor = await api("collections/floors/records", { method: "POST", body: floorData });
+      floorIdMap.push(createdFloor.id);
+
+      // Create floor_content
+      for (const [lang, content] of Object.entries(floor.content || {})) {
+        await api("collections/floor_content/records", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            floor: createdFloor.id,
+            language: lang,
+            label: content.label || "",
+            name: content.name || "",
+          }),
+        });
+      }
+    }
+
+    // Set default floor
+    const defaultFloorIdx = (manifest.floors || []).findIndex(f => f.is_default);
+    if (defaultFloorIdx >= 0 && floorIdMap[defaultFloorIdx]) {
+      await api(`collections/sets/records/${newSetId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ default_floor: floorIdMap[defaultFloorIdx] }),
+      });
+    }
+
+    // 4. Create groups
+    const groupIdMap = []; // index -> new group ID
+    for (let i = 0; i < (manifest.groups || []).length; i++) {
+      const group = manifest.groups[i];
+      const createdGroup = await api("collections/groups/records", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          set: newSetId,
+          sort_order: group.sort_order || i + 1,
+          color: group.color || "",
+        }),
+      });
+      groupIdMap.push(createdGroup.id);
+
+      // Create group_content
+      for (const [lang, content] of Object.entries(group.content || {})) {
+        await api("collections/group_content/records", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            group: createdGroup.id,
+            language: lang,
+            title: content.title || "",
+          }),
+        });
+      }
+    }
+
+    // 5. Create objects
+    const totalObjects = (manifest.objects || []).length;
+    for (let i = 0; i < totalObjects; i++) {
+      const obj = manifest.objects[i];
+      showToast(`Importing... (${i + 1}/${totalObjects} objects)`);
+
+      const objData = new FormData();
+      objData.append("set", newSetId);
+      objData.append("slug", obj.slug || `object-${i + 1}`);
+      objData.append("sort_order", String(obj.sort_order || i + 1));
+      objData.append("default_language", obj.default_language || "en");
+      objData.append("name_en", Object.values(obj.content || {})[0]?.name || "");
+      objData.append("published", obj.published !== false ? "true" : "false");
+
+      if (obj.map_x != null && obj.map_x !== -1) objData.append("map_x", String(obj.map_x));
+      if (obj.map_y != null && obj.map_y !== -1) objData.append("map_y", String(obj.map_y));
+      if (obj.latitude) objData.append("latitude", String(obj.latitude));
+      if (obj.longitude) objData.append("longitude", String(obj.longitude));
+      if (obj.trigger_radius) objData.append("trigger_radius", String(obj.trigger_radius));
+
+      // Resolve floor and group references
+      if (obj.floor_index != null && floorIdMap[obj.floor_index]) {
+        objData.append("floor", floorIdMap[obj.floor_index]);
+      }
+      if (obj.group_index != null && groupIdMap[obj.group_index]) {
+        objData.append("group", groupIdMap[obj.group_index]);
+      }
+
+      const createdObj = await api("collections/objects/records", { method: "POST", body: objData });
+
+      // Set published via JSON PATCH (boolean)
+      await api(`collections/objects/records/${createdObj.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ published: obj.published !== false }),
+      });
+
+      // Create object_content (with audio/subtitles files)
+      for (const [lang, content] of Object.entries(obj.content || {})) {
+        const contentForm = new FormData();
+        contentForm.append("object", createdObj.id);
+        contentForm.append("language", lang);
+        contentForm.append("name", content.name || "");
+        contentForm.append("description", content.description || "");
+
+        if (content.audio) {
+          const audioFile = getZipFile(content.audio);
+          if (audioFile) {
+            const audioBlob = await audioFile.async("blob");
+            const ext = content.audio.split(".").pop();
+            contentForm.append("audio", new File([audioBlob], `audio-${lang}.${ext}`));
+          }
+        }
+
+        if (content.subtitles) {
+          const subsFile = getZipFile(content.subtitles);
+          if (subsFile) {
+            const subsBlob = await subsFile.async("blob");
+            const ext = content.subtitles.split(".").pop();
+            contentForm.append("subtitles", new File([subsBlob], `subtitles-${lang}.${ext}`));
+          }
+        }
+
+        await api("collections/object_content/records", { method: "POST", body: contentForm });
+      }
+
+      // Create object_images
+      for (const img of (obj.images || [])) {
+        const imgForm = new FormData();
+        imgForm.append("object", createdObj.id);
+        imgForm.append("sort_order", String(img.sort_order || 1));
+        imgForm.append("media_type", img.media_type || "image");
+
+        if (img.image) {
+          const imgFile = getZipFile(img.image);
+          if (imgFile) {
+            const imgBlob = await imgFile.async("blob");
+            const ext = img.image.split(".").pop();
+            imgForm.append("image", new File([imgBlob], `image.${ext}`));
+          }
+        }
+
+        if (img.model_file) {
+          const modelFile = getZipFile(img.model_file);
+          if (modelFile) {
+            const modelBlob = await modelFile.async("blob");
+            const ext = img.model_file.split(".").pop();
+            imgForm.append("model_file", new File([modelBlob], `model.${ext}`));
+          }
+        }
+
+        if (img.video_file) {
+          const videoFile = getZipFile(img.video_file);
+          if (videoFile) {
+            const videoBlob = await videoFile.async("blob");
+            const ext = img.video_file.split(".").pop();
+            imgForm.append("video_file", new File([videoBlob], `video.${ext}`));
+          }
+        }
+
+        const createdImg = await api("collections/object_images/records", { method: "POST", body: imgForm });
+
+        // Create image_content (captions)
+        for (const [lang, caption] of Object.entries(img.captions || {})) {
+          if (caption) {
+            await api("collections/image_content/records", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                image: createdImg.id,
+                language: lang,
+                caption: caption,
+              }),
+            });
+          }
+        }
+
+        // Create video_subtitles
+        for (const [lang, subsPath] of Object.entries(img.video_subtitles || {})) {
+          if (subsPath) {
+            const subsFile = getZipFile(subsPath);
+            if (subsFile) {
+              const subsBlob = await subsFile.async("blob");
+              const ext = subsPath.split(".").pop();
+              const subsForm = new FormData();
+              subsForm.append("media", createdImg.id);
+              subsForm.append("language", lang);
+              subsForm.append("subtitles", new File([subsBlob], `subs-${lang}.${ext}`));
+              await api("collections/video_subtitles/records", { method: "POST", body: subsForm });
+            }
+          }
+        }
+      }
+    }
+
+    showToast("Import complete! Set created as /" + slug);
+    loadSets();
+  } catch (e) {
+    console.error("Import error:", e);
+    showToast("Import failed: " + (e.message || "Unknown error"));
+  }
 }
 
 // ===== B1: Batch Operations Helpers =====

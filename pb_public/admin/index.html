@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Augus — Admin</title>
-  <link rel="stylesheet" href="/admin/css/admin.css?v=20260602b">
+  <link rel="stylesheet" href="/admin/css/admin.css?v=20260607a">
   <link rel="stylesheet" href="/admin/js/lib/quill/quill.bubble.css">
 </head>
 <body>
@@ -40,6 +40,8 @@
       <div class="panel-header">
         <h2>Sets</h2>
         <button class="btn btn--primary" id="btnNewSet">+ New Set</button>
+        <button class="btn" id="btnImportSet">Import Set</button>
+        <input type="file" id="importSetFile" accept=".zip" style="display:none">
       </div>
       <div class="sets-list" id="setsList">
         <!-- Rendered by JS -->
@@ -57,6 +59,7 @@
             <span class="help-icon">?<span class="help-tooltip">Unpublished content is hidden from visitors but preserved in the admin</span></span>
           </label>
           <button type="button" class="btn btn--danger btn--small" id="btnDeleteSetHeader">Delete Set</button>
+          <button class="btn" id="btnExportSet" style="display:none">Export</button>
           <button class="btn btn--primary" id="btnGoToObjects" style="display:none">Objects &rarr;</button>
         </div>
       </div>
@@ -410,6 +413,7 @@
 
   <script src="/admin/js/lib/qrcode-generator.min.js"></script>
   <script src="/admin/js/lib/quill/quill.js"></script>
-  <script src="/admin/js/admin.js?v=20260602b" type="module"></script>
+  <script src="/admin/js/lib/jszip/jszip.min.js"></script>
+  <script src="/admin/js/admin.js?v=20260607a" type="module"></script>
 </body>
 </html>
