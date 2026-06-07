@@ -1,12 +1,16 @@
 FROM alpine:3.21
 
-RUN apk add --no-cache ca-certificates
+ARG PB_VERSION=0.25.9
+
+RUN apk add --no-cache ca-certificates wget unzip
 
 WORKDIR /app
 
-# Copy the Linux PocketBase binary (download separately — see README)
-COPY pocketbase ./pocketbase
-RUN chmod +x ./pocketbase
+# Download PocketBase automatically
+RUN wget -q "https://github.com/pocketbase/pocketbase/releases/download/v${PB_VERSION}/pocketbase_${PB_VERSION}_linux_amd64.zip" -O /tmp/pb.zip \
+    && unzip /tmp/pb.zip pocketbase -d /app \
+    && rm /tmp/pb.zip \
+    && chmod +x /app/pocketbase
 
 COPY pb_migrations ./pb_migrations
 COPY pb_public ./pb_public
