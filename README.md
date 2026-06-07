@@ -98,6 +98,26 @@ PocketBase runs new migrations automatically on startup.
 
 ---
 
+## Alternative: Deploy with Coolify
+
+[Coolify](https://coolify.io) is a self-hosted PaaS (like Heroku) that handles builds, SSL, and deployments.
+
+1. **Add a new resource** in Coolify → select **GitHub** → choose the Augus repo
+2. **Build method:** Dockerfile
+3. **Port:** 8090
+4. **Persistent storage:** Add a volume mount — path `/app/pb_data`
+5. **Domain:** Configure in Coolify's UI (SSL is handled automatically)
+6. **Deploy**
+
+After the first deploy, create an admin account via Coolify's terminal:
+```bash
+./pocketbase superuser create admin@example.com yourpassword
+```
+
+> Note: When using Coolify, you don't need the Caddyfile or docker-compose.yml — Coolify replaces Caddy as the reverse proxy.
+
+---
+
 ## Getting Started — Your First Exhibition
 
 ### 1. Create a Set
