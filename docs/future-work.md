@@ -75,6 +75,31 @@ Comprehensive documentation for self-hosting. README with setup guide, deploymen
 
 ---
 
+## Bugs (from code review, June 2026)
+
+### High priority
+- **Bug: Treasure hunt leaks next object name when audio ends.** The audio `ended` handler shows a "Next: <name>" toast when `sequential_navigation` is true, without checking if treasure hunt is active. This reveals undiscovered object names. Fix: guard the toast with `!isTreasureHuntActive()`. Also: force `sequential_navigation: false` in `saveSet` when treasure hunt is enabled, to prevent contradictory DB state.
+- **Bug: Treasure hunt leaks undiscovered names in map clusters.** Cluster `aria-label` includes real names of all pins, including undiscovered ones. Screen reader users hear hidden names. Fix: mask undiscovered pin names as "???" in the cluster label.
+- **Bug: GPS auto-play can trigger on indoor objects.** `checkGpsTriggers` fires for any object with lat/lng, even indoor ones with stray coordinates (e.g. after import). Fix: gate on `floor.type === "outdoor"`.
+- **Bug: `loadObject` has no cancellation.** The same-set fast path in `loadRoute` runs `loadObject` without a generation counter. Rapid navigation can show wrong audio/gallery. Fix: add a `objectLoadGeneration` counter like the route-level one.
+
+### Medium priority
+- **Bug: Import drops coordinates at exactly 0.** Guards like `if (obj.latitude)` treat `0` as falsy. A pin on the equator/prime meridian loses its coordinates. Fix: use `!= null` checks. Same issue in export.
+- **Bug: Export floor-map filename collision.** Two floors with the same label overwrite each other's map in the ZIP. Fix: prefix filenames with floor index.
+- **Security: PocketBase filter injection via slug.** Slug from URL hash is interpolated into PocketBase filter strings. `encodeURIComponent` doesn't escape single quotes. Low practical risk (slugs are validated on write, GETs are read-only). Fix: validate slugs against `/^[a-z0-9-]+$/` before interpolation.
+
+### Minor
+- **`formatTime` has no hours support.** Shows `75:30` instead of `1:15:30` for audio over an hour.
+- **Misplaced ARIA in list items.** `role="listitem"` on inner `<a>` is redundant — `<li>` already has listitem semantics.
+- **Duplicate `loadedmetadata` listeners.** Two separate handlers in `setupAudioEvents` — harmless but mergeable.
+
+### Performance (from May review, still open)
+- **List view rebuilds on every view switch.** Cache the rendered list and only rebuild when data changes.
+- **Subtitle highlight runs on every `timeupdate` tick.** Binary-search cues and only update/scroll on cue transitions.
+- **Split app.js into ES modules.** Audio, map, gallery, scanner, routing as separate modules.
+
+---
+
 ## Non-Code: Content, Testing & Outreach
 
 ### Content & Testing
